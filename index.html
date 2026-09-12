@@ -263,6 +263,7 @@
       <button id="debug-tab">動作確認</button>
       <div id="debug-panel"></div>
       <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000円(検証用)</button>
+      <button id="cheat-enemy-btn" style="position:absolute;left:0;top:76px;z-index:6;font-size:.62rem;padding:6px 8px;">敵兵士召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -332,7 +333,10 @@ const CHAR_DEFS = {
     bleedOnHit: false,
     icon: ICON_SOLDIER,
     imageBase: IMG_SOLDIER,
-    displayHeight: 92,
+    // 実寸スケール：idle画像の切り抜き高さ(529px)を基準に、表示上の身長92pxへ換算する係数。
+    // 全コマ共通のスケールを使うことで、画像ごとに余白の切り取られ方が違っても
+    // 見た目の大きさが揃う(高さだけを強制的に揃えると、寝転びコマ等で破綻するため)。
+    pixelScale: 92 / 529,
     frameCounts: {
       idle:1, walk:5, run:5, discover:2, attack:10,
       flinch:8, guardbreak:4, blowback:8, down:2, getup:5
@@ -349,7 +353,14 @@ const CHAR_DEFS = {
       down:       [600,2000],
       getup:      [200,200,240,340,260]
     },
-    attackImpactFrame: 8
+    attackImpactFrame: 8,
+    // walk_3.pngだけ、あらかじめ左右反転させて作った画像(左足前ポーズの代用)。
+    // 通常は全コマ一律で向きを反転させるが、このコマだけ二重反転になってしまうため、
+    // モーションごと・コマ番号ごとに「向きの補正」を指定できるようにしておく。
+    // 値は掛け算するだけ：1=そのまま、-1=さらに反転。指定がないコマは1(補正なし)。
+    frameFacingOverride: {
+      walk: [1, 1, -1, 1, 1]
+    }
   }
 };
 
@@ -543,7 +554,11 @@ function spawnUnit(kind, side){
   const el = document.createElement("div");
   el.className = "unit-sprite";
   const img = document.createElement("img");
-  img.style.height = def.displayHeight + "px";
+  img.addEventListener("load", () => {
+    const scale = def.pixelScale || 1;
+    img.style.width = (img.naturalWidth * scale) + "px";
+    img.style.height = (img.naturalHeight * scale) + "px";
+  });
   el.appendChild(img);
   const uhp = document.createElement("div");
   uhp.className = "uhp";
@@ -590,7 +605,12 @@ function applyFrame(unit){
   const count = def.frameCounts[unit.motion] || 1;
   const idx1 = Math.min(unit.frameIndex + 1, count);
   unit.img.src = frameUrl(def, unit.motion, idx1);
-  unit.el.style.transform = "translateX(" + unit.x + "px) scaleX(" + unit.facing + ")";
+
+  const overrides = def.frameFacingOverride && def.frameFacingOverride[unit.motion];
+  const correction = overrides ? (overrides[unit.frameIndex] ?? 1) : 1;
+  const finalScale = unit.facing * correction;
+
+  unit.el.style.transform = "translateX(" + unit.x + "px) scaleX(" + finalScale + ")";
   unit.uhpFill.style.width = Math.max(0, unit.hp / unit.hpMax * 100) + "%";
 }
 
@@ -706,6 +726,10 @@ function endBattle(win){
 
 document.getElementById("btn-surrender").addEventListener("click", () => {
   if (battle && !battle.ended) endBattle(false);
+});
+document.getElementById("cheat-enemy-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("soldier", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
