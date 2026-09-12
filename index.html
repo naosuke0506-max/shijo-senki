@@ -264,6 +264,7 @@
       <div id="debug-panel"></div>
       <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000円(検証用)</button>
       <button id="cheat-enemy-btn" style="position:absolute;left:0;top:76px;z-index:6;font-size:.62rem;padding:6px 8px;">敵兵士召喚(検証用)</button>
+      <button id="cheat-enemy-spear-btn" style="position:absolute;left:0;top:112px;z-index:6;font-size:.62rem;padding:6px 8px;">敵槍兵召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -298,6 +299,8 @@
 const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@main/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
+const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
+const ICON_SPEARMAN = REPO_BASE + "icons/spearman_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -362,6 +365,45 @@ const CHAR_DEFS = {
     frameFacingOverride: {
       walk: [1, 1, -1, 1, 1]
     }
+  },
+
+  spearman: {
+    name: "槍兵",
+    rank: null, // 後日決定
+    cost: 550,
+    hp: 36,
+    atk: 10,
+    weight: 65,
+    walkSpeed: 38,
+    attackRange: 70,       // 兵士よりリーチが長い
+    detectionRange: 240,
+    approachMotion: "sneak", // 発見後は走らず、槍を構えて忍び寄る
+    approachSpeed: 26,       // 忍び足の速度(歩行よりゆっくり)
+    parryable: false,        // 未検証のため暫定
+    guardable: false,
+    bleedOnHit: false,
+    icon: ICON_SPEARMAN,
+    imageBase: IMG_SPEARMAN,
+    pixelScale: 92 / 533, // idle画像の切り抜き高さ(533px)基準、兵士と同じ表示身長92pxに合わせる
+    frameCounts: {
+      idle:1, walk:4, discover:3, sneak:4, attack:10,
+      flinch:7, guardbreak:4, blowback:6, down:2, getup:5
+    },
+    // 暫定値：まだモーションタイマーで実測していないため、兵士の数値を参考にした仮の秒数。
+    // 実際にゲームで動かしながら微調整推奨。
+    frameDurations: {
+      idle:       [1000],
+      walk:       [280,280,280,280],
+      discover:   [300,300,700],
+      sneak:      [340,340,340,340],
+      attack:     [200,180,160,140,60,60,40,120,200,260],
+      flinch:     [80,90,110,120,380,270,240],
+      guardbreak: [180,180,180,180],
+      blowback:   [140,140,140,140,140,140],
+      down:       [700,2000],
+      getup:      [200,200,240,340,260]
+    },
+    attackImpactFrame: 6
   }
 };
 
@@ -398,7 +440,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier"],
+  selectedUnits: ["soldier", "spearman"],
   stage: null
 };
 
@@ -592,6 +634,11 @@ function frameUrl(def, motion, frameIndex1based){
   return def.imageBase + motion + "_" + frameIndex1based + ".png";
 }
 
+function removeUnit(unit){
+  unit.el.remove();
+  if (battle) battle.units = battle.units.filter(u => u !== unit);
+}
+
 function setMotion(unit, motion, opts){
   opts = opts || {};
   unit.motion = motion;
@@ -679,7 +726,7 @@ function applyDamageToUnit(target, amount){
   if (target.hp <= 0){
     target.dead = true;
     target.target = null;
-    setMotion(target, "down");
+    setMotion(target, "down", { onEnd: () => removeUnit(target) });
     return;
   }
 
@@ -713,32 +760,37 @@ function findNearestEnemyInRange(unit){
 function onAttackEnd(unit){
   if (unit.dead) return;
   if (unit.target && unit.target.dead) unit.target = null;
-  // いったん歩き/走りへ戻し、次のtickで距離を再評価させる(範囲内ならすぐ攻撃に戻る)
-  setMotion(unit, unit.target ? "run" : "walk", { loop:true });
+  const def = unit.def;
+  const approachMotion = def.approachMotion || "run";
+  // いったん歩き/接近モーションへ戻し、次のtickで距離を再評価させる(範囲内ならすぐ攻撃に戻る)
+  setMotion(unit, unit.target ? approachMotion : "walk", { loop:true });
 }
 
 function updateUnitAI(unit, dtMs){
   if (unit.dead || unit.debugLock) return;
+  const def = unit.def;
+  const approachMotion = def.approachMotion || "run"; // 発見後の接近モーション(兵士は走り、槍兵は忍び足)
+  const approachSpeed = def.approachSpeed != null ? def.approachSpeed : def.runSpeed;
 
   // 一撃モーション中・怯み中などは、それぞれのonMotionEndで次の状態が決まるので何もしない
   if (unit.motion === "idle"){
     setMotion(unit, "walk", { loop:true }); // 出現直後は発見モーションなしでそのまま歩く
     return;
   }
-  if (unit.motion !== "walk" && unit.motion !== "run") return;
+  if (unit.motion !== "walk" && unit.motion !== approachMotion) return;
 
   // 敵ユニットの索敵(検知範囲内の最も近い敵)
   if (!unit.target || unit.target.dead){
     const found = findNearestEnemyInRange(unit);
     if (found && unit.motion === "walk"){
       unit.target = found;
-      setMotion(unit, "discover", { onEnd: () => setMotion(unit, "run", { loop:true }) });
+      setMotion(unit, "discover", { onEnd: () => setMotion(unit, approachMotion, { loop:true }) });
       return;
     }
     if (!found && unit.target){
       unit.target = null;
     }
-    if (!found && unit.motion === "run"){
+    if (!found && unit.motion === approachMotion){
       setMotion(unit, "walk", { loop:true }); // 追っていた敵を見失ったら歩きに戻る
       return;
     }
@@ -753,7 +805,7 @@ function updateUnitAI(unit, dtMs){
     setMotion(unit, "attack", { onEnd: onAttackEnd });
   } else {
     const dir = dx > 0 ? 1 : -1;
-    const speed = unit.motion === "run" ? unit.def.runSpeed : unit.def.walkSpeed;
+    const speed = unit.motion === approachMotion ? approachSpeed : unit.def.walkSpeed;
     unit.x += dir * speed * (dtMs/1000);
     applyFrame(unit);
   }
@@ -801,6 +853,10 @@ document.getElementById("btn-surrender").addEventListener("click", () => {
 document.getElementById("cheat-enemy-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("soldier", "enemy");
+});
+document.getElementById("cheat-enemy-spear-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("spearman", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
