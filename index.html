@@ -328,6 +328,7 @@ const CHAR_DEFS = {
     walkSpeed: 42,
     runSpeed: 95,
     attackRange: 46,
+    detectionRange: 220,
     parryable: true,
     guardable: false,
     bleedOnHit: false,
@@ -575,6 +576,7 @@ function spawnUnit(kind, side){
     hp: def.hp,
     hpMax: def.hp,
     facing,
+    target: null,
     motion: null,
     frameIndex: 0,
     frameTimer: 0,
@@ -616,7 +618,6 @@ function applyFrame(unit){
 
 function advanceUnit(unit, dtMs){
   const def = unit.def;
-  if (unit.dead) return;
 
   const durations = def.frameDurations[unit.motion] || [1000];
   const count = def.frameCounts[unit.motion] || durations.length;
@@ -649,6 +650,10 @@ function advanceUnit(unit, dtMs){
 
 function resolveAttackImpact(unit){
   if (!battle || battle.ended) return;
+  if (unit.target && !unit.target.dead){
+    applyDamageToUnit(unit.target, unit.def.atk);
+    return;
+  }
   if (unit.side === "player"){
     battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - unit.def.atk);
     updateCastleBars();
@@ -660,31 +665,97 @@ function resolveAttackImpact(unit){
   }
 }
 
-/* ---------- ユニットのAI(移動→攻撃) ---------- */
+// 怯み・弾かれ・吹き飛び・ダウン中はスーパーアーマーで追加の怯みが発生しない
+function isSuperArmored(unit){
+  return unit.motion === "flinch" || unit.motion === "guardbreak" ||
+         unit.motion === "blowback" || unit.motion === "down";
+}
+
+function applyDamageToUnit(target, amount){
+  if (target.dead) return;
+  target.hp = Math.max(0, target.hp - amount);
+  applyFrame(target);
+
+  if (target.hp <= 0){
+    target.dead = true;
+    target.target = null;
+    setMotion(target, "down");
+    return;
+  }
+
+  if (isSuperArmored(target)) return; // スーパーアーマー中は怯まない
+
+  setMotion(target, "flinch", {
+    onEnd: () => {
+      if (target.dead) return;
+      target.target = null; // 攻撃してきた相手を仕切り直しで再索敵させる
+      setMotion(target, "walk", { loop:true });
+    }
+  });
+}
+
+/* ---------- ユニットのAI(索敵→接敵→攻撃) ---------- */
+
+function findNearestEnemyInRange(unit){
+  if (!battle) return null;
+  let nearest = null, nearestDist = Infinity;
+  battle.units.forEach(other => {
+    if (other === unit || other.dead || other.side === unit.side) return;
+    const d = Math.abs(other.x - unit.x);
+    if (d <= unit.def.detectionRange && d < nearestDist){
+      nearest = other;
+      nearestDist = d;
+    }
+  });
+  return nearest;
+}
+
+function onAttackEnd(unit){
+  if (unit.dead) return;
+  if (unit.target && unit.target.dead) unit.target = null;
+  // いったん歩き/走りへ戻し、次のtickで距離を再評価させる(範囲内ならすぐ攻撃に戻る)
+  setMotion(unit, unit.target ? "run" : "walk", { loop:true });
+}
 
 function updateUnitAI(unit, dtMs){
   if (unit.dead || unit.debugLock) return;
 
-  const field = document.getElementById("battlefield");
-  const fieldWidth = field.clientWidth;
-  const targetX = unit.side === "player" ? 60 : fieldWidth - 60;
-
+  // 一撃モーション中・怯み中などは、それぞれのonMotionEndで次の状態が決まるので何もしない
   if (unit.motion === "idle"){
-    setMotion(unit, "discover", { onEnd: () => setMotion(unit, "walk", { loop:true }) });
+    setMotion(unit, "walk", { loop:true }); // 出現直後は発見モーションなしでそのまま歩く
     return;
   }
+  if (unit.motion !== "walk" && unit.motion !== "run") return;
 
-  if (unit.motion === "walk"){
-    const dx = (targetX - unit.x);
-    const reached = Math.abs(dx) <= unit.def.attackRange;
-    if (reached){
-      unit.onMotionEnd = () => setMotion(unit, "attack");
-      setMotion(unit, "attack", { onEnd: unit.onMotionEnd });
-    } else {
-      const dir = dx > 0 ? 1 : -1;
-      unit.x += dir * unit.def.walkSpeed * (dtMs/1000);
-      applyFrame(unit);
+  // 敵ユニットの索敵(検知範囲内の最も近い敵)
+  if (!unit.target || unit.target.dead){
+    const found = findNearestEnemyInRange(unit);
+    if (found && unit.motion === "walk"){
+      unit.target = found;
+      setMotion(unit, "discover", { onEnd: () => setMotion(unit, "run", { loop:true }) });
+      return;
     }
+    if (!found && unit.target){
+      unit.target = null;
+    }
+    if (!found && unit.motion === "run"){
+      setMotion(unit, "walk", { loop:true }); // 追っていた敵を見失ったら歩きに戻る
+      return;
+    }
+  }
+
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field.clientWidth;
+  const destX = unit.target ? unit.target.x : (unit.side === "player" ? 60 : fieldWidth - 60);
+  const dx = destX - unit.x;
+
+  if (Math.abs(dx) <= unit.def.attackRange){
+    setMotion(unit, "attack", { onEnd: onAttackEnd });
+  } else {
+    const dir = dx > 0 ? 1 : -1;
+    const speed = unit.motion === "run" ? unit.def.runSpeed : unit.def.walkSpeed;
+    unit.x += dir * speed * (dtMs/1000);
+    applyFrame(unit);
   }
 }
 
