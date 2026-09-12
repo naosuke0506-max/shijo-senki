@@ -265,6 +265,7 @@
       <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000円(検証用)</button>
       <button id="cheat-enemy-btn" style="position:absolute;left:0;top:76px;z-index:6;font-size:.62rem;padding:6px 8px;">敵兵士召喚(検証用)</button>
       <button id="cheat-enemy-spear-btn" style="position:absolute;left:0;top:112px;z-index:6;font-size:.62rem;padding:6px 8px;">敵槍兵召喚(検証用)</button>
+      <button id="cheat-enemy-shield-btn" style="position:absolute;left:0;top:148px;z-index:6;font-size:.62rem;padding:6px 8px;">敵盾兵召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -301,6 +302,8 @@ const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
 const ICON_SPEARMAN = REPO_BASE + "icons/spearman_icon.png";
+const IMG_SHIELDMAN = REPO_BASE + "images/shieldman_repo_upload/";
+const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -341,6 +344,10 @@ const CHAR_DEFS = {
     // 全コマ共通のスケールを使うことで、画像ごとに余白の切り取られ方が違っても
     // 見た目の大きさが揃う(高さだけを強制的に揃えると、寝転びコマ等で破綻するため)。
     pixelScale: 92 / 529,
+    // ダウンは生成時のカメラ距離が他コマと違うようで、同じ倍率だと大きく見えるため個別に縮小補正。
+    motionScale: {
+      down: 0.68
+    },
     frameCounts: {
       idle:1, walk:5, run:5, discover:2, attack:10,
       flinch:8, guardbreak:4, blowback:8, down:2, getup:5
@@ -385,6 +392,9 @@ const CHAR_DEFS = {
     icon: ICON_SPEARMAN,
     imageBase: IMG_SPEARMAN,
     pixelScale: 92 / 533, // idle画像の切り抜き高さ(533px)基準、兵士と同じ表示身長92pxに合わせる
+    motionScale: {
+      down: 0.68
+    },
     frameCounts: {
       idle:1, walk:4, discover:3, sneak:4, attack:10,
       flinch:7, guardbreak:4, blowback:6, down:2, getup:5
@@ -403,6 +413,50 @@ const CHAR_DEFS = {
       getup:      [200,235,270,400,230]
     },
     attackImpactFrame: 5
+  },
+
+  shieldman: {
+    name: "盾兵",
+    rank: null,
+    cost: 600,
+    hp: 60,
+    atk: 5,
+    weight: 90,
+    walkSpeed: 34,
+    attackRange: 46,
+    detectionRange: 220,
+    approachMotion: "wallwalk", // 発見後は盾を地面すれすれまで下げて壁のように接近
+    approachSpeed: 22,
+    canGuard: true,          // 前方からの攻撃をガードできる(盾兵専用)
+    attackFlags: {},         // この盾兵自身の攻撃には特殊効果なし(通常攻撃)
+    icon: ICON_SHIELDMAN,
+    imageBase: IMG_SHIELDMAN,
+    pixelScale: 92 / 513,
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:6, discover:2, wallwalk:4, attack:6,
+      guard:4, shieldbreak:4, shield_destroy:5,
+      flinch:7, blowback:6, down:2, getup:6
+    },
+    frameDurations: {
+      idle:           [1000],
+      walk:           [180,180,180,180,180,180],
+      discover:       [150,150],
+      wallwalk:       [210,210,210,250],
+      attack:         [150,140,140,200,290,160],
+      guard:          [180,300,220,150],
+      shieldbreak:    [170,260,170,600],
+      shield_destroy: [480,290,310,195,190],
+      flinch:         [190,170,230,150,420,260,300],
+      blowback:       [180,180,190,190,200,220],
+      down:           [450,1000],
+      getup:          [190,300,220,350,350,320]
+    },
+    attackImpactFrame: 3,
+    guardCooldownMs: 1000,          // ガード成功後のクールタイム
+    guardIgnoredPenaltyMs: 2000     // ガード無効攻撃を受けた時に追加されるクールタイム
   }
 };
 
@@ -439,7 +493,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman"],
+  selectedUnits: ["soldier", "spearman", "shieldman"],
   stage: null
 };
 
@@ -597,7 +651,9 @@ function spawnUnit(kind, side){
   el.className = "unit-sprite";
   const img = document.createElement("img");
   img.addEventListener("load", () => {
-    const scale = def.pixelScale || 1;
+    const motionScales = def.motionScale || {};
+    const motionFactor = motionScales[img.dataset.motion] != null ? motionScales[img.dataset.motion] : 1;
+    const scale = (def.pixelScale || 1) * motionFactor;
     img.style.width = (img.naturalWidth * scale) + "px";
     img.style.height = (img.naturalHeight * scale) + "px";
   });
@@ -622,7 +678,9 @@ function spawnUnit(kind, side){
     frameIndex: 0,
     frameTimer: 0,
     dead: false,
-    debugLock: false
+    debugLock: false,
+    guardCooldown: 0,     // 残りクールタイム(ms)。0ならガード可能
+    shieldBroken: false   // true になったらガード・近接攻撃とも二度と使えない
   };
   battle.units.push(unit);
   setMotion(unit, "idle");
@@ -652,6 +710,7 @@ function applyFrame(unit){
   const def = unit.def;
   const count = def.frameCounts[unit.motion] || 1;
   const idx1 = Math.min(unit.frameIndex + 1, count);
+  unit.img.dataset.motion = unit.motion; // 読み込み完了時にモーション別の縮尺補正を参照するため
   unit.img.src = frameUrl(def, unit.motion, idx1);
 
   const overrides = def.frameFacingOverride && def.frameFacingOverride[unit.motion];
@@ -697,7 +756,7 @@ function advanceUnit(unit, dtMs){
 function resolveAttackImpact(unit){
   if (!battle || battle.ended) return;
   if (unit.target && !unit.target.dead){
-    applyDamageToUnit(unit.target, unit.def.atk);
+    applyDamageToUnit(unit.target, unit.def.atk, unit);
     return;
   }
   if (unit.side === "player"){
@@ -711,33 +770,82 @@ function resolveAttackImpact(unit){
   }
 }
 
-// 怯み・弾かれ・吹き飛び・ダウン中はスーパーアーマーで追加の怯みが発生しない
+// 怯み・弾かれ・吹き飛び・ダウン・ガード関連の反応モーション中は、
+// 追加の被弾があっても別の反応モーションに上書きされない(スーパーアーマー)
 function isSuperArmored(unit){
   return unit.motion === "flinch" || unit.motion === "guardbreak" ||
-         unit.motion === "blowback" || unit.motion === "down";
+         unit.motion === "blowback" || unit.motion === "down" ||
+         unit.motion === "guard" || unit.motion === "shieldbreak" ||
+         unit.motion === "shield_destroy";
 }
 
-function applyDamageToUnit(target, amount){
+// 攻撃者がtargetの正面にいるか(盾兵のガードは前方からの攻撃にしか効かない)
+function isAttackFromFront(target, attacker){
+  if (!attacker) return false;
+  // facing:-1は左向き(=前方は自分より左)、facing:+1は右向き(=前方は自分より右)
+  return target.facing === -1 ? attacker.x <= target.x : attacker.x >= target.x;
+}
+
+function afterReaction(unit){
+  if (unit.dead) return;
+  unit.target = null; // 攻撃してきた相手を仕切り直しで再索敵させる
+  setMotion(unit, "walk", { loop:true });
+}
+
+function killUnit(target){
+  target.dead = true;
+  target.target = null;
+  setMotion(target, "down", { onEnd: () => removeUnit(target) });
+}
+
+function applyDamageToUnit(target, amount, attacker){
   if (target.dead) return;
+  const def = target.def;
+
+  const guardReady = def.canGuard && !target.shieldBroken &&
+    target.guardCooldown <= 0 && !isSuperArmored(target) &&
+    isAttackFromFront(target, attacker);
+
+  if (guardReady){
+    const flags = (attacker && attacker.def.attackFlags) || {};
+
+    if (flags.breaksShield){
+      // ガードブレイカー攻撃：盾が完全に壊れ、以後ガードも近接攻撃も使えなくなる
+      target.shieldBroken = true;
+      target.hp = Math.max(0, target.hp - amount);
+      applyFrame(target);
+      if (target.hp <= 0){ killUnit(target); return; }
+      setMotion(target, "shield_destroy", { onEnd: () => afterReaction(target) });
+      return;
+    }
+
+    if (flags.ignoresGuard){
+      // ガード無効攻撃：ダメージは通り、ガードが一時的に剥がされクールタイムが余分にかかる
+      target.guardCooldown = (def.guardCooldownMs || 1000) + (def.guardIgnoredPenaltyMs || 0);
+      target.hp = Math.max(0, target.hp - amount);
+      applyFrame(target);
+      if (target.hp <= 0){ killUnit(target); return; }
+      setMotion(target, "shieldbreak", { onEnd: () => afterReaction(target) });
+      return;
+    }
+
+    // 通常攻撃はガードで無効化
+    target.guardCooldown = def.guardCooldownMs || 1000;
+    setMotion(target, "guard", { onEnd: () => afterReaction(target) });
+    return;
+  }
+
   target.hp = Math.max(0, target.hp - amount);
   applyFrame(target);
 
   if (target.hp <= 0){
-    target.dead = true;
-    target.target = null;
-    setMotion(target, "down", { onEnd: () => removeUnit(target) });
+    killUnit(target);
     return;
   }
 
   if (isSuperArmored(target)) return; // スーパーアーマー中は怯まない
 
-  setMotion(target, "flinch", {
-    onEnd: () => {
-      if (target.dead) return;
-      target.target = null; // 攻撃してきた相手を仕切り直しで再索敵させる
-      setMotion(target, "walk", { loop:true });
-    }
-  });
+  setMotion(target, "flinch", { onEnd: () => afterReaction(target) });
 }
 
 /* ---------- ユニットのAI(索敵→接敵→攻撃) ---------- */
@@ -773,8 +881,8 @@ function updateUnitAI(unit, dtMs){
 
   // 一撃モーション中・怯み中などは、それぞれのonMotionEndで次の状態が決まるので何もしない
   if (unit.motion === "idle"){
-    setMotion(unit, "walk", { loop:true }); // 出現直後は発見モーションなしでそのまま歩く
-    return;
+    if (!unit.shieldBroken) setMotion(unit, "walk", { loop:true }); // 出現直後は発見モーションなしでそのまま歩く
+    return; // 盾破壊で立ち尽くしているユニットはidleのまま(次の索敵チェックだけ継続したいので下に続けたいところだが、単純化のためここで留める)
   }
   if (unit.motion !== "walk" && unit.motion !== approachMotion) return;
 
@@ -801,7 +909,12 @@ function updateUnitAI(unit, dtMs){
   const dx = destX - unit.x;
 
   if (Math.abs(dx) <= unit.def.attackRange){
-    setMotion(unit, "attack", { onEnd: onAttackEnd });
+    if (unit.shieldBroken){
+      // 盾が壊れて近接攻撃ができない：その場に立ち尽くす
+      if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
+    } else {
+      setMotion(unit, "attack", { onEnd: onAttackEnd });
+    }
   } else {
     const dir = dx > 0 ? 1 : -1;
     const speed = unit.motion === approachMotion ? approachSpeed : unit.def.walkSpeed;
@@ -827,6 +940,7 @@ function battleLoop(now){
   updateWalletUI();
 
   battle.units.forEach(unit => {
+    if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
     updateUnitAI(unit, dt);
     advanceUnit(unit, dt);
   });
@@ -856,6 +970,10 @@ document.getElementById("cheat-enemy-btn").addEventListener("click", () => {
 document.getElementById("cheat-enemy-spear-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("spearman", "enemy");
+});
+document.getElementById("cheat-enemy-shield-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("shieldman", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
