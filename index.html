@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>屍城戦記</title>
+<style>
+  :root{
+    --bg: #100f0b;
+    --bg-panel: #1b1911;
+    --bg-panel-2: #242115;
+    --line: #55492f;
+    --line-dim: #3a3323;
+    --text: #d9cfae;
+    --text-dim: #8f8567;
+    --blood: #7a2116;
+    --blood-2: #9c3322;
+    --rust: #a9793a;
+    --gold: #c9a24a;
+    --hp-enemy: #7a2116;
+    --hp-player: #5c6b34;
+    --shadow: rgba(0,0,0,.6);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:'Hiragino Mincho ProN','Yu Mincho',serif;
+    width:100%; height:100%; overflow:hidden; -webkit-user-select:none; user-select:none; }
+  #app{ position:fixed; inset:0; }
+
+  .screen{ position:absolute; inset:0; display:none; flex-direction:column; }
+  .screen.active{ display:flex; }
+
+  button{
+    font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+    cursor:pointer; border-radius:2px;
+    background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
+  }
+  button:active{ transform:translateY(1px); }
+  button.primary{ background:var(--blood); border-color:#4a140d; color:#f0e6d0; font-weight:700; }
+  button:disabled{ opacity:.35; cursor:default; }
+
+  /* 錆びた金属風の縁取り */
+  .plate{
+    background:linear-gradient(180deg,#2a2617,#1b1911);
+    border:1px solid var(--line);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), 0 2px 6px var(--shadow);
+  }
+
+  /* ---------- タイトル ---------- */
+  #screen-title{
+    align-items:center; justify-content:center; text-align:center;
+    background:
+      radial-gradient(ellipse at 50% 25%, #241f14 0%, #0c0b08 75%);
+  }
+  #screen-title h1{
+    font-size:2.7rem; letter-spacing:.15em; color:var(--gold);
+    text-shadow:0 2px 10px rgba(0,0,0,.8);
+    margin:0 0 6px;
+  }
+  #screen-title .sub{ color:var(--text-dim); margin-bottom:44px; font-size:.78rem; letter-spacing:.25em; font-family:'Yu Gothic',sans-serif; }
+  #screen-title button{ padding:15px 50px; font-size:1.05rem; letter-spacing:.1em; }
+
+  /* ---------- 編成 ---------- */
+  #screen-formation{ padding:14px; background:linear-gradient(180deg,#181510,#100f0b); }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .topbar h2{ margin:0; font-size:1.05rem; color:var(--gold); letter-spacing:.1em; font-weight:400; }
+  .topbar button{ font-family:'Yu Gothic',sans-serif; padding:8px 16px; font-size:.8rem; }
+
+  .unit-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:10px; flex:1; align-content:start; overflow-y:auto; }
+  .unit-card{
+    position:relative; padding:8px; text-align:center;
+    background:linear-gradient(180deg,#252112,#1a1710);
+    border:1px solid var(--line);
+    clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  }
+  .unit-card.selected{ box-shadow:0 0 0 1px var(--gold) inset; }
+  .unit-card .icon-wrap{
+    width:64px; height:64px; margin:0 auto 6px; border-radius:2px; overflow:hidden;
+    background:#050504; border:1px solid var(--line-dim);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .unit-card .icon-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .unit-card .icon-fallback{ font-family:'Yu Gothic',sans-serif; font-size:.8rem; color:var(--text-dim); }
+  .unit-card .name{ font-size:.78rem; font-family:'Yu Gothic',sans-serif; }
+  .unit-card .cost{ font-size:.72rem; color:var(--rust); font-family:monospace; }
+  .unit-card .rank-tag{
+    position:absolute; top:2px; left:2px; font-size:.55rem; padding:1px 4px;
+    background:rgba(0,0,0,.5); color:var(--text-dim); font-family:'Yu Gothic',sans-serif;
+  }
+  .unit-card.locked{ opacity:.32; }
+  .unit-card.locked::after{ content:"近日実装"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:.66rem; color:var(--text-dim); font-family:'Yu Gothic',sans-serif; background:rgba(0,0,0,.3); }
+
+  /* ---------- ステージ選択 ---------- */
+  #screen-stage{ padding:16px; align-items:center; background:linear-gradient(180deg,#181510,#100f0b); }
+  .stage-list{ width:100%; max-width:420px; display:flex; flex-direction:column; gap:10px; margin-top:20px; }
+  .stage-card{
+    background:linear-gradient(180deg,#252112,#1a1710); border:1px solid var(--line);
+    padding:14px 16px; display:flex; justify-content:space-between; align-items:center;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  }
+  .stage-card .name{ font-size:1rem; letter-spacing:.05em; }
+  .stage-card .hp{ font-size:.7rem; color:var(--text-dim); font-family:'Yu Gothic',sans-serif; margin-top:2px; }
+  .stage-card button{ font-family:'Yu Gothic',sans-serif; padding:8px 18px; }
+
+  /* ---------- 戦闘 ---------- */
+  #screen-battle{ position:absolute; inset:0; background:linear-gradient(#2a271e 0%, #1a1812 55%, #100f0b 100%); font-family:'Yu Gothic',sans-serif; }
+
+  /* 上部バー：左(操作)／中央(HP)／右(所持金) */
+  #battle-topbar{
+    position:absolute; left:0; right:0; top:0; height:64px;
+    display:flex; align-items:stretch; gap:8px; padding:8px 10px; z-index:5; box-sizing:border-box;
+    background:linear-gradient(180deg, rgba(10,9,6,.92), rgba(10,9,6,.55) 80%, transparent);
+  }
+  #top-left-controls{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+  #top-left-controls .stage-plate{
+    background:rgba(20,18,12,.85); border:1px solid var(--line); padding:5px 10px;
+    font-size:.68rem; color:var(--text-dim); white-space:nowrap;
+    clip-path:polygon(0 0,calc(100% - 8px) 0,100% 100%,8px 100%);
+  }
+  #top-left-controls button{ width:30px; height:30px; padding:0; font-size:.85rem; line-height:1; }
+
+  #top-center-hp{ flex:1; display:flex; flex-direction:column; gap:3px; justify-content:center; min-width:0; padding:0 4px; }
+  .hpbar{ display:flex; align-items:center; gap:6px; }
+  .hpbar .tag{ font-size:.62rem; color:var(--text-dim); width:30px; flex-shrink:0; text-align:right; }
+  .hpbar .track{ flex:1; height:9px; background:#0a0906; border:1px solid var(--line-dim); border-radius:1px; overflow:hidden; }
+  .hpbar .fill{ height:100%; transition:width .25s linear; }
+  .hpbar.enemy .fill{ background:linear-gradient(180deg,#a4392a,var(--hp-enemy)); }
+  .hpbar.player .fill{ background:linear-gradient(180deg,#7c8f45,var(--hp-player)); }
+  .hpbar .num{ font-size:.6rem; font-family:monospace; color:var(--text-dim); width:52px; flex-shrink:0; }
+
+  #top-right-money{ flex:0 0 auto; text-align:right; padding:2px 4px; }
+  #top-right-money .money-num{ font-family:monospace; font-size:1.05rem; color:var(--gold); line-height:1.1; }
+  #top-right-money .money-cap{ font-size:.6rem; color:var(--text-dim); }
+
+  #battlefield{
+    position:absolute; left:0; right:0; top:64px; bottom:90px; overflow:hidden;
+    background-color:#221f17;
+  }
+  #ground-line{ position:absolute; left:0; right:0; bottom:74px; height:2px; background-color:#000000; }
+
+  .castle{
+    position:absolute; bottom:74px; width:70px; height:150px;
+    background:repeating-linear-gradient(0deg,#6b6248,#6b6248 8px,#544c38 8px,#544c38 16px);
+    border:2px solid #2a2618; border-radius:2px 2px 0 0;
+    box-shadow:0 0 18px rgba(0,0,0,.6);
+  }
+  .castle.enemy{ left:12px; box-shadow:0 0 22px rgba(154,50,30,.35); }
+  .castle.player{ right:12px; box-shadow:0 0 22px rgba(120,130,70,.3); }
+  .castle .flag{ position:absolute; top:-22px; left:50%; transform:translateX(-50%); font-size:18px; }
+  .castle .battlements{
+    position:absolute; top:-10px; left:0; right:0; height:10px;
+    background:repeating-linear-gradient(90deg,#6b6248 0 10px,transparent 10px 14px);
+  }
+
+  .unit-sprite{ position:absolute; bottom:74px; transform-origin:bottom center; }
+  .unit-sprite img{ display:block; image-rendering:-webkit-optimize-contrast; filter:drop-shadow(0 4px 4px rgba(0,0,0,.5)); }
+  .unit-sprite .uhp{ position:absolute; left:50%; transform:translateX(-50%); top:-10px; width:34px; height:4px; background:#0a0906; border:1px solid #000; }
+  .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
+
+  /* 下部バー：左(財布)／中央〜(出撃キャラ)／右(予約スペース) */
+  #battle-bottombar{
+    position:absolute; left:0; right:0; bottom:0; height:90px; box-sizing:border-box;
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    background:linear-gradient(0deg, rgba(10,9,6,.95), rgba(10,9,6,.7) 85%, transparent);
+  }
+  #wallet-widget{
+    flex:0 0 auto; background:rgba(20,18,12,.85); border:1px solid var(--line);
+    padding:6px 10px; min-width:108px;
+    clip-path:polygon(8px 0,100% 0,100% 100%,0 100%,0 8px);
+  }
+  #wallet-widget .lv-label{ font-size:.62rem; color:var(--gold); }
+  #wallet-widget .rate{ font-size:.58rem; color:var(--text-dim); margin-bottom:4px; }
+  #wallet-widget .bar{ height:5px; background:#0a0906; border:1px solid var(--line-dim); border-radius:1px; overflow:hidden; margin-bottom:4px; }
+  #wallet-widget .bar i{ display:block; height:100%; background:var(--rust); }
+  #wallet-widget button{ width:100%; font-size:.62rem; padding:4px 0; }
+
+  #deploy-row{ flex:1; display:flex; gap:8px; overflow-x:auto; padding:2px 0; }
+  .deploy-btn{ position:relative; width:56px; height:56px; padding:0; border-radius:2px; overflow:hidden; flex-shrink:0; border:1px solid var(--line); }
+  .deploy-btn img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .deploy-btn .icon-fallback{ display:flex; align-items:center; justify-content:center; width:100%; height:100%; background:#050504; color:var(--text-dim); font-size:.68rem; }
+  .deploy-btn .cost-tag{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.75); font-size:.6rem; font-family:monospace; color:var(--gold); text-align:center; }
+  .deploy-btn:disabled .cost-tag{ color:var(--text-dim); }
+
+  #reserved-space{ flex:0 0 74px; height:60px; }
+
+  #debug-tab{
+    position:absolute; right:8px; top:8px; z-index:6;
+    font-size:.62rem; padding:8px 10px; color:var(--text-dim);
+  }
+  #debug-panel{ position:absolute; right:8px; top:44px; z-index:6; display:none; flex-direction:column; gap:4px;
+    background-color:rgba(0,0,0,.75); padding:6px; max-width:110px; border-radius:3px; }
+  #debug-panel button{ font-size:.6rem; padding:4px 6px; }
+
+  /* ---------- 結果 ---------- */
+  #screen-result{ align-items:center; justify-content:center; text-align:center; background:linear-gradient(180deg,#181510,#0c0b08); }
+  #screen-result h2{ font-size:1.7rem; margin-bottom:8px; letter-spacing:.1em; }
+  #screen-result.win h2{ color:var(--gold); }
+  #screen-result.lose h2{ color:var(--blood-2); }
+  #screen-result p{ font-family:'Yu Gothic',sans-serif; }
+  #screen-result button{ font-family:'Yu Gothic',sans-serif; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- タイトル -->
+  <section id="screen-title" class="screen active">
+    <h1>屍城戦記</h1>
+    <div class="sub">SHIJO SENKI</div>
+    <button class="primary" id="btn-to-formation">はじめる</button>
+  </section>
+
+  <!-- 編成 -->
+  <section id="screen-formation" class="screen">
+    <div class="topbar">
+      <h2>編成</h2>
+      <button class="primary" id="btn-to-stage">ステージ選択へ</button>
+    </div>
+    <div class="unit-grid" id="unit-grid"></div>
+  </section>
+
+  <!-- ステージ選択 -->
+  <section id="screen-stage" class="screen">
+    <div class="topbar" style="width:100%;max-width:420px;">
+      <h2>ステージ選択</h2>
+      <button id="btn-back-formation">戻る</button>
+    </div>
+    <div class="stage-list" id="stage-list"></div>
+  </section>
+
+  <!-- 戦闘 -->
+  <section id="screen-battle" class="screen">
+
+    <div id="battle-topbar">
+      <div id="top-left-controls">
+        <div class="stage-plate" id="stage-name-plate">魔の平原</div>
+        <button id="btn-pause" title="一時停止">Ⅱ</button>
+        <button id="btn-surrender" title="投降">✕</button>
+      </div>
+      <div id="top-center-hp">
+        <div class="hpbar enemy">
+          <span class="tag">敵城</span>
+          <div class="track"><div class="fill" id="enemy-hp-fill" style="width:100%"></div></div>
+          <span class="num" id="enemy-hp-num">150/150</span>
+        </div>
+        <div class="hpbar player">
+          <span class="tag">自城</span>
+          <div class="track"><div class="fill" id="player-hp-fill" style="width:100%"></div></div>
+          <span class="num" id="player-hp-num">150/150</span>
+        </div>
+      </div>
+      <div id="top-right-money">
+        <div class="money-num" id="money-num">0円</div>
+        <div class="money-cap" id="money-cap">上限1500円</div>
+      </div>
+    </div>
+
+    <div id="battlefield">
+      <div id="ground-line"></div>
+      <div class="castle enemy"><div class="battlements"></div><div class="flag">🏴</div></div>
+      <div class="castle player"><div class="battlements"></div><div class="flag">🚩</div></div>
+      <button id="debug-tab">動作確認</button>
+      <div id="debug-panel"></div>
+      <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000円(検証用)</button>
+    </div>
+
+    <div id="battle-bottombar">
+      <div id="wallet-widget">
+        <div class="lv-label" id="wallet-lv-label">財布Lv0</div>
+        <div class="rate" id="wallet-rate-label">30円/秒</div>
+        <div class="bar"><i id="money-bar" style="width:0%"></i></div>
+        <button id="wallet-upgrade-btn">強化(600円)</button>
+      </div>
+      <div id="deploy-row"></div>
+      <div id="reserved-space"></div>
+    </div>
+
+  </section>
+
+  <!-- 結果 -->
+  <section id="screen-result" class="screen">
+    <h2 id="result-title">勝利</h2>
+    <p id="result-sub" style="color:var(--text-dim);font-size:.85rem;"></p>
+    <button class="primary" id="btn-result-continue" style="margin-top:20px;padding:12px 36px;">ステージ選択へ戻る</button>
+  </section>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   0. 定数・画像パス
+   ========================================================= */
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@main/";
+const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
+const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
+
+// 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
+function attachImgFallback(imgEl, label){
+  imgEl.addEventListener("error", () => {
+    if (imgEl.dataset.fallbackApplied) return;
+    imgEl.dataset.fallbackApplied = "1";
+    const box = document.createElement("div");
+    box.className = "icon-fallback";
+    box.textContent = label || "?";
+    imgEl.replaceWith(box);
+  }, { once:true });
+}
+
+/* =========================================================
+   1. キャラクター定義
+   基準ユニット：兵士。現実の力関係をそのまま倍率として今後の
+   ユニット(戦車など)に適用していく前提の「倍率1.0」基準点。
+   ランク名は後日決定(仮に rank:null としておく)。
+   ========================================================= */
+const CHAR_DEFS = {
+  soldier: {
+    name: "兵士",
+    rank: null, // 後日決定
+    cost: 500,
+    hp: 40,
+    atk: 12,
+    weight: 70,
+    walkSpeed: 42,
+    runSpeed: 95,
+    attackRange: 46,
+    parryable: true,
+    guardable: false,
+    bleedOnHit: false,
+    icon: ICON_SOLDIER,
+    imageBase: IMG_SOLDIER,
+    displayHeight: 92,
+    frameCounts: {
+      idle:1, walk:5, run:5, discover:2, attack:10,
+      flinch:8, guardbreak:4, blowback:8, down:2, getup:5
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [260,260,260,260,260],
+      run:        [230,230,230,230,230],
+      discover:   [360,800],
+      attack:     [180,160,160,180,180,180,40,40,20,220],
+      flinch:     [80,80,100,120,40,380,270,240],
+      guardbreak: [180,180,180,180],
+      blowback:   [130,130,130,130,130,130,130,130],
+      down:       [600,2000],
+      getup:      [200,200,240,340,260]
+    },
+    attackImpactFrame: 8
+  }
+};
+
+/* =========================================================
+   2. ステージ定義
+   ========================================================= */
+const STAGES = [
+  { id:"plain", name:"魔の平原", enemyCastleHp:150, playerCastleHp:150 }
+];
+
+/* =========================================================
+   3. 財布レベル(所持金)テーブル
+   ========================================================= */
+const WALLET_LEVELS = [
+  { level:0, rate:30,  cap:1500,  upgradeCost:600   },
+  { level:1, rate:50,  cap:3000,  upgradeCost:1200  },
+  { level:2, rate:80,  cap:6000,  upgradeCost:2400  },
+  { level:3, rate:130, cap:12000, upgradeCost:4800  },
+  { level:4, rate:200, cap:25000, upgradeCost:10000 },
+  { level:5, rate:300, cap:50000, upgradeCost:null  }
+];
+
+/* =========================================================
+   4. 画面遷移
+   ========================================================= */
+const screens = {};
+document.querySelectorAll(".screen").forEach(el => screens[el.id] = el);
+function showScreen(id){
+  Object.values(screens).forEach(el => el.classList.remove("active"));
+  screens[id].classList.add("active");
+}
+
+/* =========================================================
+   5. 編成画面
+   ========================================================= */
+const state = {
+  selectedUnits: ["soldier"],
+  stage: null
+};
+
+function buildFormationScreen(){
+  const grid = document.getElementById("unit-grid");
+  grid.innerHTML = "";
+  Object.entries(CHAR_DEFS).forEach(([kind, def]) => {
+    const card = document.createElement("div");
+    card.className = "unit-card selected";
+    card.innerHTML = `
+      <div class="rank-tag">${def.rank || "―"}</div>
+      <div class="icon-wrap"><img src="${def.icon}" alt="${def.name}"></div>
+      <div class="name">${def.name}</div>
+      <div class="cost">${def.cost}円</div>
+    `;
+    attachImgFallback(card.querySelector("img"), def.name);
+    grid.appendChild(card);
+  });
+}
+
+/* =========================================================
+   6. ステージ選択画面
+   ========================================================= */
+function buildStageScreen(){
+  const list = document.getElementById("stage-list");
+  list.innerHTML = "";
+  STAGES.forEach(stage => {
+    const card = document.createElement("div");
+    card.className = "stage-card";
+    card.innerHTML = `
+      <div>
+        <div class="name">${stage.name}</div>
+        <div class="hp">敵城HP ${stage.enemyCastleHp}</div>
+      </div>
+      <button class="primary">出撃</button>
+    `;
+    card.querySelector("button").addEventListener("click", () => {
+      state.stage = stage;
+      startBattle(stage);
+    });
+    list.appendChild(card);
+  });
+}
+
+/* =========================================================
+   7. 戦闘ロジック
+   ========================================================= */
+let battle = null;
+
+function startBattle(stage){
+  const field = document.getElementById("battlefield");
+  field.querySelectorAll(".unit-sprite").forEach(el => el.remove());
+
+  document.getElementById("stage-name-plate").textContent = stage.name;
+
+  battle = {
+    stage,
+    enemyCastleHp: stage.enemyCastleHp,
+    enemyCastleHpMax: stage.enemyCastleHp,
+    playerCastleHp: stage.playerCastleHp,
+    playerCastleHpMax: stage.playerCastleHp,
+    money: 0,
+    walletLevel: 0,
+    units: [],
+    lastTick: performance.now(),
+    ended: false,
+    paused: false
+  };
+
+  updateCastleBars();
+  buildDeployRow();
+  buildDebugPanel();
+  showScreen("screen-battle");
+
+  requestAnimationFrame(battleLoop);
+}
+
+function updateCastleBars(){
+  document.getElementById("enemy-hp-num").textContent =
+    Math.max(0,Math.ceil(battle.enemyCastleHp)) + "/" + battle.enemyCastleHpMax;
+  document.getElementById("enemy-hp-fill").style.width =
+    Math.max(0, battle.enemyCastleHp / battle.enemyCastleHpMax * 100) + "%";
+  document.getElementById("player-hp-num").textContent =
+    Math.max(0,Math.ceil(battle.playerCastleHp)) + "/" + battle.playerCastleHpMax;
+  document.getElementById("player-hp-fill").style.width =
+    Math.max(0, battle.playerCastleHp / battle.playerCastleHpMax * 100) + "%";
+}
+
+function buildDeployRow(){
+  const row = document.getElementById("deploy-row");
+  row.innerHTML = "";
+  state.selectedUnits.forEach(kind => {
+    const def = CHAR_DEFS[kind];
+    const btn = document.createElement("button");
+    btn.className = "deploy-btn";
+    btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag">${def.cost}</span>`;
+    attachImgFallback(btn.querySelector("img"), def.name);
+    btn.addEventListener("click", () => tryDeploy(kind));
+    row.appendChild(btn);
+  });
+  updateWalletUI();
+}
+
+function tryUpgradeWallet(){
+  const cur = WALLET_LEVELS[battle.walletLevel];
+  if (cur.upgradeCost == null) return;
+  if (battle.money < cur.upgradeCost) return;
+  battle.money -= cur.upgradeCost;
+  battle.walletLevel++;
+  updateWalletUI();
+}
+document.getElementById("wallet-upgrade-btn").addEventListener("click", tryUpgradeWallet);
+
+function updateWalletUI(){
+  if (!battle) return;
+  const lv = WALLET_LEVELS[battle.walletLevel];
+  document.getElementById("money-num").textContent = Math.floor(battle.money) + "円";
+  document.getElementById("money-cap").textContent = "上限" + lv.cap + "円";
+  document.getElementById("money-bar").style.width = (battle.money / lv.cap * 100) + "%";
+  document.getElementById("wallet-lv-label").textContent = "財布Lv" + battle.walletLevel;
+  document.getElementById("wallet-rate-label").textContent = lv.rate + "円/秒";
+
+  const upBtn = document.getElementById("wallet-upgrade-btn");
+  if (lv.upgradeCost == null){
+    upBtn.textContent = "最大強化";
+    upBtn.disabled = true;
+  } else {
+    upBtn.textContent = "強化(" + lv.upgradeCost + "円)";
+    upBtn.disabled = battle.money < lv.upgradeCost;
+  }
+
+  document.querySelectorAll(".deploy-btn").forEach((btn, i) => {
+    const kind = state.selectedUnits[i];
+    const def = CHAR_DEFS[kind];
+    btn.disabled = battle.money < def.cost;
+  });
+}
+
+function tryDeploy(kind){
+  const def = CHAR_DEFS[kind];
+  if (battle.money < def.cost) return;
+  battle.money -= def.cost;
+  updateWalletUI();
+  spawnUnit(kind, "player");
+}
+
+/* ---------- ユニット生成・アニメーション ---------- */
+
+function spawnUnit(kind, side){
+  const def = CHAR_DEFS[kind];
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field.clientWidth;
+
+  const el = document.createElement("div");
+  el.className = "unit-sprite";
+  const img = document.createElement("img");
+  img.style.height = def.displayHeight + "px";
+  el.appendChild(img);
+  const uhp = document.createElement("div");
+  uhp.className = "uhp";
+  uhp.innerHTML = "<i></i>";
+  el.appendChild(uhp);
+  field.appendChild(el);
+
+  const startX = side === "player" ? fieldWidth - 90 : 90;
+  const facing = side === "player" ? -1 : 1;
+
+  const unit = {
+    kind, def, side, el, img, uhpFill: uhp.querySelector("i"),
+    x: startX,
+    hp: def.hp,
+    hpMax: def.hp,
+    facing,
+    motion: null,
+    frameIndex: 0,
+    frameTimer: 0,
+    dead: false,
+    debugLock: false
+  };
+  battle.units.push(unit);
+  setMotion(unit, "idle");
+  return unit;
+}
+
+function frameUrl(def, motion, frameIndex1based){
+  return def.imageBase + motion + "_" + frameIndex1based + ".png";
+}
+
+function setMotion(unit, motion, opts){
+  opts = opts || {};
+  unit.motion = motion;
+  unit.frameIndex = 0;
+  unit.frameTimer = 0;
+  unit.motionLoop = !!opts.loop;
+  unit.onMotionEnd = opts.onEnd || null;
+  applyFrame(unit);
+}
+
+function applyFrame(unit){
+  const def = unit.def;
+  const count = def.frameCounts[unit.motion] || 1;
+  const idx1 = Math.min(unit.frameIndex + 1, count);
+  unit.img.src = frameUrl(def, unit.motion, idx1);
+  unit.el.style.transform = "translateX(" + unit.x + "px) scaleX(" + unit.facing + ")";
+  unit.uhpFill.style.width = Math.max(0, unit.hp / unit.hpMax * 100) + "%";
+}
+
+function advanceUnit(unit, dtMs){
+  const def = unit.def;
+  if (unit.dead) return;
+
+  const durations = def.frameDurations[unit.motion] || [1000];
+  const count = def.frameCounts[unit.motion] || durations.length;
+
+  unit.frameTimer += dtMs;
+  const curDur = durations[Math.min(unit.frameIndex, durations.length-1)];
+  if (unit.frameTimer >= curDur){
+    unit.frameTimer -= curDur;
+    unit.frameIndex++;
+    if (unit.frameIndex >= count){
+      if (unit.motionLoop){
+        unit.frameIndex = 0;
+      } else {
+        unit.frameIndex = count - 1;
+        if (unit.onMotionEnd){
+          const cb = unit.onMotionEnd;
+          unit.onMotionEnd = null;
+          cb(unit);
+        }
+        applyFrame(unit);
+        return;
+      }
+    }
+    if (unit.motion === "attack" && unit.frameIndex === def.attackImpactFrame){
+      resolveAttackImpact(unit);
+    }
+    applyFrame(unit);
+  }
+}
+
+function resolveAttackImpact(unit){
+  if (!battle || battle.ended) return;
+  if (unit.side === "player"){
+    battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - unit.def.atk);
+    updateCastleBars();
+    if (battle.enemyCastleHp <= 0) endBattle(true);
+  } else {
+    battle.playerCastleHp = Math.max(0, battle.playerCastleHp - unit.def.atk);
+    updateCastleBars();
+    if (battle.playerCastleHp <= 0) endBattle(false);
+  }
+}
+
+/* ---------- ユニットのAI(移動→攻撃) ---------- */
+
+function updateUnitAI(unit, dtMs){
+  if (unit.dead || unit.debugLock) return;
+
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field.clientWidth;
+  const targetX = unit.side === "player" ? 60 : fieldWidth - 60;
+
+  if (unit.motion === "idle"){
+    setMotion(unit, "discover", { onEnd: () => setMotion(unit, "walk", { loop:true }) });
+    return;
+  }
+
+  if (unit.motion === "walk"){
+    const dx = (targetX - unit.x);
+    const reached = Math.abs(dx) <= unit.def.attackRange;
+    if (reached){
+      unit.onMotionEnd = () => setMotion(unit, "attack");
+      setMotion(unit, "attack", { onEnd: unit.onMotionEnd });
+    } else {
+      const dir = dx > 0 ? 1 : -1;
+      unit.x += dir * unit.def.walkSpeed * (dtMs/1000);
+      applyFrame(unit);
+    }
+  }
+}
+
+/* ---------- メインループ ---------- */
+
+function battleLoop(now){
+  if (!battle || battle.ended){ return; }
+  if (battle.paused){
+    battle.lastTick = now;
+    requestAnimationFrame(battleLoop);
+    return;
+  }
+  const dt = now - battle.lastTick;
+  battle.lastTick = now;
+
+  const lv = WALLET_LEVELS[battle.walletLevel];
+  battle.money = Math.min(lv.cap, battle.money + lv.rate * (dt/1000));
+  updateWalletUI();
+
+  battle.units.forEach(unit => {
+    updateUnitAI(unit, dt);
+    advanceUnit(unit, dt);
+  });
+
+  requestAnimationFrame(battleLoop);
+}
+
+function endBattle(win){
+  if (!battle || battle.ended) return;
+  battle.ended = true;
+  const resultScreen = document.getElementById("screen-result");
+  resultScreen.classList.remove("win","lose");
+  resultScreen.classList.add(win ? "win" : "lose");
+  document.getElementById("result-title").textContent = win ? "勝利" : "敗北";
+  document.getElementById("result-sub").textContent =
+    win ? "敵城を陥落させた。" : "自城が陥落した。";
+  showScreen("screen-result");
+}
+
+document.getElementById("btn-surrender").addEventListener("click", () => {
+  if (battle && !battle.ended) endBattle(false);
+});
+document.getElementById("cheat-money-btn").addEventListener("click", () => {
+  if (!battle) return;
+  const lv = WALLET_LEVELS[battle.walletLevel];
+  battle.money = Math.min(lv.cap, battle.money + 1000);
+  updateWalletUI();
+});
+document.getElementById("btn-pause").addEventListener("click", (e) => {
+  if (!battle) return;
+  battle.paused = !battle.paused;
+  e.target.textContent = battle.paused ? "▶" : "Ⅱ";
+});
+
+/* =========================================================
+   8. 動作確認モード(デバッグ)
+   ========================================================= */
+let debugUnit = null;
+let debugMode = false;
+
+document.getElementById("debug-tab").addEventListener("click", () => {
+  debugMode = !debugMode;
+  const panel = document.getElementById("debug-panel");
+  panel.style.display = debugMode ? "flex" : "none";
+  if (debugMode){
+    if (!debugUnit){
+      debugUnit = spawnUnit("soldier", "player");
+      debugUnit.x = 140;
+      debugUnit.debugLock = true;
+      applyFrame(debugUnit);
+    }
+  } else if (debugUnit){
+    debugUnit.el.remove();
+    battle.units = battle.units.filter(u => u !== debugUnit);
+    debugUnit = null;
+  }
+});
+
+function buildDebugPanel(){
+  const panel = document.getElementById("debug-panel");
+  panel.innerHTML = "";
+  const motions = ["idle","walk","run","discover","attack","flinch","guardbreak","blowback","down","getup"];
+  motions.forEach(m => {
+    const b = document.createElement("button");
+    b.textContent = m;
+    b.addEventListener("click", () => {
+      if (!debugUnit) return;
+      const loop = (m === "idle" || m === "walk" || m === "run");
+      setMotion(debugUnit, m, { loop });
+    });
+    panel.appendChild(b);
+  });
+}
+
+/* =========================================================
+   9. 画面遷移イベント
+   ========================================================= */
+document.getElementById("btn-to-formation").addEventListener("click", () => {
+  buildFormationScreen();
+  showScreen("screen-formation");
+});
+document.getElementById("btn-to-stage").addEventListener("click", () => {
+  buildStageScreen();
+  showScreen("screen-stage");
+});
+document.getElementById("btn-back-formation").addEventListener("click", () => {
+  showScreen("screen-formation");
+});
+document.getElementById("btn-result-continue").addEventListener("click", () => {
+  debugUnit = null;
+  buildStageScreen();
+  showScreen("screen-stage");
+});
+
+})();
+</script>
+</body>
+</html>
