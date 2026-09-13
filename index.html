@@ -779,7 +779,8 @@ function spawnUnit(kind, side){
     debugLock: false,
     guardCooldown: 0,     // 残りクールタイム(ms)。0ならガード可能
     shieldBroken: false,  // true になったらガード・近接攻撃とも二度と使えない
-    dodgeUsed: false      // true になったら特殊回避は二度と使えない(一度きり)
+    dodgeUsed: false,     // true になったら特殊回避は二度と使えない(一度きり)
+    dodgedPastUnit: null  // 回避してすれ違った相手(この相手とは戦わない)
   };
   battle.units.push(unit);
   setMotion(unit, "idle");
@@ -991,9 +992,10 @@ function applyDamageToUnit(target, amount, attacker){
 
   if (dodgeReady){
     target.dodgeUsed = true;
-    // 攻撃者の"背後"(攻撃者が向いている方向と逆側)へ回り込む
-    const behindOffset = target.def.attackRange || 40;
+    // 攻撃者の"背後"(攻撃者が向いている方向と逆側)へ大きく回り込む
+    const behindOffset = (target.def.attackRange || 40) + 70;
     target.x = attacker.x - attacker.facing * behindOffset;
+    target.dodgedPastUnit = attacker; // この相手とはもう戦わず素通りする
     setMotion(target, "dodge", { onEnd: () => afterReaction(target) });
     return; // ダメージなし
   }
@@ -1051,6 +1053,7 @@ function findNearestEnemyInRange(unit){
   let nearest = null, nearestDist = Infinity;
   battle.units.forEach(other => {
     if (other === unit || other.dead || other.side === unit.side) return;
+    if (other === unit.dodgedPastUnit) return; // 回避してすれ違った相手とは戦わない
     const d = Math.abs(other.x - unit.x);
     if (d <= unit.def.detectionRange && d < nearestDist){
       nearest = other;
