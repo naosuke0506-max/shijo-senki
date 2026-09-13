@@ -159,7 +159,7 @@
   .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
 
   .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
-  .buff-aura{ bottom:auto; height:22px; transform:translate(-50%,-50%); z-index:5; }
+  .buff-aura{ bottom:auto; height:34px; transform:translate(-50%,-75%); z-index:5; }
 
   /* 下部バー：左(財布)／中央〜(出撃キャラ)／右(予約スペース) */
   #battle-bottombar{
@@ -318,6 +318,8 @@ const ICON_GOBLIN = REPO_BASE + "icons/goblin_icon.png";
 const IMG_DRUMMER = REPO_BASE + "images/drummer_repo_upload/";
 const ICON_DRUMMER = REPO_BASE + "icons/drummer_goblin_icon.png";
 const COMMON_FX = REPO_BASE + "images/common_fx_upload/";
+// 頭上に出る赤いオーラ(バフ表示)。全キャラ共通で使う、位置調整不要のエフェクト。
+const BUFF_AURA_FX = { count: 3, prefix: "red_aura_", durations: [200,200,200], imageBase: COMMON_FX };
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -560,23 +562,8 @@ const CHAR_DEFS = {
       roar:       [195,195,195,335,296,600]
     },
     attackImpactFrame: 4, // attack_5(命中の瞬間)
-    // 咆哮エフェクト(扇形の音波)と赤い目(合成用、黒背景のままscreen合成)
-    fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175], imageBase: IMG_GOBLIN_EXTRA },
-    fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155], imageBase: IMG_GOBLIN_EXTRA },
-    // 目の発光エフェクトの位置。idle画像で計測した「体全体の横幅・縦幅に対する目の割合位置」。
-    // しゃがむモーション(attackなど)は頭が相対的に下がるため、別の割合を用意。
-    auraOffsetFrac: { x: 0.784, y: 0.124 }, // 基本(idle・walk・runなど、立ちポーズ全般)
-    auraOffsetFracByMotion: {
-      attack: { x: 0.877, y: 0.187 }, // 近接攻撃は全コマしゃがんでいるため
-      roar: [ // 咆哮はコマごとに姿勢が大きく変わるため、1コマずつ指定
-        { x: 0.523, y: 0.090 }, // roar_1(仰け反り)
-        { x: 0.523, y: 0.090 }, // roar_2(同上)
-        { x: 0.542, y: 0.096 }, // roar_3(仰け反り)
-        { x: 0.770, y: 0.287 }, // roar_4(棍棒を掲げる・前傾)
-        { x: 0.542, y: 0.096 }, // roar_5(roar_3と同じ)
-        { x: 0.770, y: 0.287 }  // roar_6(roar_4と同じ)
-      ]
-    }
+    // 咆哮エフェクト(扇形の音波)。頭上の赤いオーラは全キャラ共通のBUFF_AURA_FXを使う。
+    fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175], imageBase: IMG_GOBLIN_EXTRA }
   },
 
   drummerGoblin: {
@@ -1123,21 +1110,10 @@ function fireProjectile(unit){
   }, travelMs);
 }
 
-function getAuraOffset(unit){
-  const byMotion = unit.def.auraOffsetFracByMotion && unit.def.auraOffsetFracByMotion[unit.motion];
-  if (Array.isArray(byMotion)){
-    return byMotion[Math.min(unit.frameIndex, byMotion.length - 1)] || unit.def.auraOffsetFrac;
-  }
-  return byMotion || unit.def.auraOffsetFrac || { x: 0.5, y: 0.15 };
-}
-
-// バフスタック数に応じて目の発光オーラを表示・更新する(1重=素の発光, 2重=赤オーラ, 3重=紫オーラ)
-// キャラ本体(unit.el)の子要素として置くことで、本体と全く同じ座標系・拡大縮小・左右反転を
-// 自動的に共有させ、位置計算のズレが起きないようにしている。
+// バフスタック数に応じて頭上の赤いオーラを表示・更新する(1重=通常, 2重=赤みを強調, 3重=紫寄り)
+// 全キャラ共通のエフェクトを使うため、キャラごとの位置調整は不要。
 function updateBuffAura(unit, dtMs){
-  const def = unit.def;
-  const fx = def.fxRedEye;
-  if (!fx) return;
+  const fx = BUFF_AURA_FX;
   const stacks = getBuffStacks(unit);
 
   if (stacks !== unit._lastBuffStacks){
@@ -1162,14 +1138,10 @@ function updateBuffAura(unit, dtMs){
     unit.buffFxFrame = (unit.buffFxFrame + 1) % fx.count;
   }
   unit.buffFxEl.src = fx.imageBase + fx.prefix + (unit.buffFxFrame + 1) + ".png";
+  unit.buffFxEl.style.left = "50%";
+  unit.buffFxEl.style.top = "0%";
 
-  // 本体画像に対する割合位置(%指定)。unit.el自体が本体と同じ拡縮・反転のtransformを
-  // 持っているので、ここでは単純にその中の相対位置を指定するだけでよい。
-  const off = getAuraOffset(unit);
-  unit.buffFxEl.style.left = (off.x * 100) + "%";
-  unit.buffFxEl.style.top = (off.y * 100) + "%";
-
-  // 1重=素の赤発光そのまま, 2重=赤みを強調, 3重=紫系へ色相シフト
+  // 1重=そのまま, 2重=赤みを強調, 3重=紫系へ色相シフト
   if (stacks >= 3){
     unit.buffFxEl.style.filter = "hue-rotate(75deg) saturate(1.6) drop-shadow(0 0 4px #b03bff)";
   } else if (stacks === 2){
@@ -1429,7 +1401,7 @@ function battleLoop(now){
 
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
-    if (unit.def.race === "goblin") updateBuffAura(unit, dt);
+    updateBuffAura(unit, dt);
     updateInspire(unit, dt);
     updateUnitAI(unit, dt);
     advanceUnit(unit, dt);
