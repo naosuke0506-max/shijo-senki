@@ -158,7 +158,7 @@
   .unit-sprite .uhp{ position:absolute; left:50%; transform:translateX(-50%); top:-10px; width:34px; height:4px; background:#0a0906; border:1px solid #000; }
   .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
 
-  .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; }
+  .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
 
   /* 下部バー：左(財布)／中央〜(出撃キャラ)／右(予約スペース) */
   #battle-bottombar{
@@ -315,7 +315,7 @@ const IMG_GOBLIN = REPO_BASE + "images/goblin_repo_upload/";
 const ICON_GOBLIN = REPO_BASE + "icons/goblin_icon.png";
 const IMG_DRUMMER = REPO_BASE + "images/drummer_repo_upload/";
 const ICON_DRUMMER = REPO_BASE + "icons/drummer_goblin_icon.png";
-const COMMON_FX = REPO_BASE + "images/common_fx/";
+const COMMON_FX = REPO_BASE + "images/common_fx_upload/";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -559,7 +559,7 @@ const CHAR_DEFS = {
     attackImpactFrame: 4, // attack_5(命中の瞬間)
     // 咆哮エフェクト(扇形の音波)と赤い目(合成用、黒背景のままscreen合成)
     fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175] },
-    fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155] }
+    fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155], imageBase: IMG_GOBLIN }
   },
 
   drummerGoblin: {
@@ -842,6 +842,7 @@ function frameUrl(def, motion, frameIndex1based){
 }
 
 function removeUnit(unit){
+  if (unit.buffFxEl) unit.buffFxEl.remove();
   unit.el.remove();
   if (battle) battle.units = battle.units.filter(u => u !== unit);
 }
@@ -1080,6 +1081,50 @@ function fireProjectile(unit){
   }, travelMs);
 }
 
+// バフスタック数に応じて目の発光オーラを表示・更新する(1重=素の発光, 2重=赤オーラ, 3重=紫オーラ)
+function updateBuffAura(unit, dtMs){
+  const def = unit.def;
+  const fx = def.fxRedEye;
+  if (!fx) return;
+  const stacks = getBuffStacks(unit);
+
+  if (stacks !== unit._lastBuffStacks){
+    unit._lastBuffStacks = stacks;
+    if (unit.buffFxEl){ unit.buffFxEl.remove(); unit.buffFxEl = null; }
+    if (stacks >= 1){
+      const img = document.createElement("img");
+      img.className = "fx-sprite";
+      img.style.height = "22px";
+      const field = document.getElementById("battlefield");
+      if (field) field.appendChild(img);
+      unit.buffFxEl = img;
+      unit.buffFxFrame = 0;
+      unit.buffFxTimer = 0;
+    }
+  }
+
+  if (!unit.buffFxEl) return;
+
+  unit.buffFxTimer += dtMs;
+  const dur = fx.durations[unit.buffFxFrame] || 150;
+  if (unit.buffFxTimer >= dur){
+    unit.buffFxTimer -= dur;
+    unit.buffFxFrame = (unit.buffFxFrame + 1) % fx.count;
+  }
+  unit.buffFxEl.src = fx.imageBase + fx.prefix + (unit.buffFxFrame + 1) + ".png";
+  const headBottom = 74 + Math.max(40, unit.img.offsetHeight || 90) - 14;
+  unit.buffFxEl.style.bottom = headBottom + "px";
+  unit.buffFxEl.style.transform = "translateX(" + unit.x + "px)";
+  // 1重=素の赤発光そのまま, 2重=赤みを強調, 3重=紫系へ色相シフト
+  if (stacks >= 3){
+    unit.buffFxEl.style.filter = "hue-rotate(75deg) saturate(1.6) drop-shadow(0 0 4px #b03bff)";
+  } else if (stacks === 2){
+    unit.buffFxEl.style.filter = "saturate(1.8) drop-shadow(0 0 4px #ff2a2a)";
+  } else {
+    unit.buffFxEl.style.filter = "";
+  }
+}
+
 function resolveAttackImpact(unit){
   if (!battle || battle.ended) return;
   if (unit.target && !unit.target.dead){
@@ -1224,9 +1269,24 @@ function updateUnitAI(unit, dtMs){
   const def = unit.def;
 
   if (def.noCombat){
-    // 非戦闘ユニット(鼓舞兵など)：索敵も攻撃もせず、ひたすら自陣営の前進方向へ歩くだけ
-    if (unit.motion !== "walk" && unit.motion !== "idle") return; // 太鼓演奏中などはそのまま
-    if (unit.motion === "idle") { setMotion(unit, "walk", { loop:true }); return; }
+    // 非戦闘ユニット(鼓舞兵など)：戦わないが、目の前に敵がいる間は立ち尽くして待つ
+    const forwardDir = unit.side === "player" ? -1 : 1;
+    const blocker = battle.units.find(other =>
+      other !== unit && !other.dead && other.side !== unit.side &&
+      Math.sign(other.x - unit.x) === forwardDir &&
+      Math.abs(other.x - unit.x) <= (def.personalSpace || 50)
+    );
+
+    if (blocker){
+      if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
+      return;
+    }
+
+    if (unit.motion !== "walk"){
+      if (unit.motion === "idle") setMotion(unit, "walk", { loop:true });
+      return; // 太鼓演奏中などはそのまま(updateInspire側で管理)
+    }
+
     const field = document.getElementById("battlefield");
     const fieldWidth = field.clientWidth;
     const destX = unit.side === "player" ? 60 : fieldWidth - 60;
@@ -1315,6 +1375,7 @@ function battleLoop(now){
 
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
+    if (unit.def.race === "goblin") updateBuffAura(unit, dt);
     updateInspire(unit, dt);
     updateUnitAI(unit, dt);
     advanceUnit(unit, dt);
