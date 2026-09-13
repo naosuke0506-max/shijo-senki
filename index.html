@@ -312,6 +312,7 @@ const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
 const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
 const ICON_ARQUEBUSIER = REPO_BASE + "icons/arquebusier_icon.png";
 const IMG_GOBLIN = REPO_BASE + "images/goblin_repo_upload/";
+const IMG_GOBLIN_EXTRA = REPO_BASE + "images/goblin_extra_upload/"; // 咆哮・目のエフェクトはこちらのフォルダ
 const ICON_GOBLIN = REPO_BASE + "icons/goblin_icon.png";
 const IMG_DRUMMER = REPO_BASE + "images/drummer_repo_upload/";
 const ICON_DRUMMER = REPO_BASE + "icons/drummer_goblin_icon.png";
@@ -534,6 +535,7 @@ const CHAR_DEFS = {
     attackFlags: {},
     icon: ICON_GOBLIN,
     imageBase: IMG_GOBLIN,
+    motionImageBase: { roar: IMG_GOBLIN_EXTRA }, // 咆哮モーションだけ別フォルダ
     pixelScale: (92 * (140/170)) / 499, // 身長140cm(兵士170cm比)を反映した縮尺
     motionScale: {
       down: 0.68
@@ -558,8 +560,8 @@ const CHAR_DEFS = {
     },
     attackImpactFrame: 4, // attack_5(命中の瞬間)
     // 咆哮エフェクト(扇形の音波)と赤い目(合成用、黒背景のままscreen合成)
-    fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175] },
-    fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155], imageBase: IMG_GOBLIN }
+    fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175], imageBase: IMG_GOBLIN_EXTRA },
+    fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155], imageBase: IMG_GOBLIN_EXTRA }
   },
 
   drummerGoblin: {
@@ -838,7 +840,8 @@ function spawnUnit(kind, side){
 }
 
 function frameUrl(def, motion, frameIndex1based){
-  return def.imageBase + motion + "_" + frameIndex1based + ".png";
+  const base = (def.motionImageBase && def.motionImageBase[motion]) || def.imageBase;
+  return base + motion + "_" + frameIndex1based + ".png";
 }
 
 function removeUnit(unit){
