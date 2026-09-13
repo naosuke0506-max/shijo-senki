@@ -562,22 +562,9 @@ const CHAR_DEFS = {
     // 咆哮エフェクト(扇形の音波)と赤い目(合成用、黒背景のままscreen合成)
     fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175], imageBase: IMG_GOBLIN_EXTRA },
     fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155], imageBase: IMG_GOBLIN_EXTRA },
-    // 目の発光エフェクトの位置(画像中心からのオフセット、ゲーム内px)。モーション別、roarはコマ別に指定。
-    auraOffset: {
-      default: { x: 9.6, bottom: 62.1 }, // idle基準
-      byMotion: {
-        walk: { x: 9.7, bottom: 60.7 },
-        run:  { x: 16.9, bottom: 50.7 },
-        roar: [
-          { x: -4.9, bottom: 70.3 },
-          { x: -4.9, bottom: 70.3 },
-          { x: -3.3, bottom: 69.2 },
-          { x: 14.9, bottom: 54.4 },
-          { x: -3.3, bottom: 69.2 },
-          { x: 14.9, bottom: 54.4 }
-        ]
-      }
-    }
+    // 目の発光エフェクトの位置。idle画像で計測した「体全体の横幅・縦幅に対する目の割合位置」。
+    // 割合方式にすることで、コマごとに画像サイズが違ってもある程度自動で追従する。
+    auraOffsetFrac: { x: 0.784, y: 0.130 } // x:画像左端からの割合(0〜1) y:画像上端からの割合(0〜1)
   },
 
   drummerGoblin: {
@@ -818,8 +805,14 @@ function spawnUnit(kind, side){
     const motionScales = def.motionScale || {};
     const motionFactor = motionScales[img.dataset.motion] != null ? motionScales[img.dataset.motion] : 1;
     const scale = (def.pixelScale || 1) * motionFactor;
-    img.style.width = (img.naturalWidth * scale) + "px";
-    img.style.height = (img.naturalHeight * scale) + "px";
+    const dw = img.naturalWidth * scale;
+    const dh = img.naturalHeight * scale;
+    img.style.width = dw + "px";
+    img.style.height = dh + "px";
+    if (img._ownerUnit){
+      img._ownerUnit._displayWidth = dw;
+      img._ownerUnit._displayHeight = dh;
+    }
   });
   el.appendChild(img);
   const uhp = document.createElement("div");
@@ -848,8 +841,10 @@ function spawnUnit(kind, side){
     dodgeUsed: false,     // true になったら特殊回避は二度と使えない(一度きり)
     dodgedPastUnit: null, // 回避してすれ違った相手(この相手とは戦わない)
     buffSources: new Set(), // このユニットを鼓舞したドラマー(死ぬとバフが消える)
-    inspireCooldown: 0      // 鼓舞兵専用：次に発動判定できるまでの残り時間
+    inspireCooldown: 0,     // 鼓舞兵専用：次に発動判定できるまでの残り時間
+    _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
+  img._ownerUnit = unit;
   battle.units.push(unit);
   setMotion(unit, "idle");
   return unit;
@@ -1117,12 +1112,14 @@ function fireProjectile(unit){
 }
 
 function getAuraOffset(unit){
-  const table = unit.def.auraOffset;
-  if (!table) return { x: 0, bottom: 60 };
-  const byMotion = table.byMotion && table.byMotion[unit.motion];
-  if (Array.isArray(byMotion)) return byMotion[Math.min(unit.frameIndex, byMotion.length - 1)] || table.default;
-  if (byMotion) return byMotion;
-  return table.default || { x: 0, bottom: 60 };
+  const frac = unit.def.auraOffsetFrac;
+  const w = unit._displayWidth || unit.img.offsetWidth || 0;
+  const h = unit._displayHeight || unit.img.offsetHeight || 0;
+  if (!frac || !w || !h) return { fromLeft: (w||0)/2, bottom: 60 };
+  return {
+    fromLeft: frac.x * w,          // 元画像(向き反転前)の左端からの距離
+    bottom: (1 - frac.y) * h       // 画像下端(=地面)からの高さ
+  };
 }
 
 // バフスタック数に応じて目の発光オーラを表示・更新する(1重=素の発光, 2重=赤オーラ, 3重=紫オーラ)
@@ -1157,10 +1154,11 @@ function updateBuffAura(unit, dtMs){
   }
   unit.buffFxEl.src = fx.imageBase + fx.prefix + (unit.buffFxFrame + 1) + ".png";
 
-  // コマごとに計測した頭の位置(画像中心からのオフセット)を、向きに応じて反転しつつ適用
+  // 向き(facing)に応じて、元画像の左端基準の位置を左右反転させて適用
   const off = getAuraOffset(unit);
-  const centerX = unit.x + (unit.img.offsetWidth || 0) / 2;
-  const auraX = centerX + unit.facing * off.x;
+  const w = unit._displayWidth || 0;
+  const fromLeftFinal = unit.facing === -1 ? (w - off.fromLeft) : off.fromLeft;
+  const auraX = unit.x + fromLeftFinal;
   unit.buffFxEl.style.bottom = (74 + off.bottom) + "px";
   unit.buffFxEl.style.transform = "translateX(" + auraX + "px) translateX(-50%)";
 
