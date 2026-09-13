@@ -158,6 +158,8 @@
   .unit-sprite .uhp{ position:absolute; left:50%; transform:translateX(-50%); top:-10px; width:34px; height:4px; background:#0a0906; border:1px solid #000; }
   .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
 
+  .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; }
+
   /* 下部バー：左(財布)／中央〜(出撃キャラ)／右(予約スペース) */
   #battle-bottombar{
     position:absolute; left:0; right:0; bottom:0; height:90px; box-sizing:border-box;
@@ -475,6 +477,11 @@ const CHAR_DEFS = {
     approachMotion: "aimwalk", // 発見後は銃を構えたまま警戒歩き
     approachSpeed: 30,
     attackMotionName: "shoot", // このキャラの攻撃モーションは"attack"ではなく"shoot"
+    ranged: true,
+    projectileSpeed: 1500,   // 弾速(px/秒)。距離に応じて命中までの飛翔時間が変わる
+    fxMuzzleFlash: "fx_muzzleflash_1.png",
+    fxBullet: "fx_bullet_1.png",
+    fxImpact: "fx_impact_1.png",
     canGuard: false,
     attackFlags: {},
     icon: ICON_ARQUEBUSIER,
@@ -790,10 +797,86 @@ function advanceUnit(unit, dtMs){
     }
     const attackMotionName = def.attackMotionName || "attack";
     if (unit.motion === attackMotionName && unit.frameIndex === def.attackImpactFrame){
-      resolveAttackImpact(unit);
+      if (def.ranged){
+        fireProjectile(unit);
+      } else {
+        resolveAttackImpact(unit);
+      }
     }
     applyFrame(unit);
   }
+}
+
+function spawnFx(imgSrc, x, opts){
+  opts = opts || {};
+  const field = document.getElementById("battlefield");
+  if (!field) return null;
+  const el = document.createElement("img");
+  el.src = imgSrc;
+  el.className = "fx-sprite";
+  el.style.height = (opts.height || 30) + "px";
+  el.style.bottom = (opts.bottom != null ? opts.bottom : 110) + "px";
+  el.style.transform = "translateX(" + x + "px)" + (opts.flip ? " scaleX(-1)" : "");
+  field.appendChild(el);
+  if (opts.lifespan){
+    setTimeout(() => el.remove(), opts.lifespan);
+  }
+  return el;
+}
+
+function fireProjectile(unit){
+  if (!battle || battle.ended) return;
+  const def = unit.def;
+  const dir = unit.facing === -1 ? -1 : 1; // 発射方向(左向きユニットなら左へ)
+  const capturedTarget = unit.target; // 発射時点の狙い。飛翔中に相手が死ねば外れ扱いにする
+
+  // 発射炎(マズルフラッシュ)：発射位置にごく短時間だけ表示
+  if (def.fxMuzzleFlash){
+    spawnFx(def.imageBase + def.fxMuzzleFlash, unit.x, { flip: dir < 0, lifespan: 150, height: 26 });
+  }
+
+  // 命中先の座標を決める(相手ユニット、いなければ城)
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field ? field.clientWidth : 800;
+  const targetX = capturedTarget ? capturedTarget.x : (unit.side === "player" ? 30 : fieldWidth - 30);
+  const distance = Math.abs(targetX - unit.x);
+  const speed = def.projectileSpeed || 1200;
+  const travelMs = Math.max(40, (distance / speed) * 1000);
+
+  let bullet = null;
+  if (def.fxBullet){
+    bullet = spawnFx(def.imageBase + def.fxBullet, unit.x, { flip: dir < 0, height: 10 });
+    bullet.style.transition = "transform " + travelMs + "ms linear";
+    requestAnimationFrame(() => {
+      bullet.style.transform = "translateX(" + targetX + "px)" + (dir < 0 ? " scaleX(-1)" : "");
+    });
+  }
+
+  setTimeout(() => {
+    if (bullet) bullet.remove();
+    if (!battle || battle.ended || unit.dead) return;
+
+    if (capturedTarget){
+      if (!capturedTarget.dead){
+        if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, capturedTarget.x, { lifespan: 250, height: 30 });
+        applyDamageToUnit(capturedTarget, unit.def.atk, unit);
+      }
+      // 狙っていた相手が飛翔中に倒れていた場合は何も起きない(弾は外れた扱い)
+      return;
+    }
+
+    // 相手ユニットがおらず、城を狙っていた場合
+    if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 250, height: 30 });
+    if (unit.side === "player"){
+      battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - unit.def.atk);
+      updateCastleBars();
+      if (battle.enemyCastleHp <= 0) endBattle(true);
+    } else {
+      battle.playerCastleHp = Math.max(0, battle.playerCastleHp - unit.def.atk);
+      updateCastleBars();
+      if (battle.playerCastleHp <= 0) endBattle(false);
+    }
+  }, travelMs);
 }
 
 function resolveAttackImpact(unit){
