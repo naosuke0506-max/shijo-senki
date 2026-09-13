@@ -159,6 +159,7 @@
   .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
 
   .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
+  .buff-aura{ bottom:auto; height:22px; transform:translate(-50%,-50%); z-index:5; }
 
   /* 下部バー：左(財布)／中央〜(出撃キャラ)／右(予約スペース) */
   #battle-bottombar{
@@ -1117,16 +1118,12 @@ function fireProjectile(unit){
 function getAuraOffset(unit){
   const frac = (unit.def.auraOffsetFracByMotion && unit.def.auraOffsetFracByMotion[unit.motion])
     || unit.def.auraOffsetFrac;
-  const w = unit._displayWidth || unit.img.offsetWidth || 0;
-  const h = unit._displayHeight || unit.img.offsetHeight || 0;
-  if (!frac || !w || !h) return { fromLeft: (w||0)/2, bottom: 60 };
-  return {
-    fromLeft: frac.x * w,          // 元画像(向き反転前)の左端からの距離
-    bottom: (1 - frac.y) * h       // 画像下端(=地面)からの高さ
-  };
+  return frac || { x: 0.5, y: 0.15 };
 }
 
 // バフスタック数に応じて目の発光オーラを表示・更新する(1重=素の発光, 2重=赤オーラ, 3重=紫オーラ)
+// キャラ本体(unit.el)の子要素として置くことで、本体と全く同じ座標系・拡大縮小・左右反転を
+// 自動的に共有させ、位置計算のズレが起きないようにしている。
 function updateBuffAura(unit, dtMs){
   const def = unit.def;
   const fx = def.fxRedEye;
@@ -1138,10 +1135,8 @@ function updateBuffAura(unit, dtMs){
     if (unit.buffFxEl){ unit.buffFxEl.remove(); unit.buffFxEl = null; }
     if (stacks >= 1){
       const img = document.createElement("img");
-      img.className = "fx-sprite";
-      img.style.height = "22px";
-      const field = document.getElementById("battlefield");
-      if (field) field.appendChild(img);
+      img.className = "fx-sprite buff-aura";
+      unit.el.appendChild(img); // unit.elの子にする = 本体と同じ座標系・向きを自動で共有
       unit.buffFxEl = img;
       unit.buffFxFrame = 0;
       unit.buffFxTimer = 0;
@@ -1158,13 +1153,11 @@ function updateBuffAura(unit, dtMs){
   }
   unit.buffFxEl.src = fx.imageBase + fx.prefix + (unit.buffFxFrame + 1) + ".png";
 
-  // 向き(facing)に応じて、元画像の左端基準の位置を左右反転させて適用
+  // 本体画像に対する割合位置(%指定)。unit.el自体が本体と同じ拡縮・反転のtransformを
+  // 持っているので、ここでは単純にその中の相対位置を指定するだけでよい。
   const off = getAuraOffset(unit);
-  const w = unit._displayWidth || 0;
-  const fromLeftFinal = unit.facing === -1 ? (w - off.fromLeft) : off.fromLeft;
-  const auraX = unit.x + fromLeftFinal;
-  unit.buffFxEl.style.bottom = (74 + off.bottom) + "px";
-  unit.buffFxEl.style.transform = "translateX(" + auraX + "px) translateX(-50%)";
+  unit.buffFxEl.style.left = (off.x * 100) + "%";
+  unit.buffFxEl.style.top = (off.y * 100) + "%";
 
   // 1重=素の赤発光そのまま, 2重=赤みを強調, 3重=紫系へ色相シフト
   if (stacks >= 3){
