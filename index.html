@@ -270,6 +270,7 @@
       <button id="cheat-enemy-shield-btn" style="position:absolute;left:0;top:148px;z-index:6;font-size:.62rem;padding:6px 8px;">敵盾兵召喚(検証用)</button>
       <button id="cheat-enemy-gun-btn" style="position:absolute;left:0;top:184px;z-index:6;font-size:.62rem;padding:6px 8px;">敵火縄銃兵召喚(検証用)</button>
       <button id="cheat-enemy-goblin-btn" style="position:absolute;left:0;top:220px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン召喚(検証用)</button>
+      <button id="cheat-enemy-drummer-btn" style="position:absolute;left:0;top:256px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鼓舞兵召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -312,6 +313,9 @@ const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
 const ICON_ARQUEBUSIER = REPO_BASE + "icons/arquebusier_icon.png";
 const IMG_GOBLIN = REPO_BASE + "images/goblin_repo_upload/";
 const ICON_GOBLIN = REPO_BASE + "icons/goblin_icon.png";
+const IMG_DRUMMER = REPO_BASE + "images/drummer_goblin_repo_upload/";
+const ICON_DRUMMER = REPO_BASE + "icons/drummer_goblin_icon.png";
+const COMMON_FX = REPO_BASE + "images/common_fx/";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -516,6 +520,7 @@ const CHAR_DEFS = {
   goblin: {
     name: "ゴブリン",
     rank: null,
+    race: "goblin", // 鼓舞兵のバフ対象判定に使用
     cost: 250,
     hp: 18,
     atk: 6,
@@ -555,8 +560,51 @@ const CHAR_DEFS = {
     // 咆哮エフェクト(扇形の音波)と赤い目(合成用、黒背景のままscreen合成)
     fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175] },
     fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155] }
+  },
+
+  drummerGoblin: {
+    name: "ゴブリン鼓舞兵",
+    rank: null,
+    race: "goblin",
+    cost: 320,
+    hp: 14,
+    atk: 0,
+    weight: 28,
+    walkSpeed: 50,
+    noCombat: true,     // 一切戦闘しない(索敵・攻撃・追走をしない、ただ前進するだけ)
+    canInspire: true,   // 太鼓による鼓舞バフを持つ
+    inspireRange: 200,          // この範囲内の味方ゴブリンを鼓舞
+    inspireRequiredAllies: 2,   // 範囲内に(自分以外)これだけ味方ゴブリンがいると発動
+    inspireCooldownMs: 4000,    // 発動後、次に発動判定するまでの間隔
+    buffAtkMult: 1.10,          // 1スタックごとに攻撃力を掛け算(3スタックで約1.10^3倍)
+    buffSpeedMult: 1.15,        // 1スタックごとに移動速度を掛け算
+    buffDamageCutMult: 0.70,    // 1スタックごとに被ダメージを掛け算(軽減)
+    buffMaxStacks: 3,
+    icon: ICON_DRUMMER,
+    imageBase: IMG_DRUMMER,
+    pixelScale: (92 * (140/170)) / 494,
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, drum:4, flinch:6, blowback:6, down:2, getup:6
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [205,205,205,205],
+      drum:     [150,150,150,150],
+      flinch:   [185,185,185,185,350,210], // 8個いただいたが画像6枚のため先頭6個を採用
+      blowback: [155,165,185,190,210,250],
+      down:     [350,1000],
+      getup:    [350,200,260,250,350,290]
+    },
+    // 太鼓の衝撃波エフェクト(合成用、共通の「！」マークと同じ黒背景screen合成)
+    fxDrumWave: { count: 4, prefix: "drum_fx_", durations: [135,135,135,135], imageBase: IMG_DRUMMER }
   }
 };
+
+// 発見モーション共通エフェクト(「！」マーク、黒背景screen合成)
+const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125], imageBase: COMMON_FX };
 
 /* =========================================================
    2. ステージ定義
@@ -591,7 +639,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier"],
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin"],
   stage: null
 };
 
@@ -780,7 +828,9 @@ function spawnUnit(kind, side){
     guardCooldown: 0,     // 残りクールタイム(ms)。0ならガード可能
     shieldBroken: false,  // true になったらガード・近接攻撃とも二度と使えない
     dodgeUsed: false,     // true になったら特殊回避は二度と使えない(一度きり)
-    dodgedPastUnit: null  // 回避してすれ違った相手(この相手とは戦わない)
+    dodgedPastUnit: null, // 回避してすれ違った相手(この相手とは戦わない)
+    buffSources: new Set(), // このユニットを鼓舞したドラマー(死ぬとバフが消える)
+    inspireCooldown: 0      // 鼓舞兵専用：次に発動判定できるまでの残り時間
   };
   battle.units.push(unit);
   setMotion(unit, "idle");
@@ -796,6 +846,86 @@ function removeUnit(unit){
   if (battle) battle.units = battle.units.filter(u => u !== unit);
 }
 
+/* ---------- 鼓舞バフ ---------- */
+
+function getBuffStacks(unit){
+  return unit.buffSources ? unit.buffSources.size : 0;
+}
+function getEffectiveAtk(unit){
+  const stacks = getBuffStacks(unit);
+  if (!stacks) return unit.def.atk;
+  return unit.def.atk * Math.pow(unit.def.buffAtkMult || 1, stacks);
+}
+function getEffectiveSpeed(unit, baseSpeed){
+  const stacks = getBuffStacks(unit);
+  if (!stacks) return baseSpeed;
+  return baseSpeed * Math.pow(unit.def.buffSpeedMult || 1, stacks);
+}
+function getDamageCutMultiplier(unit){
+  const stacks = getBuffStacks(unit);
+  if (!stacks) return 1;
+  return Math.pow(unit.def.buffDamageCutMult != null ? unit.def.buffDamageCutMult : 1, stacks);
+}
+
+// このユニットが死亡/消滅した際、そのユニットが与えていたバフを全員から取り除く
+function clearBuffsFrom(deadUnit){
+  if (!battle) return;
+  battle.units.forEach(u => {
+    if (u.buffSources) u.buffSources.delete(deadUnit);
+  });
+}
+
+// 鼓舞兵の太鼓判定：近くに味方ゴブリンが一定数いれば太鼓を叩いてバフを付与する
+function updateInspire(unit, dtMs){
+  const def = unit.def;
+  if (!def.canInspire || unit.dead) return;
+  if (unit.inspireCooldown > 0){
+    unit.inspireCooldown = Math.max(0, unit.inspireCooldown - dtMs);
+    return;
+  }
+  if (unit.motion !== "walk" && unit.motion !== "idle") return; // 怯み中などは判定しない
+
+  const nearbyGoblinAllies = battle.units.filter(other =>
+    other !== unit && !other.dead && other.side === unit.side &&
+    other.def.race === "goblin" &&
+    Math.abs(other.x - unit.x) <= def.inspireRange
+  );
+
+  if (nearbyGoblinAllies.length < (def.inspireRequiredAllies || 2)) return;
+
+  // 太鼓を叩くモーションへ(数ループ再生してから歩行に戻る)
+  let loops = 0;
+  const maxLoops = 2;
+  const onDrumLoopEnd = () => {
+    loops++;
+    if (loops < maxLoops && !unit.dead){
+      setMotion(unit, "drum", { onEnd: onDrumLoopEnd });
+    } else if (!unit.dead){
+      setMotion(unit, "walk", { loop:true });
+    }
+  };
+  setMotion(unit, "drum", { onEnd: onDrumLoopEnd });
+  unit.inspireCooldown = def.inspireCooldownMs || 4000;
+
+  // 太鼓の衝撃波エフェクト
+  if (def.fxDrumWave){
+    const fx = def.fxDrumWave;
+    for (let i = 0; i < fx.count; i++){
+      setTimeout(() => {
+        spawnFx(fx.imageBase + fx.prefix + (i+1) + ".png", unit.x, { height: 60, bottom: 74, lifespan: fx.durations[i] });
+      }, i * (fx.durations[i] || 130));
+    }
+  }
+
+  // バフ付与(このドラマーからまだ受けていない、かつ上限未満の味方ゴブリンのみ)
+  nearbyGoblinAllies.forEach(ally => {
+    if (!ally.buffSources) ally.buffSources = new Set();
+    if (ally.buffSources.has(unit)) return;
+    if (ally.buffSources.size >= (def.buffMaxStacks || 3)) return;
+    ally.buffSources.add(unit);
+  });
+}
+
 function setMotion(unit, motion, opts){
   opts = opts || {};
   unit.motion = motion;
@@ -804,6 +934,22 @@ function setMotion(unit, motion, opts){
   unit.motionLoop = !!opts.loop;
   unit.onMotionEnd = opts.onEnd || null;
   applyFrame(unit);
+  if (motion === "discover"){
+    showAlertMark(unit);
+  }
+}
+
+// 発見モーションに入った瞬間、頭上に共通の「！」マークを表示する
+function showAlertMark(unit){
+  const fx = FX_ALERT_MARK;
+  if (!fx) return;
+  const headBottom = 74 + (unit.img.offsetHeight || 90) + 6; // ユニットの頭の少し上
+  for (let i = 0; i < fx.count; i++){
+    setTimeout(() => {
+      if (unit.dead) return;
+      spawnFx(fx.imageBase + fx.prefix + (i+1) + ".png", unit.x, { height: 34, bottom: headBottom, lifespan: fx.durations[i] });
+    }, i * (fx.durations[i] || 120));
+  }
 }
 
 function applyFrame(unit){
@@ -914,7 +1060,7 @@ function fireProjectile(unit){
     if (capturedTarget){
       if (!capturedTarget.dead){
         if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, capturedTarget.x, { lifespan: 250, height: 45, bottom: muzzleBottom });
-        applyDamageToUnit(capturedTarget, unit.def.atk, unit);
+        applyDamageToUnit(capturedTarget, getEffectiveAtk(unit), unit);
       }
       // 狙っていた相手が飛翔中に倒れていた場合は何も起きない(弾は外れた扱い)
       return;
@@ -923,11 +1069,11 @@ function fireProjectile(unit){
     // 相手ユニットがおらず、城を狙っていた場合
     if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 250, height: 45, bottom: muzzleBottom });
     if (unit.side === "player"){
-      battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - unit.def.atk);
+      battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
       updateCastleBars();
       if (battle.enemyCastleHp <= 0) endBattle(true);
     } else {
-      battle.playerCastleHp = Math.max(0, battle.playerCastleHp - unit.def.atk);
+      battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit));
       updateCastleBars();
       if (battle.playerCastleHp <= 0) endBattle(false);
     }
@@ -937,15 +1083,15 @@ function fireProjectile(unit){
 function resolveAttackImpact(unit){
   if (!battle || battle.ended) return;
   if (unit.target && !unit.target.dead){
-    applyDamageToUnit(unit.target, unit.def.atk, unit);
+    applyDamageToUnit(unit.target, getEffectiveAtk(unit), unit);
     return;
   }
   if (unit.side === "player"){
-    battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - unit.def.atk);
+    battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
     updateCastleBars();
     if (battle.enemyCastleHp <= 0) endBattle(true);
   } else {
-    battle.playerCastleHp = Math.max(0, battle.playerCastleHp - unit.def.atk);
+    battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit));
     updateCastleBars();
     if (battle.playerCastleHp <= 0) endBattle(false);
   }
@@ -976,6 +1122,7 @@ function afterReaction(unit){
 function killUnit(target){
   target.dead = true;
   target.target = null;
+  clearBuffsFrom(target); // このユニットが死んだので、与えていたバフも消える
   setMotion(target, "down", { onEnd: () => removeUnit(target) });
 }
 
@@ -984,6 +1131,7 @@ function applyDamageToUnit(target, amount, attacker){
   const def = target.def;
   const attackerFlags = (attacker && attacker.def.attackFlags) || {};
   const meleeRangeCheck = attacker && Math.abs(attacker.x - target.x) <= def.attackRange;
+  amount = amount * getDamageCutMultiplier(target); // 鼓舞バフの被ダメージカットを適用
 
   // 特殊回避：自分の攻撃射程内(=近接で殴られた時)の前方攻撃だけを一度限り確定で避ける
   // (火縄銃などの遠距離攻撃は射程外からの被弾になるため対象外)
@@ -1074,6 +1222,24 @@ function onAttackEnd(unit){
 function updateUnitAI(unit, dtMs){
   if (unit.dead || unit.debugLock) return;
   const def = unit.def;
+
+  if (def.noCombat){
+    // 非戦闘ユニット(鼓舞兵など)：索敵も攻撃もせず、ひたすら自陣営の前進方向へ歩くだけ
+    if (unit.motion !== "walk" && unit.motion !== "idle") return; // 太鼓演奏中などはそのまま
+    if (unit.motion === "idle") { setMotion(unit, "walk", { loop:true }); return; }
+    const field = document.getElementById("battlefield");
+    const fieldWidth = field.clientWidth;
+    const destX = unit.side === "player" ? 60 : fieldWidth - 60;
+    const dx = destX - unit.x;
+    if (Math.abs(dx) > 2){
+      const dir = dx > 0 ? 1 : -1;
+      const speed = getEffectiveSpeed(unit, def.walkSpeed);
+      unit.x += dir * speed * (dtMs/1000);
+      applyFrame(unit);
+    }
+    return;
+  }
+
   const approachMotion = def.approachMotion || "run"; // 発見後の接近モーション(兵士は走り、槍兵は忍び足)
   const approachSpeed = def.approachSpeed != null ? def.approachSpeed : def.runSpeed;
   const attackMotionName = def.attackMotionName || "attack"; // 攻撃モーションの呼び名(火縄銃兵はshoot)
@@ -1124,7 +1290,8 @@ function updateUnitAI(unit, dtMs){
     }
   } else {
     const dir = dx > 0 ? 1 : -1;
-    const speed = unit.motion === approachMotion ? approachSpeed : unit.def.walkSpeed;
+    const baseSpeed = unit.motion === approachMotion ? approachSpeed : unit.def.walkSpeed;
+    const speed = getEffectiveSpeed(unit, baseSpeed);
     unit.x += dir * speed * (dtMs/1000);
     applyFrame(unit);
   }
@@ -1148,6 +1315,7 @@ function battleLoop(now){
 
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
+    updateInspire(unit, dt);
     updateUnitAI(unit, dt);
     advanceUnit(unit, dt);
   });
@@ -1189,6 +1357,10 @@ document.getElementById("cheat-enemy-gun-btn").addEventListener("click", () => {
 document.getElementById("cheat-enemy-goblin-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("goblin", "enemy");
+});
+document.getElementById("cheat-enemy-drummer-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("drummerGoblin", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
