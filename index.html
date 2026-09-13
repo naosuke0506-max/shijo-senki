@@ -945,10 +945,11 @@ function updateInspire(unit, dtMs){
       });
       const rfx = ally.def.fxRoarWave;
       if (rfx){
+        const flip = ally.facing === -1; // キャラが左向きなら音波も反転
         for (let i = 0; i < rfx.count; i++){
           setTimeout(() => {
             if (ally.dead) return;
-            spawnFx(rfx.imageBase + rfx.prefix + (i+1) + ".png", ally.x, { height: 50, bottom: 100, lifespan: rfx.durations[i] });
+            spawnFx(rfx.imageBase + rfx.prefix + (i+1) + ".png", ally.x, { height: 50, bottom: 100, lifespan: rfx.durations[i], flip });
           }, i * (rfx.durations[i] || 175));
         }
       }
