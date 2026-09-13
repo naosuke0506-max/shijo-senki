@@ -1104,8 +1104,16 @@ function updateUnitAI(unit, dtMs){
 
   const field = document.getElementById("battlefield");
   const fieldWidth = field.clientWidth;
-  const destX = unit.target ? unit.target.x : (unit.side === "player" ? 60 : fieldWidth - 60);
-  const dx = destX - unit.x;
+  const forwardDir = unit.side === "player" ? -1 : 1; // 自陣営が進むべき方向。これと逆には進まない
+  let destX = unit.target ? unit.target.x : (unit.side === "player" ? 60 : fieldWidth - 60);
+  let dx = destX - unit.x;
+
+  if (unit.target && dx !== 0 && Math.sign(dx) !== forwardDir){
+    // 索敵対象が自分の後方にいる(回避で追い抜かれた場合など)：後退はせず、その相手は諦めて前進を続ける
+    unit.target = null;
+    destX = unit.side === "player" ? 60 : fieldWidth - 60;
+    dx = destX - unit.x;
+  }
 
   if (Math.abs(dx) <= unit.def.attackRange){
     if (unit.shieldBroken){
