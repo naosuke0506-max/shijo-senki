@@ -482,6 +482,8 @@ const CHAR_DEFS = {
     fxMuzzleFlash: "fx_muzzleflash_1.png",
     fxBullet: "fx_bullet_1.png",
     fxImpact: "fx_impact_1.png",
+    muzzleOffsetX: 55,      // 体の中心から銃口までの前方オフセット(px)
+    muzzleOffsetBottom: 128, // 銃口の高さ(地面からのpx)
     canGuard: false,
     attackFlags: {},
     icon: ICON_ARQUEBUSIER,
@@ -830,22 +832,26 @@ function fireProjectile(unit){
   const dir = unit.facing === -1 ? -1 : 1; // 発射方向(左向きユニットなら左へ)
   const capturedTarget = unit.target; // 発射時点の狙い。飛翔中に相手が死ねば外れ扱いにする
 
-  // 発射炎(マズルフラッシュ)：発射位置にごく短時間だけ表示
+  // 銃口の位置(体の中心から前方・やや高めにオフセット)
+  const muzzleX = unit.x + dir * (def.muzzleOffsetX || 0);
+  const muzzleBottom = def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110;
+
+  // 発射炎(マズルフラッシュ)：銃口の位置にごく短時間だけ表示
   if (def.fxMuzzleFlash){
-    spawnFx(def.imageBase + def.fxMuzzleFlash, unit.x, { flip: dir < 0, lifespan: 150, height: 26 });
+    spawnFx(def.imageBase + def.fxMuzzleFlash, muzzleX, { flip: dir < 0, lifespan: 150, height: 39, bottom: muzzleBottom });
   }
 
   // 命中先の座標を決める(相手ユニット、いなければ城)
   const field = document.getElementById("battlefield");
   const fieldWidth = field ? field.clientWidth : 800;
   const targetX = capturedTarget ? capturedTarget.x : (unit.side === "player" ? 30 : fieldWidth - 30);
-  const distance = Math.abs(targetX - unit.x);
+  const distance = Math.abs(targetX - muzzleX);
   const speed = def.projectileSpeed || 1200;
   const travelMs = Math.max(40, (distance / speed) * 1000);
 
   let bullet = null;
   if (def.fxBullet){
-    bullet = spawnFx(def.imageBase + def.fxBullet, unit.x, { flip: dir < 0, height: 10 });
+    bullet = spawnFx(def.imageBase + def.fxBullet, muzzleX, { flip: dir < 0, height: 10, bottom: muzzleBottom });
     bullet.style.transition = "transform " + travelMs + "ms linear";
     requestAnimationFrame(() => {
       bullet.style.transform = "translateX(" + targetX + "px)" + (dir < 0 ? " scaleX(-1)" : "");
@@ -858,7 +864,7 @@ function fireProjectile(unit){
 
     if (capturedTarget){
       if (!capturedTarget.dead){
-        if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, capturedTarget.x, { lifespan: 250, height: 30 });
+        if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, capturedTarget.x, { lifespan: 250, height: 45, bottom: muzzleBottom });
         applyDamageToUnit(capturedTarget, unit.def.atk, unit);
       }
       // 狙っていた相手が飛翔中に倒れていた場合は何も起きない(弾は外れた扱い)
@@ -866,7 +872,7 @@ function fireProjectile(unit){
     }
 
     // 相手ユニットがおらず、城を狙っていた場合
-    if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 250, height: 30 });
+    if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 250, height: 45, bottom: muzzleBottom });
     if (unit.side === "player"){
       battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - unit.def.atk);
       updateCastleBars();
