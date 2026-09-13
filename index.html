@@ -269,6 +269,7 @@
       <button id="cheat-enemy-spear-btn" style="position:absolute;left:0;top:112px;z-index:6;font-size:.62rem;padding:6px 8px;">敵槍兵召喚(検証用)</button>
       <button id="cheat-enemy-shield-btn" style="position:absolute;left:0;top:148px;z-index:6;font-size:.62rem;padding:6px 8px;">敵盾兵召喚(検証用)</button>
       <button id="cheat-enemy-gun-btn" style="position:absolute;left:0;top:184px;z-index:6;font-size:.62rem;padding:6px 8px;">敵火縄銃兵召喚(検証用)</button>
+      <button id="cheat-enemy-goblin-btn" style="position:absolute;left:0;top:220px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -309,6 +310,8 @@ const IMG_SHIELDMAN = REPO_BASE + "images/shieldman_repo_upload/";
 const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
 const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
 const ICON_ARQUEBUSIER = REPO_BASE + "icons/arquebusier_icon.png";
+const IMG_GOBLIN = REPO_BASE + "images/goblin_repo_upload/";
+const ICON_GOBLIN = REPO_BASE + "icons/goblin_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -508,6 +511,50 @@ const CHAR_DEFS = {
       getup:    [190,190,250,400,350]
     },
     attackImpactFrame: 2 // shoot_3(発射の瞬間)
+  },
+
+  goblin: {
+    name: "ゴブリン",
+    rank: null,
+    cost: 250,
+    hp: 18,
+    atk: 6,
+    weight: 30,
+    walkSpeed: 55,
+    runSpeed: 95,
+    attackRange: 40,
+    detectionRange: 200,
+    approachMotion: "run", // 兵士と同じく発見後は走って接敵
+    canDodge: true,        // 前方攻撃を一度だけ確定回避できる(側面判定持ちの攻撃には無効)
+    attackFlags: {},
+    icon: ICON_GOBLIN,
+    imageBase: IMG_GOBLIN,
+    pixelScale: (92 * (140/170)) / 499, // 身長140cm(兵士170cm比)を反映した縮尺
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, discover:2, run:5, attack:6,
+      guardbreak:4, flinch:6, blowback:6, down:2, getup:5, dodge:6, roar:6
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [215,215,215,215],
+      discover:   [180,400],
+      run:        [210,210,210,210,210],
+      attack:     [140,130,200,105,175,380],
+      guardbreak: [350,550,235,290],
+      flinch:     [195,125,210,145,420,220], // 7個いただいたが画像6枚のため先頭6個を採用
+      blowback:   [225,156,156,135,180,150],
+      down:       [360,1000],
+      getup:      [225,195,180,275,350],
+      dodge:      [185,185,185,185,185,185],
+      roar:       [195,195,195,335,296,600]
+    },
+    attackImpactFrame: 4, // attack_5(命中の瞬間)
+    // 咆哮エフェクト(扇形の音波)と赤い目(合成用、黒背景のままscreen合成)
+    fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175] },
+    fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155] }
   }
 };
 
@@ -731,7 +778,8 @@ function spawnUnit(kind, side){
     dead: false,
     debugLock: false,
     guardCooldown: 0,     // 残りクールタイム(ms)。0ならガード可能
-    shieldBroken: false   // true になったらガード・近接攻撃とも二度と使えない
+    shieldBroken: false,  // true になったらガード・近接攻撃とも二度と使えない
+    dodgeUsed: false      // true になったら特殊回避は二度と使えない(一度きり)
   };
   battle.units.push(unit);
   setMotion(unit, "idle");
@@ -933,13 +981,24 @@ function killUnit(target){
 function applyDamageToUnit(target, amount, attacker){
   if (target.dead) return;
   const def = target.def;
+  const attackerFlags = (attacker && attacker.def.attackFlags) || {};
+
+  // 特殊回避：前方攻撃を一度だけ確定で避ける(側面判定持ちの攻撃には効かない)
+  const dodgeReady = def.canDodge && !target.dodgeUsed && !isSuperArmored(target) &&
+    isAttackFromFront(target, attacker) && !attackerFlags.sideHitbox;
+
+  if (dodgeReady){
+    target.dodgeUsed = true;
+    setMotion(target, "dodge", { onEnd: () => afterReaction(target) });
+    return; // ダメージなし
+  }
 
   const guardReady = def.canGuard && !target.shieldBroken &&
     target.guardCooldown <= 0 && !isSuperArmored(target) &&
     isAttackFromFront(target, attacker);
 
   if (guardReady){
-    const flags = (attacker && attacker.def.attackFlags) || {};
+    const flags = attackerFlags;
 
     if (flags.breaksShield){
       // ガードブレイカー攻撃：盾が完全に壊れ、以後ガードも近接攻撃も使えなくなる
@@ -1110,6 +1169,10 @@ document.getElementById("cheat-enemy-shield-btn").addEventListener("click", () =
 document.getElementById("cheat-enemy-gun-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("arquebusier", "enemy");
+});
+document.getElementById("cheat-enemy-goblin-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("goblin", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
