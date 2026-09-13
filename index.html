@@ -563,8 +563,11 @@ const CHAR_DEFS = {
     fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175], imageBase: IMG_GOBLIN_EXTRA },
     fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155], imageBase: IMG_GOBLIN_EXTRA },
     // 目の発光エフェクトの位置。idle画像で計測した「体全体の横幅・縦幅に対する目の割合位置」。
-    // 割合方式にすることで、コマごとに画像サイズが違ってもある程度自動で追従する。
-    auraOffsetFrac: { x: 0.784, y: 0.175 } // x:画像左端からの割合(0〜1) y:画像上端からの割合(0〜1)
+    // しゃがむモーション(attackなど)は頭が相対的に下がるため、別の割合を用意。
+    auraOffsetFrac: { x: 0.784, y: 0.124 }, // 基本(idle・walk・runなど、立ちポーズ全般)
+    auraOffsetFracByMotion: {
+      attack: { x: 0.72, y: 0.19 } // しゃがみが深い攻撃モーション用
+    }
   },
 
   drummerGoblin: {
@@ -1112,7 +1115,8 @@ function fireProjectile(unit){
 }
 
 function getAuraOffset(unit){
-  const frac = unit.def.auraOffsetFrac;
+  const frac = (unit.def.auraOffsetFracByMotion && unit.def.auraOffsetFracByMotion[unit.motion])
+    || unit.def.auraOffsetFrac;
   const w = unit._displayWidth || unit.img.offsetWidth || 0;
   const h = unit._displayHeight || unit.img.offsetHeight || 0;
   if (!frac || !w || !h) return { fromLeft: (w||0)/2, bottom: 60 };
