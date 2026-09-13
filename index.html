@@ -266,6 +266,7 @@
       <button id="cheat-enemy-btn" style="position:absolute;left:0;top:76px;z-index:6;font-size:.62rem;padding:6px 8px;">敵兵士召喚(検証用)</button>
       <button id="cheat-enemy-spear-btn" style="position:absolute;left:0;top:112px;z-index:6;font-size:.62rem;padding:6px 8px;">敵槍兵召喚(検証用)</button>
       <button id="cheat-enemy-shield-btn" style="position:absolute;left:0;top:148px;z-index:6;font-size:.62rem;padding:6px 8px;">敵盾兵召喚(検証用)</button>
+      <button id="cheat-enemy-gun-btn" style="position:absolute;left:0;top:184px;z-index:6;font-size:.62rem;padding:6px 8px;">敵火縄銃兵召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -304,6 +305,8 @@ const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
 const ICON_SPEARMAN = REPO_BASE + "icons/spearman_icon.png";
 const IMG_SHIELDMAN = REPO_BASE + "images/shieldman_repo_upload/";
 const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
+const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
+const ICON_ARQUEBUSIER = REPO_BASE + "icons/arquebusier_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -457,6 +460,45 @@ const CHAR_DEFS = {
     attackImpactFrame: 3,
     guardCooldownMs: 1000,          // ガード成功後のクールタイム
     guardIgnoredPenaltyMs: 2000     // ガード無効攻撃を受けた時に追加されるクールタイム
+  },
+
+  arquebusier: {
+    name: "火縄銃兵",
+    rank: null,
+    cost: 750,
+    hp: 28,
+    atk: 30,
+    weight: 60,
+    walkSpeed: 40,
+    attackRange: 320,        // 遠距離
+    detectionRange: 420,     // 遠距離ユニットなので索敵範囲は広め
+    approachMotion: "aimwalk", // 発見後は銃を構えたまま警戒歩き
+    approachSpeed: 30,
+    attackMotionName: "shoot", // このキャラの攻撃モーションは"attack"ではなく"shoot"
+    canGuard: false,
+    attackFlags: {},
+    icon: ICON_ARQUEBUSIER,
+    imageBase: IMG_ARQUEBUSIER,
+    pixelScale: 92 / 524,
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, discover:2, aimwalk:4, shoot:9,
+      flinch:8, blowback:6, down:2, getup:5
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [170,170,170,170],
+      discover: [190,360],
+      aimwalk:  [165,165,165,165],
+      shoot:    [150,150,220,180,170,500,1800,2200,150],
+      flinch:   [200,170,210,170,380,250,190,170],
+      blowback: [180,170,150,150,150,150],
+      down:     [350,1000],
+      getup:    [190,190,250,400,350]
+    },
+    attackImpactFrame: 2 // shoot_3(発射の瞬間)
   }
 };
 
@@ -493,7 +535,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman"],
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier"],
   stage: null
 };
 
@@ -746,7 +788,8 @@ function advanceUnit(unit, dtMs){
         return;
       }
     }
-    if (unit.motion === "attack" && unit.frameIndex === def.attackImpactFrame){
+    const attackMotionName = def.attackMotionName || "attack";
+    if (unit.motion === attackMotionName && unit.frameIndex === def.attackImpactFrame){
       resolveAttackImpact(unit);
     }
     applyFrame(unit);
@@ -872,12 +915,12 @@ function onAttackEnd(unit){
   // いったん歩き/接近モーションへ戻し、次のtickで距離を再評価させる(範囲内ならすぐ攻撃に戻る)
   setMotion(unit, unit.target ? approachMotion : "walk", { loop:true });
 }
-
 function updateUnitAI(unit, dtMs){
   if (unit.dead || unit.debugLock) return;
   const def = unit.def;
   const approachMotion = def.approachMotion || "run"; // 発見後の接近モーション(兵士は走り、槍兵は忍び足)
   const approachSpeed = def.approachSpeed != null ? def.approachSpeed : def.runSpeed;
+  const attackMotionName = def.attackMotionName || "attack"; // 攻撃モーションの呼び名(火縄銃兵はshoot)
 
   // 一撃モーション中・怯み中などは、それぞれのonMotionEndで次の状態が決まるので何もしない
   if (unit.motion === "idle"){
@@ -913,7 +956,7 @@ function updateUnitAI(unit, dtMs){
       // 盾が壊れて近接攻撃ができない：その場に立ち尽くす
       if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
     } else {
-      setMotion(unit, "attack", { onEnd: onAttackEnd });
+      setMotion(unit, attackMotionName, { onEnd: onAttackEnd });
     }
   } else {
     const dir = dx > 0 ? 1 : -1;
@@ -974,6 +1017,10 @@ document.getElementById("cheat-enemy-spear-btn").addEventListener("click", () =>
 document.getElementById("cheat-enemy-shield-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("shieldman", "enemy");
+});
+document.getElementById("cheat-enemy-gun-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("arquebusier", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
