@@ -982,13 +982,18 @@ function applyDamageToUnit(target, amount, attacker){
   if (target.dead) return;
   const def = target.def;
   const attackerFlags = (attacker && attacker.def.attackFlags) || {};
+  const meleeRangeCheck = attacker && Math.abs(attacker.x - target.x) <= def.attackRange;
 
-  // 特殊回避：前方攻撃を一度だけ確定で避ける(側面判定持ちの攻撃には効かない)
+  // 特殊回避：自分の攻撃射程内(=近接で殴られた時)の前方攻撃だけを一度限り確定で避ける
+  // (火縄銃などの遠距離攻撃は射程外からの被弾になるため対象外)
   const dodgeReady = def.canDodge && !target.dodgeUsed && !isSuperArmored(target) &&
-    isAttackFromFront(target, attacker) && !attackerFlags.sideHitbox;
+    meleeRangeCheck && isAttackFromFront(target, attacker) && !attackerFlags.sideHitbox;
 
   if (dodgeReady){
     target.dodgeUsed = true;
+    // 攻撃者の"背後"(攻撃者が向いている方向と逆側)へ回り込む
+    const behindOffset = target.def.attackRange || 40;
+    target.x = attacker.x - attacker.facing * behindOffset;
     setMotion(target, "dodge", { onEnd: () => afterReaction(target) });
     return; // ダメージなし
   }
