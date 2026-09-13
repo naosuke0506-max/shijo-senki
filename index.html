@@ -561,7 +561,23 @@ const CHAR_DEFS = {
     attackImpactFrame: 4, // attack_5(命中の瞬間)
     // 咆哮エフェクト(扇形の音波)と赤い目(合成用、黒背景のままscreen合成)
     fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175], imageBase: IMG_GOBLIN_EXTRA },
-    fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155], imageBase: IMG_GOBLIN_EXTRA }
+    fxRedEye: { count: 4, prefix: "red_eye_", durations: [155,155,155,155], imageBase: IMG_GOBLIN_EXTRA },
+    // 目の発光エフェクトの位置(画像中心からのオフセット、ゲーム内px)。モーション別、roarはコマ別に指定。
+    auraOffset: {
+      default: { x: 9.6, bottom: 62.1 }, // idle基準
+      byMotion: {
+        walk: { x: 9.7, bottom: 60.7 },
+        run:  { x: 16.9, bottom: 50.7 },
+        roar: [
+          { x: -4.9, bottom: 70.3 },
+          { x: -4.9, bottom: 70.3 },
+          { x: -3.3, bottom: 69.2 },
+          { x: 14.9, bottom: 54.4 },
+          { x: -3.3, bottom: 69.2 },
+          { x: 14.9, bottom: 54.4 }
+        ]
+      }
+    }
   },
 
   drummerGoblin: {
@@ -927,6 +943,22 @@ function updateInspire(unit, dtMs){
     if (ally.buffSources.has(unit)) return;
     if (ally.buffSources.size >= (def.buffMaxStacks || 3)) return;
     ally.buffSources.add(unit);
+
+    // 鼓舞を受けた瞬間、そのゴブリンは何をしていても強制的に咆哮する(スーパーアーマー等を無視して割り込む)
+    if (ally.def.frameCounts && ally.def.frameCounts.roar){
+      setMotion(ally, "roar", {
+        onEnd: () => { if (!ally.dead) setMotion(ally, "walk", { loop:true }); }
+      });
+      const rfx = ally.def.fxRoarWave;
+      if (rfx){
+        for (let i = 0; i < rfx.count; i++){
+          setTimeout(() => {
+            if (ally.dead) return;
+            spawnFx(rfx.imageBase + rfx.prefix + (i+1) + ".png", ally.x, { height: 50, bottom: 100, lifespan: rfx.durations[i] });
+          }, i * (rfx.durations[i] || 175));
+        }
+      }
+    }
   });
 }
 
@@ -1084,6 +1116,15 @@ function fireProjectile(unit){
   }, travelMs);
 }
 
+function getAuraOffset(unit){
+  const table = unit.def.auraOffset;
+  if (!table) return { x: 0, bottom: 60 };
+  const byMotion = table.byMotion && table.byMotion[unit.motion];
+  if (Array.isArray(byMotion)) return byMotion[Math.min(unit.frameIndex, byMotion.length - 1)] || table.default;
+  if (byMotion) return byMotion;
+  return table.default || { x: 0, bottom: 60 };
+}
+
 // バフスタック数に応じて目の発光オーラを表示・更新する(1重=素の発光, 2重=赤オーラ, 3重=紫オーラ)
 function updateBuffAura(unit, dtMs){
   const def = unit.def;
@@ -1115,9 +1156,14 @@ function updateBuffAura(unit, dtMs){
     unit.buffFxFrame = (unit.buffFxFrame + 1) % fx.count;
   }
   unit.buffFxEl.src = fx.imageBase + fx.prefix + (unit.buffFxFrame + 1) + ".png";
-  const headBottom = 74 + Math.max(40, unit.img.offsetHeight || 90) - 14;
-  unit.buffFxEl.style.bottom = headBottom + "px";
-  unit.buffFxEl.style.transform = "translateX(" + unit.x + "px)";
+
+  // コマごとに計測した頭の位置(画像中心からのオフセット)を、向きに応じて反転しつつ適用
+  const off = getAuraOffset(unit);
+  const centerX = unit.x + (unit.img.offsetWidth || 0) / 2;
+  const auraX = centerX + unit.facing * off.x;
+  unit.buffFxEl.style.bottom = (74 + off.bottom) + "px";
+  unit.buffFxEl.style.transform = "translateX(" + auraX + "px) translateX(-50%)";
+
   // 1重=素の赤発光そのまま, 2重=赤みを強調, 3重=紫系へ色相シフト
   if (stacks >= 3){
     unit.buffFxEl.style.filter = "hue-rotate(75deg) saturate(1.6) drop-shadow(0 0 4px #b03bff)";
