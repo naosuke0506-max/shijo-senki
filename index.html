@@ -635,7 +635,7 @@ const CHAR_DEFS = {
     attackFlags: {},
     icon: ICON_CATAPULT,
     imageBase: IMG_CATAPULT,
-    pixelScale: (92 * (400/170)) / 426, // 全高4m(兵士170cm基準)を反映した縮尺
+    pixelScale: 150 / 426, // 実寸換算(216px)だと城より大きくなるため、画面表示上妥当なサイズ(高さ150px程度)に調整
     frameCounts: {
       idle:1, roll:2, throw:16, discover:3, flinch:3, blowback:2, down:5
     },
