@@ -617,8 +617,9 @@ const CHAR_DEFS = {
     atk: 55,
     weight: 400,
     walkSpeed: 14,
-    attackRange: 520,
-    detectionRange: 550,
+    attackRange: 650,
+    minAttackRange: 400, // これより近いと近すぎて撃てない(範囲外は立ち尽くすだけ)
+    detectionRange: 700,
     approachMotion: "roll", // 発見後もそのまま同じ足取りで接近(専用の警戒モーションなし)
     approachSpeed: 14,
     attackMotionName: "throw",
@@ -633,10 +634,10 @@ const CHAR_DEFS = {
     // 移動の見た目：車輪の回転は再現できなかったため、移動中に砂埃を纏わせて誤魔化す
     fxDustMove: { count: 1, prefix: "fx_dust_", durations: [600], imageBase: IMG_CATAPULT },
     canGuard: false,
-    attackFlags: {},
-    icon: ICON_CATAPULT,
+    attackFlags: { breaksShield: true }, // 岩の直撃は盾を破壊する
     imageBase: IMG_CATAPULT,
     pixelScale: 120 / 426, // 画面表示上妥当なサイズにさらに縮小(高さ約120px)
+    hitboxWidth: 220, // 横幅の大きいユニット用。攻撃側はこの幅の近い方の端を狙う
     frameCounts: {
       idle:1, roll:2, throw:16, discover:3, flinch:3, blowback:2, down:5
     },
@@ -1270,6 +1271,18 @@ function isSuperArmored(unit){
 }
 
 // 攻撃者がtargetの正面にいるか(盾兵のガードは前方からの攻撃にしか効かない)
+// 横幅のあるユニット(投石器など)同士の距離を、単なる座標の差ではなく
+// 「箱と箱の隙間」で計算する。幅を持たない通常ユニットは従来通りの点同士の距離になる。
+function edgeDistance(a, b){
+  const aw = (a.def && a.def.hitboxWidth) || 0;
+  const bw = (b.def && b.def.hitboxWidth) || 0;
+  const aLeft = a.x, aRight = a.x + aw;
+  const bLeft = b.x, bRight = b.x + bw;
+  if (aRight < bLeft) return bLeft - aRight;
+  if (bRight < aLeft) return aLeft - bRight;
+  return 0; // 重なっている
+}
+
 function isAttackFromFront(target, attacker){
   if (!attacker) return false;
   // facing:-1は左向き(=前方は自分より左)、facing:+1は右向き(=前方は自分より右)
@@ -1294,7 +1307,7 @@ function applyDamageToUnit(target, amount, attacker){
   if (target.dead) return;
   const def = target.def;
   const attackerFlags = (attacker && attacker.def.attackFlags) || {};
-  const meleeRangeCheck = attacker && Math.abs(attacker.x - target.x) <= def.attackRange;
+  const meleeRangeCheck = attacker && edgeDistance(target, attacker) <= def.attackRange;
   amount = amount * getDamageCutMultiplier(target); // 鼓舞バフの被ダメージカットを適用
 
   // 特殊回避：自分の攻撃射程内(=近接で殴られた時)の前方攻撃だけを一度限り確定で避ける
@@ -1366,7 +1379,7 @@ function findNearestEnemyInRange(unit){
   battle.units.forEach(other => {
     if (other === unit || other.dead || other.side === unit.side) return;
     if (other === unit.dodgedPastUnit) return; // 回避してすれ違った相手とは戦わない
-    const d = Math.abs(other.x - unit.x);
+    const d = edgeDistance(unit, other);
     if (d <= unit.def.detectionRange && d < nearestDist){
       nearest = other;
       nearestDist = d;
@@ -1464,13 +1477,18 @@ function updateUnitAI(unit, dtMs){
     dx = destX - unit.x;
   }
 
-  if (Math.abs(dx) <= unit.def.attackRange){
+  const rangeDist = unit.target ? edgeDistance(unit, unit.target) : Math.abs(dx);
+  const minRange = unit.def.minAttackRange || 0;
+
+  if (rangeDist <= unit.def.attackRange && rangeDist >= minRange){
     if (unit.shieldBroken){
       // 盾が壊れて近接攻撃ができない：その場に立ち尽くす
       if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
     } else {
       setMotion(unit, attackMotionName, { onEnd: onAttackEnd });
     }
+  } else if (rangeDist < minRange){
+    // 近すぎて撃てない：後退はせず、モーションもそのままにその場で留まる(何もしない)
   } else {
     const dir = dx > 0 ? 1 : -1;
     const baseSpeed = unit.motion === approachMotion ? approachSpeed : unit.def.walkSpeed;
