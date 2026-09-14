@@ -1442,7 +1442,7 @@ function updateUnitAI(unit, dtMs){
     if (!found && unit.target){
       unit.target = null;
     }
-    if (!found && unit.motion === approachMotion){
+    if (!found && unit.motion === approachMotion && unit.motion !== walkFallback){
       setMotion(unit, walkFallback, { loop:true }); // 追っていた敵を見失ったら歩きに戻る
       return;
     }
