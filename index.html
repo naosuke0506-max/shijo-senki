@@ -1276,7 +1276,8 @@ function isAttackFromFront(target, attacker){
 function afterReaction(unit){
   if (unit.dead) return;
   unit.target = null; // 攻撃してきた相手を仕切り直しで再索敵させる
-  setMotion(unit, "walk", { loop:true });
+  const fallback = unit.def.frameCounts.walk ? "walk" : (unit.def.approachMotion || "walk");
+  setMotion(unit, fallback, { loop:true });
 }
 
 function killUnit(target){
@@ -1377,7 +1378,8 @@ function onAttackEnd(unit){
   const def = unit.def;
   const approachMotion = def.approachMotion || "run";
   // いったん歩き/接近モーションへ戻し、次のtickで距離を再評価させる(範囲内ならすぐ攻撃に戻る)
-  setMotion(unit, unit.target ? approachMotion : "walk", { loop:true });
+  const fallback = def.frameCounts.walk ? "walk" : approachMotion;
+  setMotion(unit, unit.target ? approachMotion : fallback, { loop:true });
 }
 function updateUnitAI(unit, dtMs){
   if (unit.dead || unit.debugLock) return;
@@ -1421,15 +1423,18 @@ function updateUnitAI(unit, dtMs){
 
   // 一撃モーション中・怯み中などは、それぞれのonMotionEndで次の状態が決まるので何もしない
   if (unit.motion === "idle"){
-    if (!unit.shieldBroken) setMotion(unit, "walk", { loop:true }); // 出現直後は発見モーションなしでそのまま歩く
+    // "walk"という名前のコマを持たないキャラ(投石器など)は、代わりにapproachMotionを使う
+    const initialMoveMotion = def.frameCounts.walk ? "walk" : approachMotion;
+    if (!unit.shieldBroken) setMotion(unit, initialMoveMotion, { loop:true }); // 出現直後は発見モーションなしでそのまま歩く
     return; // 盾破壊で立ち尽くしているユニットはidleのまま(次の索敵チェックだけ継続したいので下に続けたいところだが、単純化のためここで留める)
   }
   if (unit.motion !== "walk" && unit.motion !== approachMotion) return;
+  const walkFallback = def.frameCounts.walk ? "walk" : approachMotion;
 
   // 敵ユニットの索敵(検知範囲内の最も近い敵)
   if (!unit.target || unit.target.dead){
     const found = findNearestEnemyInRange(unit);
-    if (found && unit.motion === "walk"){
+    if (found && unit.motion === walkFallback){
       unit.target = found;
       setMotion(unit, "discover", { onEnd: () => setMotion(unit, approachMotion, { loop:true }) });
       return;
@@ -1438,7 +1443,7 @@ function updateUnitAI(unit, dtMs){
       unit.target = null;
     }
     if (!found && unit.motion === approachMotion){
-      setMotion(unit, "walk", { loop:true }); // 追っていた敵を見失ったら歩きに戻る
+      setMotion(unit, walkFallback, { loop:true }); // 追っていた敵を見失ったら歩きに戻る
       return;
     }
   }
