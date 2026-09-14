@@ -272,6 +272,7 @@
       <button id="cheat-enemy-gun-btn" style="position:absolute;left:0;top:184px;z-index:6;font-size:.62rem;padding:6px 8px;">敵火縄銃兵召喚(検証用)</button>
       <button id="cheat-enemy-goblin-btn" style="position:absolute;left:0;top:220px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン召喚(検証用)</button>
       <button id="cheat-enemy-drummer-btn" style="position:absolute;left:0;top:256px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鼓舞兵召喚(検証用)</button>
+      <button id="cheat-enemy-catapult-btn" style="position:absolute;left:0;top:292px;z-index:6;font-size:.62rem;padding:6px 8px;">敵投石器召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -320,6 +321,8 @@ const ICON_DRUMMER = REPO_BASE + "icons/drummer_goblin_icon.png";
 const COMMON_FX = REPO_BASE + "images/common_fx_upload/";
 // 頭上に出る赤いオーラ(バフ表示)。全キャラ共通で使う、位置調整不要のエフェクト。
 const BUFF_AURA_FX = { count: 3, prefix: "red_aura_", durations: [200,200,200], imageBase: COMMON_FX };
+const IMG_CATAPULT = REPO_BASE + "images/catapult_repo_upload/";
+const ICON_CATAPULT = REPO_BASE + "icons/catapult_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -604,6 +607,48 @@ const CHAR_DEFS = {
     },
     // 太鼓の衝撃波エフェクト(合成用、共通の「！」マークと同じ黒背景screen合成)
     fxDrumWave: { count: 4, prefix: "drum_fx_", durations: [135,135,135,135], imageBase: IMG_DRUMMER }
+  },
+
+  catapult: {
+    name: "ゴブリン投石器",
+    rank: null,
+    cost: 2800,
+    hp: 220,
+    atk: 55,
+    weight: 400,
+    walkSpeed: 14,
+    attackRange: 520,
+    detectionRange: 550,
+    approachMotion: "roll", // 発見後もそのまま同じ足取りで接近(専用の警戒モーションなし)
+    approachSpeed: 14,
+    attackMotionName: "throw",
+    ranged: true,
+    splashRadius: 90,          // 着弾地点周辺、この範囲内の敵にまとめてダメージ
+    projectileArc: true,       // 直線ではなく放物線を描いて飛ぶ
+    projectileSpeed: 480,      // 山なりなので銃弾より遅め(到達時間の目安に使用)
+    projectileArcHeight: 160,  // 弧の高さ(px)
+    fxBullet: "fx_rock_fly_1.png",
+    fxImpact: "fx_rock_impact_1.png",
+    // 移動の見た目：車輪の回転は再現できなかったため、移動中に砂埃を纏わせて誤魔化す
+    fxDustMove: { count: 1, prefix: "fx_dust_", durations: [600], imageBase: IMG_CATAPULT },
+    canGuard: false,
+    attackFlags: {},
+    icon: ICON_CATAPULT,
+    imageBase: IMG_CATAPULT,
+    pixelScale: (92 * (400/170)) / 426, // 全高4m(兵士170cm基準)を反映した縮尺
+    frameCounts: {
+      idle:1, roll:2, throw:16, discover:3, flinch:3, blowback:2, down:5
+    },
+    frameDurations: {
+      idle:     [1000],
+      roll:     [280,230],
+      throw:    [225,225,225,265,600,450,400,400,420,550,400,350,320,400,1000,1500],
+      discover: [200,200,200],
+      flinch:   [320,310,425],
+      blowback: [800,1500],
+      down:     [300,350,420,500,1000]
+    },
+    attackImpactFrame: 7 // throw_8(発射の瞬間)
   }
 };
 
@@ -643,7 +688,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin"],
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult"],
   stage: null
 };
 
@@ -1058,11 +1103,10 @@ function fireProjectile(unit){
   const dir = unit.facing === -1 ? -1 : 1; // 発射方向(左向きユニットなら左へ)
   const capturedTarget = unit.target; // 発射時点の狙い。飛翔中に相手が死ねば外れ扱いにする
 
-  // 銃口の位置(体の中心から前方・やや高めにオフセット)
+  // 銃口(発射位置)の位置(体の中心から前方・やや高めにオフセット)
   const muzzleX = unit.x + dir * (def.muzzleOffsetX || 0);
   const muzzleBottom = def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110;
 
-  // 発射炎(マズルフラッシュ)：銃口の位置にごく短時間だけ表示
   if (def.fxMuzzleFlash){
     spawnFx(def.imageBase + def.fxMuzzleFlash, muzzleX, { flip: dir < 0, lifespan: 150, height: 39, bottom: muzzleBottom });
   }
@@ -1077,20 +1121,65 @@ function fireProjectile(unit){
 
   let bullet = null;
   if (def.fxBullet){
-    bullet = spawnFx(def.imageBase + def.fxBullet, muzzleX, { flip: dir < 0, height: 10, bottom: muzzleBottom });
-    bullet.style.transition = "transform " + travelMs + "ms linear";
-    requestAnimationFrame(() => {
-      bullet.style.transform = "translateX(" + targetX + "px)" + (dir < 0 ? " scaleX(-1)" : "");
-    });
+    bullet = spawnFx(def.imageBase + def.fxBullet, muzzleX, { flip: dir < 0, height: def.projectileArc ? 34 : 10, bottom: muzzleBottom });
+
+    if (def.projectileArc){
+      // 放物線：JSで毎フレーム位置を更新(横方向は等速、縦方向はsinカーブで山なりに)
+      const arcHeight = def.projectileArcHeight || 120;
+      const startTime = performance.now();
+      const step = (now) => {
+        if (!bullet || !bullet.isConnected) return;
+        const t = Math.min(1, (now - startTime) / travelMs);
+        const x = muzzleX + (targetX - muzzleX) * t;
+        const y = Math.sin(t * Math.PI) * arcHeight; // 0→最大→0の山なり
+        bullet.style.transform = "translateX(" + x + "px)" + (dir < 0 ? " scaleX(-1)" : "") + " rotate(" + (t*360*2) + "deg)";
+        bullet.style.bottom = (muzzleBottom + y) + "px";
+        if (t < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    } else {
+      // 直線：CSS transitionでそのまま移動
+      bullet.style.transition = "transform " + travelMs + "ms linear";
+      requestAnimationFrame(() => {
+        bullet.style.transform = "translateX(" + targetX + "px)" + (dir < 0 ? " scaleX(-1)" : "");
+      });
+    }
   }
 
   setTimeout(() => {
     if (bullet) bullet.remove();
     if (!battle || battle.ended || unit.dead) return;
 
+    if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 350, height: def.splashRadius ? 90 : 45, bottom: muzzleBottom });
+
+    if (def.splashRadius){
+      // 範囲ダメージ：着弾地点周辺の敵ユニットすべてに当たる
+      const enemySide = unit.side === "player" ? "enemy" : "player";
+      let hitAnyUnit = false;
+      battle.units.forEach(other => {
+        if (other.dead || other.side !== enemySide) return;
+        if (Math.abs(other.x - targetX) <= def.splashRadius){
+          hitAnyUnit = true;
+          applyDamageToUnit(other, getEffectiveAtk(unit), unit);
+        }
+      });
+      // ユニットが誰もいなければ、着弾地点が城の目の前なら城にも当たる扱いにする
+      if (!hitAnyUnit && !capturedTarget){
+        if (unit.side === "player"){
+          battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
+          updateCastleBars();
+          if (battle.enemyCastleHp <= 0) endBattle(true);
+        } else {
+          battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit));
+          updateCastleBars();
+          if (battle.playerCastleHp <= 0) endBattle(false);
+        }
+      }
+      return;
+    }
+
     if (capturedTarget){
       if (!capturedTarget.dead){
-        if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, capturedTarget.x, { lifespan: 250, height: 45, bottom: muzzleBottom });
         applyDamageToUnit(capturedTarget, getEffectiveAtk(unit), unit);
       }
       // 狙っていた相手が飛翔中に倒れていた場合は何も起きない(弾は外れた扱い)
@@ -1098,7 +1187,6 @@ function fireProjectile(unit){
     }
 
     // 相手ユニットがおらず、城を狙っていた場合
-    if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 250, height: 45, bottom: muzzleBottom });
     if (unit.side === "player"){
       battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
       updateCastleBars();
@@ -1381,6 +1469,19 @@ function updateUnitAI(unit, dtMs){
     const speed = getEffectiveSpeed(unit, baseSpeed);
     unit.x += dir * speed * (dtMs/1000);
     applyFrame(unit);
+
+    // 車輪の回転を再現できない代わりに、移動中は足元に砂埃をまとわせて誤魔化す
+    const dustFx = unit.def.fxDustMove;
+    if (dustFx){
+      unit.dustTimer = (unit.dustTimer || 0) + dtMs;
+      const interval = dustFx.durations[0] || 600;
+      if (unit.dustTimer >= interval){
+        unit.dustTimer -= interval;
+        spawnFx(dustFx.imageBase + dustFx.prefix + "1.png", unit.x, {
+          flip: Math.random() < 0.5, height: 70, bottom: 68, lifespan: interval * 1.4
+        });
+      }
+    }
   }
 }
 
@@ -1449,6 +1550,10 @@ document.getElementById("cheat-enemy-goblin-btn").addEventListener("click", () =
 document.getElementById("cheat-enemy-drummer-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("drummerGoblin", "enemy");
+});
+document.getElementById("cheat-enemy-catapult-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("catapult", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
