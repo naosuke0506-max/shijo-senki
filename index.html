@@ -622,6 +622,7 @@ const CHAR_DEFS = {
     approachMotion: "roll", // 発見後もそのまま同じ足取りで接近(専用の警戒モーションなし)
     approachSpeed: 14,
     attackMotionName: "throw",
+    invertFacing: true, // 敵側で反転させるための調整(この素材は通常と前後が逆)
     ranged: true,
     splashRadius: 90,          // 着弾地点周辺、この範囲内の敵にまとめてダメージ
     projectileArc: true,       // 直線ではなく放物線を描いて飛ぶ
@@ -635,7 +636,7 @@ const CHAR_DEFS = {
     attackFlags: {},
     icon: ICON_CATAPULT,
     imageBase: IMG_CATAPULT,
-    pixelScale: 150 / 426, // 実寸換算(216px)だと城より大きくなるため、画面表示上妥当なサイズ(高さ150px程度)に調整
+    pixelScale: 120 / 426, // 画面表示上妥当なサイズにさらに縮小(高さ約120px)
     frameCounts: {
       idle:1, roll:2, throw:16, discover:3, flinch:3, blowback:2, down:5
     },
@@ -866,7 +867,9 @@ function spawnUnit(kind, side){
   field.appendChild(el);
 
   const startX = side === "player" ? fieldWidth - 90 : 90;
-  const facing = side === "player" ? -1 : 1;
+  // 投石器は素材の都合で通常キャラと前後の向きが逆に作られているため、キャラごとに反転させられるようにする
+  const baseFacing = side === "player" ? -1 : 1;
+  const facing = def.invertFacing ? -baseFacing : baseFacing;
 
   const unit = {
     kind, def, side, el, img, uhpFill: uhp.querySelector("i"),
