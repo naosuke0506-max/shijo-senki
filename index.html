@@ -323,6 +323,10 @@ const COMMON_FX = REPO_BASE + "images/common_fx_upload/";
 const BUFF_AURA_FX = { count: 3, prefix: "red_aura_", durations: [200,200,200], imageBase: COMMON_FX };
 const IMG_CATAPULT = REPO_BASE + "images/catapult_repo_upload/";
 const ICON_CATAPULT = REPO_BASE + "icons/catapult_icon.png";
+const IMG_TRAPPER = REPO_BASE + "images/trapper_repo_upload/";
+const ICON_TRAPPER = REPO_BASE + "icons/trapper_goblin_icon.png";
+const IMG_ARCHER = REPO_BASE + "images/archer_repo_upload/";
+const ICON_ARCHER = REPO_BASE + "icons/archer_goblin_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -524,6 +528,92 @@ const CHAR_DEFS = {
     attackImpactFrame: 2 // shoot_3(発射の瞬間)
   },
 
+  trapper: {
+    name: "ゴブリン罠兵",
+    rank: null,
+    race: "goblin",
+    cost: 480,        // 鼓舞兵(320)より高め。拘束は戦況を壊しかねないため割高に設定
+    hp: 12,            // 鼓舞兵(14)よりやや低め、非戦闘なので発見されたら一方的にやられる前提
+    atk: 0,
+    weight: 25,
+    walkSpeed: 46,
+    noCombat: true,             // 鼓舞兵と同じく索敵・攻撃・追走をしない
+    canTrap: true,
+    trapCooldownMs: 4500,       // 罠設置モーション後、次に設置できるまでの間隔
+    trapMaxActive: 2,           // 同時に生存できる罠の数
+    trapArmDelayMs: 1500,       // 設置後、起動可能になるまでの時間(この間は隠蔽状態)
+    trapTriggerRadius: 55,      // 敵がこの半径に入ると起動
+    netRestrainDurationMs: Infinity, // 既定は無限拘束。敵側でnetResistant/netBreakTimeMsにより個別上書き
+    icon: ICON_TRAPPER,
+    imageBase: IMG_TRAPPER,
+    pixelScale: 92 / 513,       // idle画像の切り抜き高さ(513px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, place_trap:4, flinch:6, blowback:6, down:2, getup:5, trap_fx:6
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [155,155,155,155],
+      place_trap: [350,350,350,350],
+      flinch:     [220,220,220,220,220,220],
+      blowback:   [235,235,235,235,235,235],
+      down:       [350,1000],
+      getup:      [220,220,220,220,220],
+      trap_fx:    [250,280,535,400,380,1000]
+    }
+  },
+
+  archer: {
+    name: "ゴブリン弓兵",
+    rank: null,
+    race: "goblin",
+    cost: 420,          // 火縄銃兵(750)より安いが通常ゴブリン(250)より高い、毒の継続ダメージ込みで評価
+    hp: 14,
+    atk: 8,              // 直撃ダメージは控えめ、毒の継続ダメージで火力を補う設計
+    weight: 26,
+    walkSpeed: 52,
+    attackRange: 230,
+    detectionRange: 300,
+    approachMotion: "sneak_walk", // 発見後は身を低くして忍び寄る
+    approachSpeed: 40,
+    attackMotionName: "attack",
+    ranged: true,
+    projectileSpeed: 900,
+    poisonOnHit: true,
+    poisonDamagePerTick: 3,
+    poisonTickIntervalMs: 1000,
+    poisonDurationMs: 5000,
+    fxBullet: "arrow_fly_1.png",   // 飛翔中はarrow_fly_1/2を交互に使用
+    fxImpact: "arrow_stuck_1.png", // 着弾後はarrow_stuck_1→2
+    fxPoisonStatus: { count:4, prefix:"poison_fx_", durations:[315,315,315,315], imageBase: IMG_ARCHER }, // 毒状態の敵に重ねるループFX
+    canGuard: false,
+    attackFlags: {},
+    icon: ICON_ARCHER,
+    imageBase: IMG_ARCHER,
+    pixelScale: 92 / 498,        // idle画像の切り抜き高さ(498px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, attack:6, discover:2, sneak_walk:4,
+      flinch:6, blowback:6, down:2, getup:4
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [235,295,235,235],
+      attack:     [250,250,250,250,295,380],
+      discover:   [500,500],
+      sneak_walk: [290,290,290,290],
+      flinch:     [275,275,275,275,275,275],
+      blowback:   [285,285,285,285,285,285],
+      down:       [500,500],
+      getup:      [325,325,325,325]
+    },
+    attackImpactFrame: 4 // attack_5(矢を放つ瞬間)
+  },
+
   goblin: {
     name: "ゴブリン",
     rank: null,
@@ -691,7 +781,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult"],
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer"],
   stage: null
 };
 
