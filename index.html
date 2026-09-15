@@ -541,7 +541,7 @@ const CHAR_DEFS = {
     walkSpeed: 46,
     noCombat: true,             // 鼓舞兵と同じく索敵・攻撃・追走をしない
     canTrap: true,
-    trapCooldownMs: 4500,       // 罠設置モーション後、次に設置できるまでの間隔
+    trapCooldownMs: 5000,       // 罠設置モーション後、次に設置できるまでの間隔
     trapMaxActive: 2,           // 同時に生存できる罠の数
     trapArmDelayMs: 1500,       // 設置後、起動可能になるまでの時間(この間は隠蔽状態)
     trapTriggerRadius: 55,      // 敵がこの半径に入ると起動
@@ -584,9 +584,11 @@ const CHAR_DEFS = {
     ranged: true,
     projectileSpeed: 900,
     poisonOnHit: true,
-    poisonDamagePerTick: 3,
-    poisonTickIntervalMs: 1000,
-    poisonDurationMs: 5000,
+    poisonStackPerHit: 15,      // 1発ごとの毒蓄積量(%)。約7発で100%到達
+    poisonStackThreshold: 100,  // 蓄積がこの値に達すると毒が発動
+    poisonMaxHpPercent: 0.35,   // 発動時、対象の最大HPの何%を継続ダメージとして与えるか
+    poisonDurationMs: 35000,    // 発動後の効果時間
+    poisonTickIntervalMs: 1000, // ダメージ判定の間隔
     fxBullet: "arrow_fly_1.png",   // 飛翔中はarrow_fly_1/2を交互に使用
     fxImpact: "arrow_stuck_1.png", // 着弾後はarrow_stuck_1→2
     fxPoisonStatus: { count:4, prefix:"poison_fx_", durations:[315,315,315,315], imageBase: IMG_ARCHER }, // 毒状態の敵に重ねるループFX
@@ -988,6 +990,7 @@ function spawnUnit(kind, side){
     restrained: false,            // 罠に拘束されている間はtrue(AI停止・ガード/回避不可)
     restrainRemainingMs: 0,       // 拘束の残り時間(Infinityなら自力脱出しない)
     poisonRemainingMs: 0,         // 毒状態の残り時間
+    poisonStack: 0,               // 毒の蓄積値(%)。閾値に達すると発動
     poisonTickTimer: 0,
     poisonTickIntervalMs: 0,
     poisonDamagePerTick: 0,
@@ -1634,13 +1637,24 @@ function applyDamageToUnit(target, amount, attacker){
   target.hp = Math.max(0, target.hp - amount);
   applyFrame(target);
 
-  // 毒付与(弓兵の矢など)：攻撃者が毒属性を持っていれば継続ダメージ状態を付与/上書きする
+  // 毒付与(弓兵の矢など)：蓄積式。閾値に達すると発動し、最大HPの一定割合を効果時間で分割して与える
   if (attacker && attacker.def.poisonOnHit && target.hp > 0){
-    target.poisonRemainingMs = attacker.def.poisonDurationMs || 0;
-    target.poisonTickTimer = attacker.def.poisonTickIntervalMs || 1000;
-    target.poisonTickIntervalMs = attacker.def.poisonTickIntervalMs || 1000;
-    target.poisonDamagePerTick = attacker.def.poisonDamagePerTick || 0;
-    target.poisonFxDef = attacker.def.fxPoisonStatus || null;
+    const stackPerHit = attacker.def.poisonStackPerHit || 0;
+    const threshold = attacker.def.poisonStackThreshold || 100;
+    target.poisonStack = Math.min(threshold, (target.poisonStack || 0) + stackPerHit);
+    target.poisonFxDef = attacker.def.fxPoisonStatus || target.poisonFxDef;
+
+    if (target.poisonStack >= threshold){
+      const durationMs = attacker.def.poisonDurationMs || 0;
+      const tickInterval = attacker.def.poisonTickIntervalMs || 1000;
+      const tickCount = Math.max(1, Math.round(durationMs / tickInterval));
+      const totalDamage = target.hpMax * (attacker.def.poisonMaxHpPercent || 0);
+      target.poisonRemainingMs = durationMs;
+      target.poisonTickTimer = tickInterval;
+      target.poisonTickIntervalMs = tickInterval;
+      target.poisonDamagePerTick = totalDamage / tickCount;
+      target.poisonStack = 0; // 発動したら蓄積はリセットし、再度貯め直しになる
+    }
   }
 
   if (target.hp <= 0){
