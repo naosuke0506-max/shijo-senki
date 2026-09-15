@@ -541,7 +541,7 @@ const CHAR_DEFS = {
     walkSpeed: 46,
     noCombat: true,             // 鼓舞兵と同じく索敵・攻撃・追走をしない
     canTrap: true,
-    trapCooldownMs: 5000,       // 罠設置モーション後、次に設置できるまでの間隔
+    trapCooldownMs: 10000,      // 罠設置モーション後、次に設置できるまでの間隔
     trapMaxActive: 2,           // 同時に生存できる罠の数
     trapArmDelayMs: 1500,       // 設置後、起動可能になるまでの時間(この間は隠蔽状態)
     trapTriggerRadius: 55,      // 敵がこの半径に入ると起動
@@ -729,6 +729,7 @@ const CHAR_DEFS = {
     fxDustMove: { count: 1, prefix: "fx_dust_", durations: [600], imageBase: IMG_CATAPULT },
     canGuard: false,
     attackFlags: { breaksShield: true }, // 岩の直撃は盾を破壊する
+    poisonImmune: true, // 図体が大きく毒が効かない
     icon: ICON_CATAPULT,
     imageBase: IMG_CATAPULT,
     pixelScale: 120 / 426, // 画面表示上妥当なサイズにさらに縮小(高さ約120px)
@@ -1190,10 +1191,15 @@ function updateTraps(dtMs){
       trap.frameIndex = 1; // trap_fx_2(起動の瞬間)から再生開始
       trap.frameTimer = 0;
       trap.captured = catchable;
+
+      // 捕獲対象の中で最も表示サイズが大きいキャラに合わせて網のエフェクトサイズを調整
+      const maxHeight = Math.max(36, ...catchable.map(u => u._displayHeight || 60));
+      trap.el.style.height = Math.round(maxHeight * 0.9) + "px";
+
       catchable.forEach(u => {
         u.restrained = true;
         u.restrainRemainingMs = (u.def.netBreakTimeMs != null) ? u.def.netBreakTimeMs : Infinity;
-        u.el.style.visibility = "hidden"; // 網の塊の中に隠れる想定
+        u.img.style.visibility = "hidden"; // 本体だけ隠す(HPバーはelの子のまま残るので見え続ける)
       });
       return;
     }
@@ -1228,7 +1234,7 @@ function updateRestraints(dtMs){
     unit.restrainRemainingMs -= dtMs;
     if (unit.restrainRemainingMs <= 0){
       unit.restrained = false;
-      unit.el.style.visibility = "visible";
+      unit.img.style.visibility = "visible";
       unit.target = null;
       const fallback = unit.def.frameCounts.walk ? "walk" : (unit.def.approachMotion || "walk");
       setMotion(unit, fallback, { loop:true });
@@ -1638,7 +1644,7 @@ function applyDamageToUnit(target, amount, attacker){
   applyFrame(target);
 
   // 毒付与(弓兵の矢など)：蓄積式。閾値に達すると発動し、最大HPの一定割合を効果時間で分割して与える
-  if (attacker && attacker.def.poisonOnHit && target.hp > 0){
+  if (attacker && attacker.def.poisonOnHit && target.hp > 0 && !target.def.poisonImmune){
     const stackPerHit = attacker.def.poisonStackPerHit || 0;
     const threshold = attacker.def.poisonStackThreshold || 100;
     target.poisonStack = Math.min(threshold, (target.poisonStack || 0) + stackPerHit);
