@@ -160,6 +160,8 @@
 
   .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
   .buff-aura{ bottom:auto; height:34px; transform:translate(-50%,-75%); z-index:5; }
+  .trap-sprite{ mix-blend-mode:normal; bottom:66px; left:0; z-index:2; } /* 写実素材なのでscreen合成を解除、ユニットより奥に表示 */
+  .poison-status-fx{ bottom:auto; height:70px; transform:translate(-50%,-45%); z-index:5; opacity:.85; }
 
   /* 下部バー：左(財布)／中央〜(出撃キャラ)／右(予約スペース) */
   #battle-bottombar{
@@ -846,6 +848,7 @@ function startBattle(stage){
     money: 0,
     walletLevel: 0,
     units: [],
+    traps: [],
     lastTick: performance.now(),
     ended: false,
     paused: false
@@ -981,6 +984,17 @@ function spawnUnit(kind, side){
     dodgedPastUnit: null, // 回避してすれ違った相手(この相手とは戦わない)
     buffSources: new Set(), // このユニットを鼓舞したドラマー(死ぬとバフが消える)
     inspireCooldown: 0,     // 鼓舞兵専用：次に発動判定できるまでの残り時間
+    trapCooldown: 1200,           // 罠兵専用：次に罠を置けるまでの残り時間(出現直後は少し待ってから)
+    restrained: false,            // 罠に拘束されている間はtrue(AI停止・ガード/回避不可)
+    restrainRemainingMs: 0,       // 拘束の残り時間(Infinityなら自力脱出しない)
+    poisonRemainingMs: 0,         // 毒状態の残り時間
+    poisonTickTimer: 0,
+    poisonTickIntervalMs: 0,
+    poisonDamagePerTick: 0,
+    poisonFxDef: null,
+    poisonFxEl: null,
+    poisonFxFrame: 0,
+    poisonFxTimer: 0,
     _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
   img._ownerUnit = unit;
@@ -1095,6 +1109,174 @@ function updateInspire(unit, dtMs){
       }
     }
   });
+}
+
+/* ---------- 罠兵：罠の設置 ---------- */
+
+// 罠兵の罠設置判定：クールタイムが明けていて、歩行中で、自分の罠が上限未満なら罠設置モーションへ
+function updateTrapper(unit, dtMs){
+  const def = unit.def;
+  if (!def.canTrap || unit.dead || unit.restrained) return;
+  if (unit.trapCooldown > 0){
+    unit.trapCooldown = Math.max(0, unit.trapCooldown - dtMs);
+    return;
+  }
+  if (unit.motion !== "walk") return; // 設置中・怯み中などは判定しない
+
+  const activeCount = battle.traps.filter(t => t.owner === unit && !t.removed).length;
+  if (activeCount >= (def.trapMaxActive || 1)) return;
+
+  setMotion(unit, "place_trap", {
+    onEnd: () => {
+      if (unit.dead) return;
+      spawnTrap(unit);
+      setMotion(unit, "walk", { loop:true });
+    }
+  });
+  unit.trapCooldown = def.trapCooldownMs || 4000;
+}
+
+// 罠エンティティを生成(見た目の網はtrap_fx_1〜6を使い、起動するまではtrap_fx_1のまま静止)
+function spawnTrap(owner){
+  const def = owner.def;
+  const field = document.getElementById("battlefield");
+  if (!field) return;
+  const el = document.createElement("img");
+  el.className = "fx-sprite trap-sprite";
+  el.style.height = "36px";
+  el.style.transform = "translateX(" + owner.x + "px)";
+  el.src = def.imageBase + "trap_fx_1.png";
+  field.appendChild(el);
+
+  battle.traps.push({
+    owner, side: owner.side, x: owner.x, el,
+    state: "arming",     // arming → armed → triggering → holding
+    armTimer: def.trapArmDelayMs || 1000,
+    frameIndex: 0,
+    frameTimer: 0,
+    captured: [],
+    removed: false
+  });
+}
+
+// 全ての罠の状態更新：起動判定、網の展開アニメ、拘束対象の解放チェック
+function updateTraps(dtMs){
+  if (!battle || !battle.traps.length) return;
+  battle.traps.forEach(trap => {
+    if (trap.removed) return;
+    const def = trap.owner.def;
+    const durations = (def.frameDurations && def.frameDurations.trap_fx) || [1000];
+    const frameCount = (def.frameCounts && def.frameCounts.trap_fx) || durations.length;
+
+    if (trap.state === "arming"){
+      trap.armTimer -= dtMs;
+      if (trap.armTimer <= 0) trap.state = "armed";
+      return;
+    }
+
+    if (trap.state === "armed"){
+      const enemySide = trap.side === "player" ? "enemy" : "player";
+      const nearby = battle.units.filter(u =>
+        u.side === enemySide && !u.dead && !u.restrained &&
+        Math.abs(u.x - trap.x) <= (def.trapTriggerRadius || 50)
+      );
+      const catchable = nearby.filter(u => !u.def.netResistant); // 耐性持ちは罠にかからない
+      if (catchable.length === 0) return; // 誰もいない、または耐性持ちしかいない間は起動しない
+
+      trap.state = "triggering";
+      trap.frameIndex = 1; // trap_fx_2(起動の瞬間)から再生開始
+      trap.frameTimer = 0;
+      trap.captured = catchable;
+      catchable.forEach(u => {
+        u.restrained = true;
+        u.restrainRemainingMs = (u.def.netBreakTimeMs != null) ? u.def.netBreakTimeMs : Infinity;
+        u.el.style.visibility = "hidden"; // 網の塊の中に隠れる想定
+      });
+      return;
+    }
+
+    if (trap.state === "triggering" || trap.state === "holding"){
+      trap.frameTimer += dtMs;
+      const curDur = durations[Math.min(trap.frameIndex, durations.length - 1)];
+      if (trap.frameTimer >= curDur && trap.frameIndex < frameCount - 1){
+        trap.frameTimer -= curDur;
+        trap.frameIndex++;
+        if (trap.frameIndex >= frameCount - 1) trap.state = "holding";
+      }
+      trap.el.src = def.imageBase + "trap_fx_" + (trap.frameIndex + 1) + ".png";
+
+      // 捕獲対象が全員(死亡または脱出で)いなくなったら罠を消滅させる
+      trap.captured = trap.captured.filter(u => !u.dead && u.restrained);
+      if (trap.state === "holding" && trap.captured.length === 0){
+        trap.removed = true;
+        trap.el.remove();
+      }
+    }
+  });
+  battle.traps = battle.traps.filter(t => !t.removed);
+}
+
+// 拘束時間の経過処理：netBreakTimeMsが設定されている敵は時間経過で自力脱出する
+function updateRestraints(dtMs){
+  if (!battle) return;
+  battle.units.forEach(unit => {
+    if (!unit.restrained || unit.dead) return;
+    if (unit.restrainRemainingMs === Infinity) return;
+    unit.restrainRemainingMs -= dtMs;
+    if (unit.restrainRemainingMs <= 0){
+      unit.restrained = false;
+      unit.el.style.visibility = "visible";
+      unit.target = null;
+      const fallback = unit.def.frameCounts.walk ? "walk" : (unit.def.approachMotion || "walk");
+      setMotion(unit, fallback, { loop:true });
+    }
+  });
+}
+
+/* ---------- 弓兵：毒の継続ダメージ ---------- */
+
+// 毒状態の継続ダメージ処理(attacker=nullで自傷扱いにしない、applyDamageToUnitに再度毒を上書きさせない)
+function updatePoison(unit, dtMs){
+  if (unit.dead || !unit.poisonRemainingMs || unit.poisonRemainingMs <= 0) return;
+  unit.poisonRemainingMs -= dtMs;
+  unit.poisonTickTimer -= dtMs;
+  if (unit.poisonTickTimer <= 0){
+    unit.poisonTickTimer += unit.poisonTickIntervalMs || 1000;
+    applyDamageToUnit(unit, unit.poisonDamagePerTick || 0, null);
+  }
+  if (unit.poisonRemainingMs <= 0){
+    unit.poisonRemainingMs = 0;
+  }
+}
+
+// 毒状態の紫霧エフェクトをユニットの上に重ねてループ表示する(鼓舞バフのオーラと同じ仕組み)
+function updatePoisonFx(unit, dtMs){
+  const active = !unit.dead && unit.poisonRemainingMs > 0 && unit.poisonFxDef;
+
+  if (active && !unit.poisonFxEl){
+    const img = document.createElement("img");
+    img.className = "fx-sprite poison-status-fx";
+    unit.el.appendChild(img);
+    unit.poisonFxEl = img;
+    unit.poisonFxFrame = 0;
+    unit.poisonFxTimer = 0;
+  }
+  if (!active && unit.poisonFxEl){
+    unit.poisonFxEl.remove();
+    unit.poisonFxEl = null;
+  }
+  if (!unit.poisonFxEl) return;
+
+  const fxDef = unit.poisonFxDef;
+  unit.poisonFxTimer += dtMs;
+  const dur = fxDef.durations[unit.poisonFxFrame] || 300;
+  if (unit.poisonFxTimer >= dur){
+    unit.poisonFxTimer -= dur;
+    unit.poisonFxFrame = (unit.poisonFxFrame + 1) % fxDef.count;
+  }
+  unit.poisonFxEl.src = fxDef.imageBase + fxDef.prefix + (unit.poisonFxFrame + 1) + ".png";
+  unit.poisonFxEl.style.left = "50%";
+  unit.poisonFxEl.style.top = "10%";
 }
 
 function setMotion(unit, motion, opts){
@@ -1403,7 +1585,7 @@ function applyDamageToUnit(target, amount, attacker){
 
   // 特殊回避：自分の攻撃射程内(=近接で殴られた時)の前方攻撃だけを一度限り確定で避ける
   // (火縄銃などの遠距離攻撃は射程外からの被弾になるため対象外)
-  const dodgeReady = def.canDodge && !target.dodgeUsed && !isSuperArmored(target) &&
+  const dodgeReady = def.canDodge && !target.dodgeUsed && !isSuperArmored(target) && !target.restrained &&
     meleeRangeCheck && isAttackFromFront(target, attacker) && !attackerFlags.sideHitbox;
 
   if (dodgeReady){
@@ -1417,7 +1599,7 @@ function applyDamageToUnit(target, amount, attacker){
   }
 
   const guardReady = def.canGuard && !target.shieldBroken &&
-    target.guardCooldown <= 0 && !isSuperArmored(target) &&
+    target.guardCooldown <= 0 && !isSuperArmored(target) && !target.restrained &&
     isAttackFromFront(target, attacker);
 
   if (guardReady){
@@ -1452,12 +1634,21 @@ function applyDamageToUnit(target, amount, attacker){
   target.hp = Math.max(0, target.hp - amount);
   applyFrame(target);
 
+  // 毒付与(弓兵の矢など)：攻撃者が毒属性を持っていれば継続ダメージ状態を付与/上書きする
+  if (attacker && attacker.def.poisonOnHit && target.hp > 0){
+    target.poisonRemainingMs = attacker.def.poisonDurationMs || 0;
+    target.poisonTickTimer = attacker.def.poisonTickIntervalMs || 1000;
+    target.poisonTickIntervalMs = attacker.def.poisonTickIntervalMs || 1000;
+    target.poisonDamagePerTick = attacker.def.poisonDamagePerTick || 0;
+    target.poisonFxDef = attacker.def.fxPoisonStatus || null;
+  }
+
   if (target.hp <= 0){
     killUnit(target);
     return;
   }
 
-  if (isSuperArmored(target)) return; // スーパーアーマー中は怯まない
+  if (isSuperArmored(target) || target.restrained) return; // スーパーアーマー中・拘束中は怯まない
 
   setMotion(target, "flinch", { onEnd: () => afterReaction(target) });
 }
@@ -1489,7 +1680,7 @@ function onAttackEnd(unit){
   setMotion(unit, unit.target ? approachMotion : fallback, { loop:true });
 }
 function updateUnitAI(unit, dtMs){
-  if (unit.dead || unit.debugLock) return;
+  if (unit.dead || unit.debugLock || unit.restrained) return;
   const def = unit.def;
 
   if (def.noCombat){
@@ -1622,9 +1813,14 @@ function battleLoop(now){
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
     updateBuffAura(unit, dt);
     updateInspire(unit, dt);
+    updateTrapper(unit, dt);
+    updatePoison(unit, dt);
+    updatePoisonFx(unit, dt);
     updateUnitAI(unit, dt);
     advanceUnit(unit, dt);
   });
+  updateTraps(dt);
+  updateRestraints(dt);
 
   requestAnimationFrame(battleLoop);
 }
