@@ -542,7 +542,7 @@ const CHAR_DEFS = {
     noCombat: true,             // 鼓舞兵と同じく索敵・攻撃・追走をしない
     canTrap: true,
     trapCooldownMs: 10000,      // 罠設置モーション後、次に設置できるまでの間隔
-    trapMaxActive: 2,           // 同時に生存できる罠の数
+    trapMaxActive: 3,           // 同時に生存できる罠の数
     trapArmDelayMs: 1500,       // 設置後、起動可能になるまでの時間(この間は隠蔽状態)
     trapTriggerRadius: 55,      // 敵がこの半径に入ると起動
     netRestrainDurationMs: Infinity, // 既定は無限拘束。敵側でnetResistant/netBreakTimeMsにより個別上書き
@@ -988,6 +988,7 @@ function spawnUnit(kind, side){
     buffSources: new Set(), // このユニットを鼓舞したドラマー(死ぬとバフが消える)
     inspireCooldown: 0,     // 鼓舞兵専用：次に発動判定できるまでの残り時間
     trapCooldown: 1200,           // 罠兵専用：次に罠を置けるまでの残り時間(出現直後は少し待ってから)
+    trapPlacementCount: 0,        // 罠兵専用：これまでに設置した罠の数(設置位置パターンの判定に使用)
     restrained: false,            // 罠に拘束されている間はtrue(AI停止・ガード/回避不可)
     restrainRemainingMs: 0,       // 拘束の残り時間(Infinityなら自力脱出しない)
     poisonRemainingMs: 0,         // 毒状態の残り時間
@@ -1141,19 +1142,33 @@ function updateTrapper(unit, dtMs){
 }
 
 // 罠エンティティを生成(見た目の網はtrap_fx_1〜6を使い、起動するまではtrap_fx_1のまま静止)
+// 設置位置は3パターンを順番に使う：1つ目=自軍の目の前(現在地) → 2つ目=ステージ中間 → 3つ目=敵城の目の前
 function spawnTrap(owner){
   const def = owner.def;
   const field = document.getElementById("battlefield");
   if (!field) return;
+  const fieldWidth = field.clientWidth;
+
+  const slot = (owner.trapPlacementCount || 0) % 3;
+  let trapX;
+  if (slot === 0){
+    trapX = owner.x; // 自軍の目の前(=罠兵が今いる位置)
+  } else if (slot === 1){
+    trapX = fieldWidth / 2; // ステージの中間地点(敵城と自城のちょうど中間)
+  } else {
+    trapX = owner.side === "player" ? fieldWidth - 60 : 60; // 敵城の目の前
+  }
+  owner.trapPlacementCount = (owner.trapPlacementCount || 0) + 1;
+
   const el = document.createElement("img");
   el.className = "fx-sprite trap-sprite";
   el.style.height = "36px";
-  el.style.transform = "translateX(" + owner.x + "px)";
+  el.style.transform = "translateX(" + trapX + "px)";
   el.src = def.imageBase + "trap_fx_1.png";
   field.appendChild(el);
 
   battle.traps.push({
-    owner, side: owner.side, x: owner.x, el,
+    owner, side: owner.side, x: trapX, el,
     state: "arming",     // arming → armed → triggering → holding
     armTimer: def.trapArmDelayMs || 1000,
     frameIndex: 0,
