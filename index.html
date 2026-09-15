@@ -541,8 +541,6 @@ const CHAR_DEFS = {
     walkSpeed: 46,
     noCombat: true,             // 鼓舞兵と同じく索敵・攻撃・追走をしない
     canTrap: true,
-    trapCooldownMs: 10000,      // 罠設置モーション後、次に設置できるまでの間隔
-    trapMaxActive: 3,           // 同時に生存できる罠の数
     trapArmDelayMs: 1500,       // 設置後、起動可能になるまでの時間(この間は隠蔽状態)
     trapTriggerRadius: 55,      // 敵がこの半径に入ると起動
     netRestrainDurationMs: Infinity, // 既定は無限拘束。敵側でnetResistant/netBreakTimeMsにより個別上書き
@@ -987,8 +985,7 @@ function spawnUnit(kind, side){
     dodgedPastUnit: null, // 回避してすれ違った相手(この相手とは戦わない)
     buffSources: new Set(), // このユニットを鼓舞したドラマー(死ぬとバフが消える)
     inspireCooldown: 0,     // 鼓舞兵専用：次に発動判定できるまでの残り時間
-    trapCooldown: 1200,           // 罠兵専用：次に罠を置けるまでの残り時間(出現直後は少し待ってから)
-    trapPlacementCount: 0,        // 罠兵専用：これまでに設置した罠の数(設置位置パターンの判定に使用)
+    trapCheckpointIndex: 0,        // 罠兵専用：自軍城前→中間→敵城前のうち、次に設置すべき地点の番号(0〜3、3で設置完了)
     restrained: false,            // 罠に拘束されている間はtrue(AI停止・ガード/回避不可)
     restrainRemainingMs: 0,       // 拘束の残り時間(Infinityなら自力脱出しない)
     poisonRemainingMs: 0,         // 毒状態の残り時間
@@ -1118,47 +1115,48 @@ function updateInspire(unit, dtMs){
 
 /* ---------- 罠兵：罠の設置 ---------- */
 
-// 罠兵の罠設置判定：クールタイムが明けていて、歩行中で、自分の罠が上限未満なら罠設置モーションへ
+// 罠兵が設置できる3地点(自軍城前・ステージ中間・敵城前)のx座標を返す
+function getTrapCheckpoints(unit){
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field ? field.clientWidth : 800;
+  const ownFront = unit.side === "player" ? fieldWidth - 90 : 90;
+  const midPoint = fieldWidth / 2;
+  const enemyFront = unit.side === "player" ? 60 : fieldWidth - 60;
+  return [ownFront, midPoint, enemyFront];
+}
+
+// 罠兵の罠設置判定：自軍城前→ステージ中間→敵城前の順に、その地点へ辿り着いた時だけ1つ設置する。
+// 各地点は一度設置したら二度と使わない(合計で最大3個)。
 function updateTrapper(unit, dtMs){
   const def = unit.def;
   if (!def.canTrap || unit.dead || unit.restrained) return;
-  if (unit.trapCooldown > 0){
-    unit.trapCooldown = Math.max(0, unit.trapCooldown - dtMs);
-    return;
-  }
   if (unit.motion !== "walk") return; // 設置中・怯み中などは判定しない
 
-  const activeCount = battle.traps.filter(t => t.owner === unit && !t.removed).length;
-  if (activeCount >= (def.trapMaxActive || 1)) return;
+  const checkpoints = getTrapCheckpoints(unit);
+  const idx = unit.trapCheckpointIndex || 0;
+  if (idx >= checkpoints.length) return; // 3地点とも設置済み
+
+  const targetX = checkpoints[idx];
+  const forwardDir = unit.side === "player" ? -1 : 1;
+  const reachTolerance = 3; // 敵城前(最終停止地点)がわずかに手前で止まっても到達扱いにする
+  const reached = forwardDir < 0 ? unit.x <= targetX + reachTolerance : unit.x >= targetX - reachTolerance;
+  if (!reached) return;
 
   setMotion(unit, "place_trap", {
     onEnd: () => {
       if (unit.dead) return;
-      spawnTrap(unit);
+      spawnTrap(unit, targetX);
+      unit.trapCheckpointIndex = idx + 1;
       setMotion(unit, "walk", { loop:true });
     }
   });
-  unit.trapCooldown = def.trapCooldownMs || 4000;
 }
 
 // 罠エンティティを生成(見た目の網はtrap_fx_1〜6を使い、起動するまではtrap_fx_1のまま静止)
-// 設置位置は3パターンを順番に使う：1つ目=自軍の目の前(現在地) → 2つ目=ステージ中間 → 3つ目=敵城の目の前
-function spawnTrap(owner){
+function spawnTrap(owner, trapX){
   const def = owner.def;
   const field = document.getElementById("battlefield");
   if (!field) return;
-  const fieldWidth = field.clientWidth;
-
-  const slot = (owner.trapPlacementCount || 0) % 3;
-  let trapX;
-  if (slot === 0){
-    trapX = owner.x; // 自軍の目の前(=罠兵が今いる位置)
-  } else if (slot === 1){
-    trapX = fieldWidth / 2; // ステージの中間地点(敵城と自城のちょうど中間)
-  } else {
-    trapX = owner.side === "player" ? fieldWidth - 60 : 60; // 敵城の目の前
-  }
-  owner.trapPlacementCount = (owner.trapPlacementCount || 0) + 1;
 
   const el = document.createElement("img");
   el.className = "fx-sprite trap-sprite";
