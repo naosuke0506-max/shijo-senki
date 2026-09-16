@@ -632,6 +632,7 @@ const CHAR_DEFS = {
     attackRange: 55,
     detectionRange: 230,
     approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく
+    approachSpeed: 30,      // walkSpeedと同じ値(接近時も速度は変わらない)
     canGuard: false,
     superArmorDuringAttack: true,       // 攻撃モーション中は怯まず振り切る
     attackFlags: { ignoresGuard: true }, // ガードされてもダメージが通る一撃
