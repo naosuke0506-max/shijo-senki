@@ -675,7 +675,7 @@ const CHAR_DEFS = {
     healAmountPerTick: 4,     // 1回あたりの回復量
     canRevive: true,
     reviveUsesMax: 1,         // 1戦闘中に使える回数
-    reviveRadius: 120,        // この範囲内の直近の死体を対象にできる
+    reviveRadius: 280,        // この範囲内の直近の死体を対象にできる(回復範囲の倍)
     corpseRestoreHpPercent: 0.4, // 蘇生後のHP割合
     icon: ICON_HEALER,
     imageBase: IMG_HEALER,
@@ -1760,7 +1760,8 @@ function killUnit(target){
 function tryAutoRevive(target){
   if (!battle) return;
   const sameRaceAllies = battle.units.filter(u =>
-    u !== target && !u.dead && u.side === target.side && u.def.race === "goblin"
+    u !== target && !u.dead && u.side === target.side && u.def.race === "goblin" &&
+    !u.def.canRevive // ヒーラー自身は「価値比較」の対象から除外(蘇生役がいることで蘇生が妨げられないように)
   );
   const maxOtherCost = sameRaceAllies.reduce((m, u) => Math.max(m, u.def.cost || 0), 0);
   if ((target.def.cost || 0) < maxOtherCost) return; // 他にもっと価値の高いゴブリンがまだ生きている
