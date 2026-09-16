@@ -329,6 +329,10 @@ const IMG_TRAPPER = REPO_BASE + "images/trapper_repo_upload/";
 const ICON_TRAPPER = REPO_BASE + "icons/trapper_goblin_icon.png";
 const IMG_ARCHER = REPO_BASE + "images/archer_repo_upload/";
 const ICON_ARCHER = REPO_BASE + "icons/archer_goblin_icon.png";
+const IMG_BRUTE = REPO_BASE + "images/brute_repo_upload/";
+const ICON_BRUTE = REPO_BASE + "icons/brute_goblin_icon.png";
+const IMG_HEALER = REPO_BASE + "images/healer_repo_upload/";
+const ICON_HEALER = REPO_BASE + "icons/healer_goblin_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -616,6 +620,87 @@ const CHAR_DEFS = {
     attackImpactFrame: 4 // attack_5(矢を放つ瞬間)
   },
 
+  bruteGoblin: {
+    name: "屈強なゴブリン",
+    rank: null,
+    race: "goblin",
+    cost: 750,
+    hp: 80,
+    atk: 20,
+    weight: 110,          // ゴブリン種族最重量
+    walkSpeed: 30,
+    attackRange: 55,
+    detectionRange: 230,
+    approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく
+    canGuard: false,
+    superArmorDuringAttack: true,       // 攻撃モーション中は怯まず振り切る
+    attackFlags: { ignoresGuard: true }, // ガードされてもダメージが通る一撃
+    guardIgnoredPenaltyMs: 400,          // ガード無効を受けた相手はクールタイムが余分にかかる
+    icon: ICON_BRUTE,
+    imageBase: IMG_BRUTE,
+    pixelScale: 92 * (165/140) / 513, // 身長165cm(通常ゴブリン140cm比)を反映
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, attack:10, discover:2, flinch:5, blowback:6, down:2, getup:5
+    },
+    frameDurations: {
+      idle:      [1000],
+      walk:      [200,200,200,200],
+      attack:    [200,195,160,350,290,220,300,300,320,260],
+      discover:  [350,350],
+      flinch:    [100,240,265,100,195],
+      blowback:  [225,200,185,200,225,255],
+      down:      [500,500],
+      getup:     [220,220,220,220,220]
+    },
+    attackImpactFrame: 6 // attack_7(命中の瞬間)
+  },
+
+  healer: {
+    name: "ゴブリン・ヒーラー",
+    rank: null,
+    race: "goblin",
+    cost: 500,
+    hp: 12,
+    atk: 0,
+    weight: 22,
+    walkSpeed: 40,
+    noCombat: true,           // 鼓舞兵と同じく索敵・攻撃・追走をしない
+    canHeal: true,
+    healRadius: 140,          // オーラの効果範囲
+    healTickIntervalMs: 1500, // 回復判定の間隔
+    healAmountPerTick: 4,     // 1回あたりの回復量
+    canRevive: true,
+    reviveUsesMax: 1,         // 1戦闘中に使える回数
+    reviveRadius: 120,        // この範囲内の直近の死体を対象にできる
+    corpseRestoreHpPercent: 0.4, // 蘇生後のHP割合
+    icon: ICON_HEALER,
+    imageBase: IMG_HEALER,
+    pixelScale: 92 * (130/140) / 513, // 身長130cm(通常ゴブリン140cm比)を反映
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, heal_cast:5, revive:15, flinch:4, blowback:6, down:2, getup:3
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [350,250,250,250],
+      heal_cast:  [190,240,300,280,350],
+      revive:     [185,345,265,265,265,260,265,265,265,295,300,150,350,250,500],
+      flinch:     [275,350,225,250],
+      blowback:   [200,250,225,245,295,500],
+      down:       [500,500],
+      getup:      [250,380,320]
+    },
+    // 回復オーラ(味方に重ねてループ表示、共通の黒背景screen合成)
+    fxHealAura: { count:4, prefix:"heal_fx_", durations:[215,215,215,215], imageBase: IMG_HEALER },
+    // 蘇生エフェクト(対象の亡骸に重ねて再生、最初の1枚だけ長く持たせて溜めを表現)
+    fxResurrect: { count:6, prefix:"resurrect_fx_", durations:[3000,250,250,250,250,400], imageBase: IMG_HEALER }
+  },
+
   goblin: {
     name: "ゴブリン",
     rank: null,
@@ -784,7 +869,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer"],
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer"],
   stage: null
 };
 
@@ -1559,10 +1644,12 @@ function resolveAttackImpact(unit){
 // 怯み・弾かれ・吹き飛び・ダウン・ガード関連の反応モーション中は、
 // 追加の被弾があっても別の反応モーションに上書きされない(スーパーアーマー)
 function isSuperArmored(unit){
+  const attackMotion = (unit.def && unit.def.attackMotionName) || "attack";
   return unit.motion === "flinch" || unit.motion === "guardbreak" ||
          unit.motion === "blowback" || unit.motion === "down" ||
          unit.motion === "guard" || unit.motion === "shieldbreak" ||
-         unit.motion === "shield_destroy";
+         unit.motion === "shield_destroy" ||
+         (unit.motion === attackMotion && unit.def && unit.def.superArmorDuringAttack); // 攻撃モーション中は怯まない専用キャラ
 }
 
 // 攻撃者がtargetの正面にいるか(盾兵のガードは前方からの攻撃にしか効かない)
