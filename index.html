@@ -1082,6 +1082,11 @@ function spawnUnit(kind, side){
     poisonFxEl: null,
     poisonFxFrame: 0,
     poisonFxTimer: 0,
+    healCooldown: 800,            // ヒーラー専用：次に回復を発動できるまでの残り時間
+    isReviving: false,            // ヒーラー専用：現在蘇生の詠唱中かどうか
+    reviveTarget: null,           // ヒーラー専用：蘇生対象の死体
+    reviveUsesLeft: def.reviveUsesMax || 0, // ヒーラー専用：残り蘇生回数
+    frozenForRevive: false,       // 死体側：蘇生対象として固定され、消滅を待たされている
     _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
   img._ownerUnit = unit;
@@ -1386,6 +1391,47 @@ function updatePoisonFx(unit, dtMs){
   unit.poisonFxEl.style.top = "10%";
 }
 
+/* ---------- ヒーラー：回復オーラ ---------- */
+
+// 鼓舞兵の太鼓と同じ仕組み：クールタイムが明けたら詠唱モーションを1回再生し、
+// その瞬間に範囲内でHPが減っている味方をまとめて固定量回復する
+function updateHealer(unit, dtMs){
+  const def = unit.def;
+  if (!def.canHeal || unit.dead || unit.restrained || unit.isReviving) return;
+  if (unit.healCooldown > 0){
+    unit.healCooldown = Math.max(0, unit.healCooldown - dtMs);
+    return;
+  }
+  if (unit.motion !== "walk" && unit.motion !== "idle") return; // 蘇生中・怯み中などは判定しない
+
+  const nearbyAllies = battle.units.filter(other =>
+    other !== unit && !other.dead && other.side === unit.side &&
+    other.hp < other.hpMax &&
+    edgeDistance(unit, other) <= (def.healRadius || 0)
+  );
+  if (!nearbyAllies.length) return; // 回復が必要な味方がいなければ詠唱しない
+
+  setMotion(unit, "heal_cast", {
+    onEnd: () => { if (!unit.dead && !unit.isReviving) setMotion(unit, "walk", { loop:true }); }
+  });
+  unit.healCooldown = def.healTickIntervalMs || 1500;
+
+  nearbyAllies.forEach(ally => {
+    ally.hp = Math.min(ally.hpMax, ally.hp + (def.healAmountPerTick || 0)); // 回復量は固定
+    applyFrame(ally);
+
+    const fx = def.fxHealAura;
+    if (fx){
+      for (let i = 0; i < fx.count; i++){
+        setTimeout(() => {
+          if (ally.dead) return;
+          spawnFx(fx.imageBase + fx.prefix + (i+1) + ".png", ally.x, { height: 50, bottom: 100, lifespan: fx.durations[i] });
+        }, i * (fx.durations[i] || 200));
+      }
+    }
+  });
+}
+
 function setMotion(unit, motion, opts){
   opts = opts || {};
   unit.motion = motion;
@@ -1671,6 +1717,16 @@ function isAttackFromFront(target, attacker){
   return target.facing === -1 ? attacker.x <= target.x : attacker.x >= target.x;
 }
 
+// 索敵・ブロック判定の共通ルール：相手が正面にいれば反応してよい。
+// 完全に背後にいる場合は、よほど近く(密着している)ない限り無視する。
+const ADJACENT_ENGAGE_THRESHOLD = 20;
+function isEngageable(unit, other){
+  const forwardDir = unit.side === "player" ? -1 : 1;
+  const dx = other.x - unit.x;
+  if (Math.sign(dx) === forwardDir || dx === 0) return true; // 正面、または真横で重なっている
+  return edgeDistance(unit, other) <= ADJACENT_ENGAGE_THRESHOLD; // 背後でも密着していれば許容
+}
+
 function afterReaction(unit){
   if (unit.dead) return;
   unit.target = null; // 攻撃してきた相手を仕切り直しで再索敵させる
@@ -1682,7 +1738,90 @@ function killUnit(target){
   target.dead = true;
   target.target = null;
   clearBuffsFrom(target); // このユニットが死んだので、与えていたバフも消える
-  setMotion(target, "down", { onEnd: () => removeUnit(target) });
+
+  // ゴブリン・ヒーラーの自動蘇生判定：味方のゴブリン族が死亡した瞬間、
+  // その時点でフィールドに残っている中で最も価値(コスト)の高いゴブリンであれば、
+  // 範囲内の未使用ヒーラーが自動で蘇生の詠唱を始める
+  if (target.def.race === "goblin"){
+    tryAutoRevive(target);
+  }
+
+  setMotion(target, "down", {
+    onEnd: () => {
+      if (target.frozenForRevive) return; // 蘇生対象として固定中は、詠唱が終わる/中断されるまで消えずに待つ
+      removeUnit(target);
+    }
+  });
+}
+
+// 死んだ味方ゴブリンが、現時点でフィールドに残っている中で最も価値の高いゴブリンかどうかを判定し、
+// 範囲内で手が空いているヒーラーがいれば蘇生の詠唱を開始させる
+function tryAutoRevive(target){
+  if (!battle) return;
+  const sameRaceAllies = battle.units.filter(u =>
+    u !== target && !u.dead && u.side === target.side && u.def.race === "goblin"
+  );
+  const maxOtherCost = sameRaceAllies.reduce((m, u) => Math.max(m, u.def.cost || 0), 0);
+  if ((target.def.cost || 0) < maxOtherCost) return; // 他にもっと価値の高いゴブリンがまだ生きている
+
+  const candidates = battle.units.filter(u =>
+    !u.dead && u.side === target.side && u.def.canRevive &&
+    !u.isReviving && u.reviveUsesLeft > 0 &&
+    edgeDistance(u, target) <= (u.def.reviveRadius || 0)
+  );
+  if (!candidates.length) return; // 範囲外、または蘇生できるヒーラーがいない
+
+  candidates.sort((a, b) => edgeDistance(a, target) - edgeDistance(b, target));
+  startRevive(candidates[0], target);
+}
+
+function startRevive(healer, corpse){
+  healer.isReviving = true;
+  healer.reviveTarget = corpse;
+  corpse.frozenForRevive = true;
+
+  setMotion(healer, "revive", {
+    onEnd: () => {
+      // 妨害されずに最後まで唱え切った＝蘇生成功。ヒーラーは代償として息絶える
+      healer.isReviving = false;
+      healer.reviveTarget = null;
+      healer.reviveUsesLeft = Math.max(0, healer.reviveUsesLeft - 1);
+      completeRevive(healer, corpse);
+    }
+  });
+}
+
+function completeRevive(healer, corpse){
+  corpse.frozenForRevive = false;
+  corpse.dead = false;
+  const restorePercent = corpse.def.corpseRestoreHpPercent != null ? corpse.def.corpseRestoreHpPercent : 0.4;
+  corpse.hp = Math.max(1, Math.round(corpse.hpMax * restorePercent));
+  corpse.target = null;
+  applyFrame(corpse);
+  const fallback = corpse.def.frameCounts.walk ? "walk" : (corpse.def.approachMotion || "walk");
+  setMotion(corpse, "getup", { onEnd: () => { if (!corpse.dead) setMotion(corpse, fallback, { loop:true }); } });
+
+  // 禁忌の代償：蘇生を成し遂げたヒーラー自身は爆発とともに焼け焦げて死亡する
+  healer.dead = true;
+  removeUnit(healer);
+}
+
+// 蘇生の詠唱中に被弾などでモーションが強制的に変わってしまったら、蘇生失敗として扱う
+// (ヒーラーは死なずに生き残るが、対象の死体は固定を解除されて通常通り消える)
+function updateRevive(dtMs){
+  if (!battle) return;
+  battle.units.forEach(u => {
+    if (!u.isReviving) return;
+    if (u.motion !== "revive"){
+      u.isReviving = false;
+      const corpse = u.reviveTarget;
+      u.reviveTarget = null;
+      if (corpse){
+        corpse.frozenForRevive = false;
+        if (corpse.dead) removeUnit(corpse);
+      }
+    }
+  });
 }
 
 function applyDamageToUnit(target, amount, attacker){
@@ -1782,7 +1921,9 @@ function findNearestEnemyInRange(unit){
     if (other === unit || other.dead || other.side === unit.side) return;
     if (other === unit.dodgedPastUnit) return; // 回避してすれ違った相手とは戦わない
     const d = edgeDistance(unit, other);
-    if (d <= unit.def.detectionRange && d < nearestDist){
+    if (d > unit.def.detectionRange) return;
+    if (!isEngageable(unit, other)) return; // 完全に背後の敵は無視(密着していれば例外)
+    if (d < nearestDist){
       nearest = other;
       nearestDist = d;
     }
@@ -1805,10 +1946,9 @@ function updateUnitAI(unit, dtMs){
 
   if (def.noCombat){
     // 非戦闘ユニット(鼓舞兵など)：戦わないが、目の前に敵がいる間は立ち尽くして待つ
-    const forwardDir = unit.side === "player" ? -1 : 1;
     const blocker = battle.units.find(other =>
       other !== unit && !other.dead && other.side !== unit.side &&
-      Math.sign(other.x - unit.x) === forwardDir &&
+      isEngageable(unit, other) &&
       Math.abs(other.x - unit.x) <= (def.personalSpace || 50)
     );
 
@@ -1934,6 +2074,7 @@ function battleLoop(now){
     updateBuffAura(unit, dt);
     updateInspire(unit, dt);
     updateTrapper(unit, dt);
+    updateHealer(unit, dt);
     updatePoison(unit, dt);
     updatePoisonFx(unit, dt);
     updateUnitAI(unit, dt);
@@ -1941,6 +2082,7 @@ function battleLoop(now){
   });
   updateTraps(dt);
   updateRestraints(dt);
+  updateRevive(dt);
 
   requestAnimationFrame(battleLoop);
 }
