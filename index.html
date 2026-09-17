@@ -782,6 +782,7 @@ const CHAR_DEFS = {
     name: "魔獣",
     rank: null,
     race: "beast",       // ゴブリン族ではない(鼓舞兵のバフ対象外・ヒーラーの蘇生対象外)
+    buffEligible: true,  // 例外的に鼓舞兵のバフを受けられる
     hiddenFromFormation: true, // テイマーに付随して出るため、単体では編成一覧に出さない
     cost: 350,
     hp: 30,
@@ -820,6 +821,7 @@ const CHAR_DEFS = {
     name: "ゴブリン・ラッシャー",
     rank: null,
     race: "beast",
+    buffEligible: true, // 例外的に鼓舞兵のバフを受けられる
     cost: 900,
     hp: 90,
     atk: 24,
@@ -1414,7 +1416,7 @@ function updateInspire(unit, dtMs){
 
   const nearbyGoblinAllies = battle.units.filter(other =>
     other !== unit && !other.dead && other.side === unit.side &&
-    other.def.race === "goblin" &&
+    (other.def.race === "goblin" || other.def.buffEligible) &&
     Math.abs(other.x - unit.x) <= def.inspireRange
   );
 
@@ -1675,11 +1677,18 @@ function launchUnit(target, attacker, opts){
   } else {
     target.launchVX = 0;
   }
+  // 空中にいる間は吹き飛び&かち上げモーションを表示し続ける(着地するまでループ)
+  if (target.def.frameCounts && target.def.frameCounts.blowback){
+    setMotion(target, "blowback", { loop: true });
+  }
 }
 
-// 打ち上げ中の物理更新(重力で放物線を描き、着地したら通常状態に戻す)
+// 打ち上げ中の物理更新(重力で放物線を描き、着地したらdown→getupを経ないと動けるようにならない)
 function updateLaunch(unit, dtMs){
   if (!unit.launched) return;
+  if (unit.dead){ unit.launched = false; return; }
+  if (unit.motion !== "blowback") return; // 既に着地後のdown→getupを再生中：通常のadvanceUnitに任せる
+
   const dt = dtMs / 1000;
   unit.launchVY -= LAUNCH_GRAVITY * dt;
   unit.launchY += unit.launchVY * dt;
@@ -1690,8 +1699,31 @@ function updateLaunch(unit, dtMs){
     unit.launchY = 0;
     unit.launchVY = 0;
     unit.launchVX = 0;
-    unit.launched = false;
-    if (!unit.dead) setMotion(unit, "flinch", { onEnd: () => afterReaction(unit) }); // 着地の衝撃で一瞬怯む
+
+    const def = unit.def;
+    const finishRecovery = () => {
+      unit.launched = false; // ここで初めて動けるようになる
+      if (unit.dead) return;
+      const fallback = def.frameCounts.walk ? "walk" : (def.approachMotion || "walk");
+      setMotion(unit, fallback, { loop:true });
+    };
+    // 着地の衝撃：down→getupの順で再生し切るまでunit.launchedをtrueのままにしてAIを止めておく
+    if (def.frameCounts && def.frameCounts.down){
+      setMotion(unit, "down", {
+        onEnd: () => {
+          if (unit.dead) return;
+          if (def.frameCounts.getup){
+            setMotion(unit, "getup", { onEnd: finishRecovery });
+          } else {
+            finishRecovery();
+          }
+        }
+      });
+    } else if (def.frameCounts && def.frameCounts.getup){
+      setMotion(unit, "getup", { onEnd: finishRecovery });
+    } else {
+      finishRecovery();
+    }
   }
   applyFrame(unit);
 }
@@ -2365,7 +2397,9 @@ function updateUnitAI(unit, dtMs){
       // 盾が壊れて近接攻撃ができない：その場に立ち尽くす
       if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
     } else {
-      setMotion(unit, attackMotionName, { onEnd: onAttackEnd });
+      // バフ(鼓舞)を受けている間は、通常攻撃の代わりに特殊技(rage_chargeなど)を発動する
+      const useSpecial = def.frameCounts.rage_charge && getBuffStacks(unit) > 0;
+      setMotion(unit, useSpecial ? "rage_charge" : attackMotionName, { onEnd: onAttackEnd });
     }
   } else if (rangeDist < minRange){
     // 近すぎて撃てない：後退はせず、モーションもそのままにその場で留まる(何もしない)
