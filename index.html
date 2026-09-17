@@ -1,0 +1,2547 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>屍城戦記</title>
+<style>
+  :root{
+    --bg: #100f0b;
+    --bg-panel: #1b1911;
+    --bg-panel-2: #242115;
+    --line: #55492f;
+    --line-dim: #3a3323;
+    --text: #d9cfae;
+    --text-dim: #8f8567;
+    --blood: #7a2116;
+    --blood-2: #9c3322;
+    --rust: #a9793a;
+    --gold: #c9a24a;
+    --hp-enemy: #7a2116;
+    --hp-player: #5c6b34;
+    --shadow: rgba(0,0,0,.6);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:'Hiragino Mincho ProN','Yu Mincho',serif;
+    width:100%; height:100%; overflow:hidden; -webkit-user-select:none; user-select:none; }
+  #app{ position:fixed; inset:0; }
+
+  .screen{ position:absolute; inset:0; display:none; flex-direction:column; }
+  .screen.active{ display:flex; }
+
+  button{
+    font-family:'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
+    cursor:pointer; border-radius:2px;
+    background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
+  }
+  button:active{ transform:translateY(1px); }
+  button.primary{ background:var(--blood); border-color:#4a140d; color:#f0e6d0; font-weight:700; }
+  button:disabled{ opacity:.35; cursor:default; }
+
+  /* 錆びた金属風の縁取り */
+  .plate{
+    background:linear-gradient(180deg,#2a2617,#1b1911);
+    border:1px solid var(--line);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), 0 2px 6px var(--shadow);
+  }
+
+  /* ---------- タイトル ---------- */
+  #screen-title{
+    align-items:center; justify-content:center; text-align:center;
+    background:
+      radial-gradient(ellipse at 50% 25%, #241f14 0%, #0c0b08 75%);
+  }
+  #screen-title h1{
+    font-size:2.7rem; letter-spacing:.15em; color:var(--gold);
+    text-shadow:0 2px 10px rgba(0,0,0,.8);
+    margin:0 0 6px;
+  }
+  #screen-title .sub{ color:var(--text-dim); margin-bottom:44px; font-size:.78rem; letter-spacing:.25em; font-family:'Yu Gothic',sans-serif; }
+  #screen-title button{ padding:15px 50px; font-size:1.05rem; letter-spacing:.1em; }
+
+  /* ---------- 編成 ---------- */
+  #screen-formation{ padding:14px; background:linear-gradient(180deg,#181510,#100f0b); }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .topbar h2{ margin:0; font-size:1.05rem; color:var(--gold); letter-spacing:.1em; font-weight:400; }
+  .topbar button{ font-family:'Yu Gothic',sans-serif; padding:8px 16px; font-size:.8rem; }
+
+  .unit-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:10px; flex:1; align-content:start; overflow-y:auto; }
+
+  .formation-slots{
+    display:flex; gap:8px; padding:10px; overflow-x:auto; flex-shrink:0;
+    background:#0d0c09; border:1px solid var(--line); margin-bottom:12px;
+  }
+  .formation-slot{
+    position:relative; width:56px; height:56px; flex-shrink:0;
+    border:1px solid var(--line-dim); background:#050504; cursor:pointer;
+  }
+  .formation-slot img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .formation-slot.empty{
+    display:flex; align-items:center; justify-content:center;
+    color:var(--text-dim); font-size:1.3rem; border-style:dashed; cursor:default;
+  }
+  .formation-slot .cost-tag{
+    position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.75);
+    font-size:.55rem; font-family:monospace; color:var(--gold); text-align:center;
+  }
+
+  .category-tabs{
+    display:flex; gap:6px; padding-top:10px; margin-top:10px;
+    border-top:1px solid var(--line); overflow-x:auto; flex-shrink:0;
+  }
+  .category-tab{
+    flex-shrink:0; padding:8px 14px; font-size:.78rem; font-family:'Yu Gothic',sans-serif;
+    background:#1a1710; border:1px solid var(--line); color:var(--text-dim); cursor:pointer;
+  }
+  .category-tab.active{ color:var(--gold); border-color:var(--gold); }
+
+  .unit-card{ cursor:pointer; }
+  .unit-card.in-formation{ box-shadow:0 0 0 2px var(--gold) inset; }
+  .unit-card{
+    position:relative; padding:8px; text-align:center;
+    background:linear-gradient(180deg,#252112,#1a1710);
+    border:1px solid var(--line);
+    clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  }
+  .unit-card.selected{ box-shadow:0 0 0 1px var(--gold) inset; }
+  .unit-card .icon-wrap{
+    width:64px; height:64px; margin:0 auto 6px; border-radius:2px; overflow:hidden;
+    background:#050504; border:1px solid var(--line-dim);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .unit-card .icon-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .unit-card .icon-fallback{ font-family:'Yu Gothic',sans-serif; font-size:.8rem; color:var(--text-dim); }
+  .unit-card .name{ font-size:.78rem; font-family:'Yu Gothic',sans-serif; }
+  .unit-card .cost{ font-size:.72rem; color:var(--rust); font-family:monospace; }
+  .unit-card .rank-tag{
+    position:absolute; top:2px; left:2px; font-size:.55rem; padding:1px 4px;
+    background:rgba(0,0,0,.5); color:var(--text-dim); font-family:'Yu Gothic',sans-serif;
+  }
+  .unit-card.locked{ opacity:.32; }
+  .unit-card.locked::after{ content:"近日実装"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:.66rem; color:var(--text-dim); font-family:'Yu Gothic',sans-serif; background:rgba(0,0,0,.3); }
+
+  /* ---------- ステージ選択 ---------- */
+  #screen-stage{ padding:16px; align-items:center; background:linear-gradient(180deg,#181510,#100f0b); }
+  .stage-list{ width:100%; max-width:420px; display:flex; flex-direction:column; gap:10px; margin-top:20px; }
+  .stage-card{
+    background:linear-gradient(180deg,#252112,#1a1710); border:1px solid var(--line);
+    padding:14px 16px; display:flex; justify-content:space-between; align-items:center;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+  }
+  .stage-card .name{ font-size:1rem; letter-spacing:.05em; }
+  .stage-card .hp{ font-size:.7rem; color:var(--text-dim); font-family:'Yu Gothic',sans-serif; margin-top:2px; }
+  .stage-card button{ font-family:'Yu Gothic',sans-serif; padding:8px 18px; }
+
+  /* ---------- 戦闘 ---------- */
+  #screen-battle{ position:absolute; inset:0; background:linear-gradient(#2a271e 0%, #1a1812 55%, #100f0b 100%); font-family:'Yu Gothic',sans-serif; }
+
+  /* 上部バー：左(操作)／中央(HP)／右(所持金) */
+  #battle-topbar{
+    position:absolute; left:0; right:0; top:0; height:64px;
+    display:flex; align-items:stretch; gap:8px; padding:8px 10px; z-index:5; box-sizing:border-box;
+    background:linear-gradient(180deg, rgba(10,9,6,.92), rgba(10,9,6,.55) 80%, transparent);
+  }
+  #top-left-controls{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+  #top-left-controls .stage-plate{
+    background:rgba(20,18,12,.85); border:1px solid var(--line); padding:5px 10px;
+    font-size:.68rem; color:var(--text-dim); white-space:nowrap;
+    clip-path:polygon(0 0,calc(100% - 8px) 0,100% 100%,8px 100%);
+  }
+  #top-left-controls button{ width:30px; height:30px; padding:0; font-size:.85rem; line-height:1; }
+
+  #top-center-hp{ flex:1; display:flex; flex-direction:column; gap:3px; justify-content:center; min-width:0; padding:0 4px; }
+  .hpbar{ display:flex; align-items:center; gap:6px; }
+  .hpbar .tag{ font-size:.62rem; color:var(--text-dim); width:30px; flex-shrink:0; text-align:right; }
+  .hpbar .track{ flex:1; height:9px; background:#0a0906; border:1px solid var(--line-dim); border-radius:1px; overflow:hidden; }
+  .hpbar .fill{ height:100%; transition:width .25s linear; }
+  .hpbar.enemy .fill{ background:linear-gradient(180deg,#a4392a,var(--hp-enemy)); }
+  .hpbar.player .fill{ background:linear-gradient(180deg,#7c8f45,var(--hp-player)); }
+  .hpbar .num{ font-size:.6rem; font-family:monospace; color:var(--text-dim); width:52px; flex-shrink:0; }
+
+  #top-right-money{ flex:0 0 auto; text-align:right; padding:2px 4px; }
+  #top-right-money .money-num{ font-family:monospace; font-size:1.05rem; color:var(--gold); line-height:1.1; }
+  #top-right-money .money-cap{ font-size:.6rem; color:var(--text-dim); }
+
+  #battlefield{
+    position:absolute; left:0; right:0; top:64px; bottom:90px; overflow:hidden;
+    background-color:#221f17;
+  }
+  #ground-line{ position:absolute; left:0; right:0; bottom:74px; height:2px; background-color:#000000; }
+
+  .castle{
+    position:absolute; bottom:74px; width:70px; height:150px;
+    background:repeating-linear-gradient(0deg,#6b6248,#6b6248 8px,#544c38 8px,#544c38 16px);
+    border:2px solid #2a2618; border-radius:2px 2px 0 0;
+    box-shadow:0 0 18px rgba(0,0,0,.6);
+  }
+  .castle.enemy{ left:12px; box-shadow:0 0 22px rgba(154,50,30,.35); }
+  .castle.player{ right:12px; box-shadow:0 0 22px rgba(120,130,70,.3); }
+  .castle .flag{ position:absolute; top:-22px; left:50%; transform:translateX(-50%); font-size:18px; }
+  .castle .battlements{
+    position:absolute; top:-10px; left:0; right:0; height:10px;
+    background:repeating-linear-gradient(90deg,#6b6248 0 10px,transparent 10px 14px);
+  }
+
+  .unit-sprite{ position:absolute; bottom:74px; transform-origin:bottom center; }
+  .unit-sprite img{ display:block; image-rendering:-webkit-optimize-contrast; filter:drop-shadow(0 4px 4px rgba(0,0,0,.5)); }
+  .unit-sprite .uhp{ position:absolute; left:50%; transform:translateX(-50%); top:-10px; width:34px; height:4px; background:#0a0906; border:1px solid #000; }
+  .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
+
+  .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
+  .buff-aura{ bottom:auto; height:34px; transform:translate(-50%,-75%); z-index:5; }
+  .trap-sprite{ mix-blend-mode:normal; bottom:66px; left:0; z-index:2; } /* 写実素材なのでscreen合成を解除、ユニットより奥に表示 */
+  .poison-status-fx{ bottom:auto; height:70px; transform:translate(-50%,-45%); z-index:5; opacity:.85; }
+
+  /* 下部バー：左(財布)／中央〜(出撃キャラ)／右(予約スペース) */
+  #battle-bottombar{
+    position:absolute; left:0; right:0; bottom:0; height:90px; box-sizing:border-box;
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    background:linear-gradient(0deg, rgba(10,9,6,.95), rgba(10,9,6,.7) 85%, transparent);
+  }
+  #wallet-widget{
+    flex:0 0 auto; background:rgba(20,18,12,.85); border:1px solid var(--line);
+    padding:6px 10px; min-width:108px;
+    clip-path:polygon(8px 0,100% 0,100% 100%,0 100%,0 8px);
+  }
+  #wallet-widget .lv-label{ font-size:.62rem; color:var(--gold); }
+  #wallet-widget .rate{ font-size:.58rem; color:var(--text-dim); margin-bottom:4px; }
+  #wallet-widget .bar{ height:5px; background:#0a0906; border:1px solid var(--line-dim); border-radius:1px; overflow:hidden; margin-bottom:4px; }
+  #wallet-widget .bar i{ display:block; height:100%; background:var(--rust); }
+  #wallet-widget button{ width:100%; font-size:.62rem; padding:4px 0; }
+
+  #deploy-row{ flex:1; display:flex; gap:8px; overflow-x:auto; padding:2px 0; }
+  .deploy-btn{ position:relative; width:56px; height:56px; padding:0; border-radius:2px; overflow:hidden; flex-shrink:0; border:1px solid var(--line); }
+  .deploy-btn img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .deploy-btn .icon-fallback{ display:flex; align-items:center; justify-content:center; width:100%; height:100%; background:#050504; color:var(--text-dim); font-size:.68rem; }
+  .deploy-btn .cost-tag{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.75); font-size:.6rem; font-family:monospace; color:var(--gold); text-align:center; }
+  .deploy-btn:disabled .cost-tag{ color:var(--text-dim); }
+
+  #reserved-space{ flex:0 0 74px; height:60px; }
+
+  #debug-tab{
+    position:absolute; right:8px; top:8px; z-index:6;
+    font-size:.62rem; padding:8px 10px; color:var(--text-dim);
+  }
+  #debug-panel{ position:absolute; right:8px; top:44px; z-index:6; display:none; flex-direction:column; gap:4px;
+    background-color:rgba(0,0,0,.75); padding:6px; max-width:110px; border-radius:3px; }
+  #debug-panel button{ font-size:.6rem; padding:4px 6px; }
+
+  /* ---------- 結果 ---------- */
+  #screen-result{ align-items:center; justify-content:center; text-align:center; background:linear-gradient(180deg,#181510,#0c0b08); }
+  #screen-result h2{ font-size:1.7rem; margin-bottom:8px; letter-spacing:.1em; }
+  #screen-result.win h2{ color:var(--gold); }
+  #screen-result.lose h2{ color:var(--blood-2); }
+  #screen-result p{ font-family:'Yu Gothic',sans-serif; }
+  #screen-result button{ font-family:'Yu Gothic',sans-serif; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- タイトル -->
+  <section id="screen-title" class="screen active">
+    <h1>屍城戦記</h1>
+    <div class="sub">SHIJO SENKI</div>
+    <button class="primary" id="btn-to-formation">はじめる</button>
+  </section>
+
+  <!-- 編成 -->
+  <section id="screen-formation" class="screen">
+    <div class="topbar">
+      <h2>編成</h2>
+      <button class="primary" id="btn-to-stage">ステージ選択へ</button>
+    </div>
+    <div class="formation-slots" id="formation-slots"></div>
+    <div class="unit-grid" id="unit-grid"></div>
+    <div class="category-tabs" id="category-tabs"></div>
+  </section>
+
+  <!-- ステージ選択 -->
+  <section id="screen-stage" class="screen">
+    <div class="topbar" style="width:100%;max-width:420px;">
+      <h2>ステージ選択</h2>
+      <button id="btn-back-formation">戻る</button>
+    </div>
+    <div class="stage-list" id="stage-list"></div>
+  </section>
+
+  <!-- 戦闘 -->
+  <section id="screen-battle" class="screen">
+
+    <div id="battle-topbar">
+      <div id="top-left-controls">
+        <div class="stage-plate" id="stage-name-plate">魔の平原</div>
+        <button id="btn-pause" title="一時停止">Ⅱ</button>
+        <button id="btn-surrender" title="投降">✕</button>
+      </div>
+      <div id="top-center-hp">
+        <div class="hpbar enemy">
+          <span class="tag">敵城</span>
+          <div class="track"><div class="fill" id="enemy-hp-fill" style="width:100%"></div></div>
+          <span class="num" id="enemy-hp-num">150/150</span>
+        </div>
+        <div class="hpbar player">
+          <span class="tag">自城</span>
+          <div class="track"><div class="fill" id="player-hp-fill" style="width:100%"></div></div>
+          <span class="num" id="player-hp-num">150/150</span>
+        </div>
+      </div>
+      <div id="top-right-money">
+        <div class="money-num" id="money-num">0円</div>
+        <div class="money-cap" id="money-cap">上限1500円</div>
+      </div>
+    </div>
+
+    <div id="battlefield">
+      <div id="ground-line"></div>
+      <div class="castle enemy"><div class="battlements"></div><div class="flag">🏴</div></div>
+      <div class="castle player"><div class="battlements"></div><div class="flag">🚩</div></div>
+      <button id="debug-tab">動作確認</button>
+      <div id="debug-panel"></div>
+      <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000円(検証用)</button>
+      <button id="cheat-enemy-btn" style="position:absolute;left:0;top:76px;z-index:6;font-size:.62rem;padding:6px 8px;">敵兵士召喚(検証用)</button>
+      <button id="cheat-enemy-spear-btn" style="position:absolute;left:0;top:112px;z-index:6;font-size:.62rem;padding:6px 8px;">敵槍兵召喚(検証用)</button>
+      <button id="cheat-enemy-shield-btn" style="position:absolute;left:0;top:148px;z-index:6;font-size:.62rem;padding:6px 8px;">敵盾兵召喚(検証用)</button>
+      <button id="cheat-enemy-gun-btn" style="position:absolute;left:0;top:184px;z-index:6;font-size:.62rem;padding:6px 8px;">敵火縄銃兵召喚(検証用)</button>
+      <button id="cheat-enemy-goblin-btn" style="position:absolute;left:0;top:220px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン召喚(検証用)</button>
+      <button id="cheat-enemy-drummer-btn" style="position:absolute;left:0;top:256px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鼓舞兵召喚(検証用)</button>
+      <button id="cheat-enemy-catapult-btn" style="position:absolute;left:0;top:292px;z-index:6;font-size:.62rem;padding:6px 8px;">敵投石器召喚(検証用)</button>
+    </div>
+
+    <div id="battle-bottombar">
+      <div id="wallet-widget">
+        <div class="lv-label" id="wallet-lv-label">財布Lv0</div>
+        <div class="rate" id="wallet-rate-label">30円/秒</div>
+        <div class="bar"><i id="money-bar" style="width:0%"></i></div>
+        <button id="wallet-upgrade-btn">強化(600円)</button>
+      </div>
+      <div id="deploy-row"></div>
+      <div id="reserved-space"></div>
+    </div>
+
+  </section>
+
+  <!-- 結果 -->
+  <section id="screen-result" class="screen">
+    <h2 id="result-title">勝利</h2>
+    <p id="result-sub" style="color:var(--text-dim);font-size:.85rem;"></p>
+    <button class="primary" id="btn-result-continue" style="margin-top:20px;padding:12px 36px;">ステージ選択へ戻る</button>
+  </section>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   0. 定数・画像パス
+   ========================================================= */
+// @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
+// コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@fb9171da3e21b1201c15fe1fd0d2547f26bba1c9/";
+const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
+const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
+const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
+const ICON_SPEARMAN = REPO_BASE + "icons/spearman_icon.png";
+const IMG_SHIELDMAN = REPO_BASE + "images/shieldman_repo_upload/";
+const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
+const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
+const ICON_ARQUEBUSIER = REPO_BASE + "icons/arquebusier_icon.png";
+const IMG_GOBLIN = REPO_BASE + "images/goblin_repo_upload/";
+const IMG_GOBLIN_EXTRA = REPO_BASE + "images/goblin_extra_upload/"; // 咆哮・目のエフェクトはこちらのフォルダ
+const ICON_GOBLIN = REPO_BASE + "icons/goblin_icon.png";
+const IMG_DRUMMER = REPO_BASE + "images/drummer_repo_upload/";
+const ICON_DRUMMER = REPO_BASE + "icons/drummer_goblin_icon.png";
+const COMMON_FX = REPO_BASE + "images/common_fx_upload/";
+// 頭上に出る赤いオーラ(バフ表示)。全キャラ共通で使う、位置調整不要のエフェクト。
+const BUFF_AURA_FX = { count: 3, prefix: "red_aura_", durations: [200,200,200], imageBase: COMMON_FX };
+const IMG_CATAPULT = REPO_BASE + "images/catapult_repo_upload/";
+const ICON_CATAPULT = REPO_BASE + "icons/catapult_icon.png";
+const IMG_TRAPPER = REPO_BASE + "images/trapper_repo_upload/";
+const ICON_TRAPPER = REPO_BASE + "icons/trapper_goblin_icon.png";
+const IMG_ARCHER = REPO_BASE + "images/archer_repo_upload/";
+const ICON_ARCHER = REPO_BASE + "icons/archer_goblin_icon.png";
+const IMG_BRUTE = REPO_BASE + "images/brute_repo_upload/";
+const ICON_BRUTE = REPO_BASE + "icons/brute_goblin_icon.png";
+const IMG_HEALER = REPO_BASE + "images/healer_repo_upload/";
+const ICON_HEALER = REPO_BASE + "icons/healer_goblin_icon.png";
+const IMG_TAMER = REPO_BASE + "images/tamer_repo_upload/";
+const ICON_TAMER = REPO_BASE + "icons/tamer_goblin_icon.png";
+const IMG_HOUND = REPO_BASE + "images/hound_repo_upload/";
+const ICON_HOUND = REPO_BASE + "icons/hound_icon.png";
+const IMG_RUSHER = REPO_BASE + "images/rusher_repo_upload/";
+const ICON_RUSHER = REPO_BASE + "icons/rusher_icon.png";
+
+// 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
+function attachImgFallback(imgEl, label){
+  imgEl.addEventListener("error", () => {
+    if (imgEl.dataset.fallbackApplied) return;
+    imgEl.dataset.fallbackApplied = "1";
+    const box = document.createElement("div");
+    box.className = "icon-fallback";
+    box.textContent = label || "?";
+    imgEl.replaceWith(box);
+  }, { once:true });
+}
+
+/* =========================================================
+   1. キャラクター定義
+   基準ユニット：兵士。現実の力関係をそのまま倍率として今後の
+   ユニット(戦車など)に適用していく前提の「倍率1.0」基準点。
+   ランク名は後日決定(仮に rank:null としておく)。
+   ========================================================= */
+const CHAR_DEFS = {
+  soldier: {
+    name: "兵士",
+    rank: null,
+    race: "human", // 後日決定
+    cost: 500,
+    hp: 40,
+    atk: 12,
+    weight: 70,
+    walkSpeed: 42,
+    runSpeed: 95,
+    attackRange: 46,
+    detectionRange: 220,
+    parryable: true,
+    guardable: false,
+    bleedOnHit: false,
+    icon: ICON_SOLDIER,
+    imageBase: IMG_SOLDIER,
+    // 実寸スケール：idle画像の切り抜き高さ(529px)を基準に、表示上の身長92pxへ換算する係数。
+    // 全コマ共通のスケールを使うことで、画像ごとに余白の切り取られ方が違っても
+    // 見た目の大きさが揃う(高さだけを強制的に揃えると、寝転びコマ等で破綻するため)。
+    pixelScale: 92 / 529,
+    // ダウンは生成時のカメラ距離が他コマと違うようで、同じ倍率だと大きく見えるため個別に縮小補正。
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:5, run:5, discover:2, attack:10,
+      flinch:8, guardbreak:4, blowback:8, down:2, getup:5
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [260,260,260,260,260],
+      run:        [230,230,230,230,230],
+      discover:   [360,800],
+      attack:     [180,160,160,180,180,180,40,40,20,220],
+      flinch:     [80,80,100,120,40,380,270,240],
+      guardbreak: [180,180,180,180],
+      blowback:   [130,130,130,130,130,130,130,130],
+      down:       [600,2000],
+      getup:      [200,200,240,340,260]
+    },
+    attackImpactFrame: 8,
+    // walk_3.pngだけ、あらかじめ左右反転させて作った画像(左足前ポーズの代用)。
+    // 通常は全コマ一律で向きを反転させるが、このコマだけ二重反転になってしまうため、
+    // モーションごと・コマ番号ごとに「向きの補正」を指定できるようにしておく。
+    // 値は掛け算するだけ：1=そのまま、-1=さらに反転。指定がないコマは1(補正なし)。
+    frameFacingOverride: {
+      walk: [1, 1, -1, 1, 1]
+    }
+  },
+
+  spearman: {
+    name: "槍兵",
+    rank: null, // 後日決定
+    race: "human",
+    cost: 550,
+    hp: 36,
+    atk: 10,
+    weight: 65,
+    walkSpeed: 38,
+    attackRange: 70,       // 兵士よりリーチが長い
+    detectionRange: 240,
+    approachMotion: "sneak", // 発見後は走らず、槍を構えて忍び寄る
+    approachSpeed: 26,       // 忍び足の速度(歩行よりゆっくり)
+    parryable: false,        // 未検証のため暫定
+    guardable: false,
+    bleedOnHit: false,
+    icon: ICON_SPEARMAN,
+    imageBase: IMG_SPEARMAN,
+    pixelScale: 92 / 533, // idle画像の切り抜き高さ(533px)基準、兵士と同じ表示身長92pxに合わせる
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, discover:3, sneak:4, attack:10,
+      flinch:7, guardbreak:4, blowback:6, down:2, getup:5
+    },
+    // モーションタイマーで実測済みの数値(1倍速)。
+    frameDurations: {
+      idle:       [1000],
+      walk:       [160,160,160,160],
+      discover:   [225,225,225],
+      sneak:      [185,185,185,185],
+      attack:     [120,120,120,150,150,400,250,170,170,135],
+      flinch:     [150,150,160,180,350,290,220],
+      guardbreak: [300,220,420,220],
+      blowback:   [180,180,190,200,220,270],
+      down:       [400,1000],
+      getup:      [200,235,270,400,230]
+    },
+    attackImpactFrame: 5
+  },
+
+  shieldman: {
+    name: "盾兵",
+    rank: null,
+    race: "human",
+    cost: 600,
+    hp: 60,
+    atk: 5,
+    weight: 90,
+    walkSpeed: 34,
+    attackRange: 46,
+    detectionRange: 220,
+    approachMotion: "wallwalk", // 発見後は盾を地面すれすれまで下げて壁のように接近
+    approachSpeed: 22,
+    canGuard: true,          // 前方からの攻撃をガードできる(盾兵専用)
+    attackFlags: {},         // この盾兵自身の攻撃には特殊効果なし(通常攻撃)
+    icon: ICON_SHIELDMAN,
+    imageBase: IMG_SHIELDMAN,
+    pixelScale: 92 / 513,
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:6, discover:2, wallwalk:4, attack:6,
+      guard:4, shieldbreak:4, shield_destroy:5,
+      flinch:7, blowback:6, down:2, getup:6
+    },
+    frameDurations: {
+      idle:           [1000],
+      walk:           [180,180,180,180,180,180],
+      discover:       [150,150],
+      wallwalk:       [210,210,210,250],
+      attack:         [150,140,140,200,290,160],
+      guard:          [180,300,220,150],
+      shieldbreak:    [170,260,170,600],
+      shield_destroy: [480,290,310,195,190],
+      flinch:         [190,170,230,150,420,260,300],
+      blowback:       [180,180,190,190,200,220],
+      down:           [450,1000],
+      getup:          [190,300,220,350,350,320]
+    },
+    attackImpactFrame: 3,
+    guardCooldownMs: 1000,          // ガード成功後のクールタイム
+    guardIgnoredPenaltyMs: 2000     // ガード無効攻撃を受けた時に追加されるクールタイム
+  },
+
+  arquebusier: {
+    name: "火縄銃兵",
+    rank: null,
+    race: "human",
+    cost: 750,
+    hp: 28,
+    atk: 30,
+    weight: 60,
+    walkSpeed: 40,
+    attackRange: 320,        // 遠距離
+    detectionRange: 420,     // 遠距離ユニットなので索敵範囲は広め
+    approachMotion: "aimwalk", // 発見後は銃を構えたまま警戒歩き
+    approachSpeed: 30,
+    attackMotionName: "shoot", // このキャラの攻撃モーションは"attack"ではなく"shoot"
+    ranged: true,
+    projectileSpeed: 1500,   // 弾速(px/秒)。距離に応じて命中までの飛翔時間が変わる
+    fxMuzzleFlash: "fx_muzzleflash_1.png",
+    fxBullet: "fx_bullet_1.png",
+    fxImpact: "fx_impact_1.png",
+    muzzleOffsetX: 55,      // 体の中心から銃口までの前方オフセット(px)
+    muzzleOffsetBottom: 128, // 銃口の高さ(地面からのpx)
+    canGuard: false,
+    attackFlags: {},
+    icon: ICON_ARQUEBUSIER,
+    imageBase: IMG_ARQUEBUSIER,
+    pixelScale: 92 / 524,
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, discover:2, aimwalk:4, shoot:9,
+      flinch:8, blowback:6, down:2, getup:5
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [170,170,170,170],
+      discover: [190,360],
+      aimwalk:  [165,165,165,165],
+      shoot:    [150,150,220,180,170,500,1800,2200,150],
+      flinch:   [200,170,210,170,380,250,190,170],
+      blowback: [180,170,150,150,150,150],
+      down:     [350,1000],
+      getup:    [190,190,250,400,350]
+    },
+    attackImpactFrame: 2 // shoot_3(発射の瞬間)
+  },
+
+  trapper: {
+    name: "ゴブリン罠兵",
+    rank: null,
+    race: "goblin",
+    cost: 480,        // 鼓舞兵(320)より高め。拘束は戦況を壊しかねないため割高に設定
+    hp: 12,            // 鼓舞兵(14)よりやや低め、非戦闘なので発見されたら一方的にやられる前提
+    atk: 0,
+    weight: 25,
+    walkSpeed: 46,
+    noCombat: true,             // 鼓舞兵と同じく索敵・攻撃・追走をしない
+    canTrap: true,
+    trapArmDelayMs: 1500,       // 設置後、起動可能になるまでの時間(この間は隠蔽状態)
+    trapTriggerRadius: 55,      // 敵がこの半径に入ると起動
+    netRestrainDurationMs: Infinity, // 既定は無限拘束。敵側でnetResistant/netBreakTimeMsにより個別上書き
+    icon: ICON_TRAPPER,
+    imageBase: IMG_TRAPPER,
+    pixelScale: 92 / 513,       // idle画像の切り抜き高さ(513px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, place_trap:4, flinch:6, blowback:6, down:2, getup:5, trap_fx:6
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [155,155,155,155],
+      place_trap: [350,350,350,350],
+      flinch:     [220,220,220,220,220,220],
+      blowback:   [235,235,235,235,235,235],
+      down:       [350,1000],
+      getup:      [220,220,220,220,220],
+      trap_fx:    [250,280,535,400,380,1000]
+    }
+  },
+
+  archer: {
+    name: "ゴブリン弓兵",
+    rank: null,
+    race: "goblin",
+    cost: 420,          // 火縄銃兵(750)より安いが通常ゴブリン(250)より高い、毒の継続ダメージ込みで評価
+    hp: 14,
+    atk: 8,              // 直撃ダメージは控えめ、毒の継続ダメージで火力を補う設計
+    weight: 26,
+    walkSpeed: 52,
+    attackRange: 230,
+    detectionRange: 300,
+    approachMotion: "sneak_walk", // 発見後は身を低くして忍び寄る
+    approachSpeed: 40,
+    attackMotionName: "attack",
+    ranged: true,
+    projectileSpeed: 900,
+    poisonOnHit: true,
+    poisonStackPerHit: 15,      // 1発ごとの毒蓄積量(%)。約7発で100%到達
+    poisonStackThreshold: 100,  // 蓄積がこの値に達すると毒が発動
+    poisonMaxHpPercent: 0.35,   // 発動時、対象の最大HPの何%を継続ダメージとして与えるか
+    poisonDurationMs: 35000,    // 発動後の効果時間
+    poisonTickIntervalMs: 1000, // ダメージ判定の間隔
+    fxBullet: "arrow_fly_1.png",   // 飛翔中はarrow_fly_1/2を交互に使用
+    fxImpact: "arrow_stuck_1.png", // 着弾後はarrow_stuck_1→2
+    fxPoisonStatus: { count:4, prefix:"poison_fx_", durations:[315,315,315,315], imageBase: IMG_ARCHER }, // 毒状態の敵に重ねるループFX
+    canGuard: false,
+    attackFlags: {},
+    icon: ICON_ARCHER,
+    imageBase: IMG_ARCHER,
+    pixelScale: 92 / 498,        // idle画像の切り抜き高さ(498px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, attack:6, discover:2, sneak_walk:4,
+      flinch:6, blowback:6, down:2, getup:4
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [235,295,235,235],
+      attack:     [250,250,250,250,295,380],
+      discover:   [500,500],
+      sneak_walk: [290,290,290,290],
+      flinch:     [275,275,275,275,275,275],
+      blowback:   [285,285,285,285,285,285],
+      down:       [500,500],
+      getup:      [325,325,325,325]
+    },
+    attackImpactFrame: 4 // attack_5(矢を放つ瞬間)
+  },
+
+  bruteGoblin: {
+    name: "屈強なゴブリン",
+    rank: null,
+    race: "goblin",
+    cost: 750,
+    hp: 80,
+    atk: 20,
+    weight: 110,          // ゴブリン種族最重量
+    walkSpeed: 30,
+    attackRange: 55,
+    detectionRange: 230,
+    approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく
+    approachSpeed: 30,      // walkSpeedと同じ値(接近時も速度は変わらない)
+    canGuard: false,
+    superArmorDuringAttack: true,       // 攻撃モーション中は怯まず振り切る
+    attackFlags: { ignoresGuard: true }, // ガードされてもダメージが通る一撃
+    guardIgnoredPenaltyMs: 400,          // ガード無効を受けた相手はクールタイムが余分にかかる
+    icon: ICON_BRUTE,
+    imageBase: IMG_BRUTE,
+    pixelScale: 92 * (165/140) / 513, // 身長165cm(通常ゴブリン140cm比)を反映
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, attack:10, discover:2, flinch:5, blowback:6, down:2, getup:5
+    },
+    frameDurations: {
+      idle:      [1000],
+      walk:      [200,200,200,200],
+      attack:    [200,195,160,350,290,220,300,300,320,260],
+      discover:  [350,350],
+      flinch:    [100,240,265,100,195],
+      blowback:  [225,200,185,200,225,255],
+      down:      [500,500],
+      getup:     [220,220,220,220,220]
+    },
+    attackImpactFrame: 6 // attack_7(命中の瞬間)
+  },
+
+  healer: {
+    name: "ゴブリン・ヒーラー",
+    rank: null,
+    race: "goblin",
+    cost: 500,
+    hp: 12,
+    atk: 0,
+    weight: 22,
+    walkSpeed: 40,
+    noCombat: true,           // 鼓舞兵と同じく索敵・攻撃・追走をしない
+    canHeal: true,
+    healRadius: 140,          // オーラの効果範囲
+    healTickIntervalMs: 1500, // 回復判定の間隔
+    healAmountPerTick: 4,     // 1回あたりの回復量
+    canRevive: true,
+    reviveUsesMax: 1,         // 1戦闘中に使える回数
+    reviveRadius: 280,        // この範囲内の直近の死体を対象にできる(回復範囲の倍)
+    corpseRestoreHpPercent: 0.5, // 蘇生後のHP割合(最大HPの半分)
+    icon: ICON_HEALER,
+    imageBase: IMG_HEALER,
+    pixelScale: 92 * (130/140) / 513, // 身長130cm(通常ゴブリン140cm比)を反映
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, heal_cast:5, revive:15, flinch:4, blowback:6, down:2, getup:3
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [350,250,250,250],
+      heal_cast:  [190,240,300,280,350],
+      revive:     [185,345,265,265,265,260,265,265,265,295,300,150,350,250,500],
+      flinch:     [275,350,225,250],
+      blowback:   [200,250,225,245,295,500],
+      down:       [500,500],
+      getup:      [250,380,320]
+    },
+    // 回復オーラ(味方に重ねてループ表示、共通の黒背景screen合成)
+    fxHealAura: { count:4, prefix:"heal_fx_", durations:[215,215,215,215], imageBase: IMG_HEALER },
+    // 蘇生エフェクト(対象の亡骸に重ねて再生、最初の1枚だけ長く持たせて溜めを表現)
+    fxResurrect: { count:6, prefix:"resurrect_fx_", durations:[3000,250,250,250,250,400], imageBase: IMG_HEALER }
+  },
+
+  tamer: {
+    name: "ゴブリンテイマー",
+    rank: null,
+    race: "goblin",
+    cost: 300,          // 本体は指示役。コストの大半は犬2匹側に乗せる想定(暫定)
+    hp: 20,
+    atk: 0,
+    weight: 24,
+    walkSpeed: 42,
+    noCombat: true,      // 自身は戦わず、魔獣に指示するだけ
+    summons: [{ kind: "hound", count: 2 }], // 召喚すると双子の魔獣も同時に出撃する
+    icon: ICON_TAMER,
+    imageBase: IMG_TAMER,
+    pixelScale: 92 / 524, // idle画像の切り抜き高さ(524px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, discover:2, flinch:3, blowback:5, down:2, getup:4
+    },
+    frameDurations: {
+      idle:      [1000],
+      walk:      [190,190,190,190],
+      discover:  [380,380],
+      flinch:    [280,325,270],
+      blowback:  [350,300,310,360,420],
+      down:      [500,500],
+      getup:     [260,260,260,260]
+    }
+  },
+
+  hound: {
+    name: "魔獣",
+    rank: null,
+    race: "beast",       // ゴブリン族ではない(鼓舞兵のバフ対象外・ヒーラーの蘇生対象外)
+    hiddenFromFormation: true, // テイマーに付随して出るため、単体では編成一覧に出さない
+    cost: 350,
+    hp: 30,
+    atk: 10,
+    weight: 32,
+    walkSpeed: 58,
+    approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく(runモーション画像は無い)
+    approachSpeed: 58,
+    attackRange: 60,
+    detectionRange: 220,
+    icon: ICON_HOUND,
+    imageBase: IMG_HOUND,
+    pixelScale: 92 / 878, // idle画像の切り抜き高さ(878px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:3, attack:9, discover:2, flinch:5, blowback:6, down:2, getup:4
+    },
+    frameDurations: {
+      idle:      [1000],
+      // walk: 実画像3枚に対し4個の時間指定をいただいたため、先頭3つを暫定使用(要確認)
+      walk:      [225,225,225],
+      // attack: 実画像9枚に対し8個の時間指定をいただいたため、末尾を複製して暫定調整(要確認)
+      attack:    [200,225,350,320,290,200,200,200,200],
+      discover:  [380,380],
+      flinch:    [250,250,250,250,250],
+      blowback:  [280,325,315,350,400,290],
+      down:      [500,500],
+      getup:     [320,320,320,320]
+    },
+    attackImpactFrame: 3 // attack_4(暫定：噛みつき命中付近)
+  },
+
+  rusher: {
+    name: "ゴブリン・ラッシャー",
+    rank: null,
+    race: "beast",
+    cost: 900,
+    hp: 90,
+    atk: 24,
+    weight: 130,
+    walkSpeed: 34,
+    approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく(runモーション画像は無い)
+    approachSpeed: 34,
+    attackRange: 60,
+    detectionRange: 240,
+    canGuard: false,
+    alwaysSuperArmored: true, // 常時スーパーアーマー(スーパーアーマー無効の攻撃以外では怯まない)
+    attackFlags: { ignoresGuard: true, launchesUp: true }, // 通常攻撃もガード無効・打ち上げ効果を持つ
+    icon: ICON_RUSHER,
+    imageBase: IMG_RUSHER,
+    pixelScale: 92 / 921, // idle画像の切り抜き高さ(921px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, attack:12, discover:2, flinch:4, blowback:5, down:2, getup:2, rage_charge:10
+    },
+    frameDurations: {
+      idle:        [1000],
+      walk:        [260,260,260,260],
+      attack:      [200,200,200,200,200,200,200,200,200,450,500,350],
+      discover:    [350,350],
+      flinch:      [295,280,295,325],
+      blowback:    [350,350,350,350,350],
+      down:        [500,500],
+      getup:       [350,350],
+      rage_charge: [510,240,240,240,240,240,525,320,100,295]
+    },
+    attackImpactFrame: 10, // attack_11(かち上げ命中の瞬間)
+    // 鼓舞バフ発動時の特殊技：突進本体(frame6)から乱打(7〜8)まで打ち上げ、最終段(9)は後方への吹き飛ばし+最大威力
+    rageChargeHits: [
+      { frame: 6, dmgMult: 1,   effect: "launchUp" },  // 突進本体の激突
+      { frame: 7, dmgMult: 1,   effect: "launchUp" },
+      { frame: 8, dmgMult: 1,   effect: "launchUp" },
+      { frame: 9, dmgMult: 2.5, effect: "knockback" }  // 最終段：最大威力+後方吹き飛ばし
+    ]
+  },
+
+  goblin: {
+    name: "ゴブリン",
+    rank: null,
+    race: "goblin", // 鼓舞兵のバフ対象判定に使用
+    cost: 250,
+    hp: 18,
+    atk: 6,
+    weight: 30,
+    walkSpeed: 55,
+    runSpeed: 95,
+    attackRange: 40,
+    detectionRange: 200,
+    approachMotion: "run", // 兵士と同じく発見後は走って接敵
+    canDodge: true,        // 前方攻撃を一度だけ確定回避できる(側面判定持ちの攻撃には無効)
+    attackFlags: {},
+    icon: ICON_GOBLIN,
+    imageBase: IMG_GOBLIN,
+    motionImageBase: { roar: IMG_GOBLIN_EXTRA }, // 咆哮モーションだけ別フォルダ
+    pixelScale: (92 * (140/170)) / 499, // 身長140cm(兵士170cm比)を反映した縮尺
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, discover:2, run:5, attack:6,
+      guardbreak:4, flinch:6, blowback:6, down:2, getup:5, dodge:6, roar:6
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [215,215,215,215],
+      discover:   [180,400],
+      run:        [210,210,210,210,210],
+      attack:     [140,130,200,105,175,380],
+      guardbreak: [350,550,235,290],
+      flinch:     [195,125,210,145,420,220], // 7個いただいたが画像6枚のため先頭6個を採用
+      blowback:   [225,156,156,135,180,150],
+      down:       [360,1000],
+      getup:      [225,195,180,275,350],
+      dodge:      [185,185,185,185,185,185],
+      roar:       [195,195,195,335,296,600]
+    },
+    attackImpactFrame: 4, // attack_5(命中の瞬間)
+    // 咆哮エフェクト(扇形の音波)。頭上の赤いオーラは全キャラ共通のBUFF_AURA_FXを使う。
+    fxRoarWave: { count: 3, prefix: "roar_fx_", durations: [175,175,175], imageBase: IMG_GOBLIN_EXTRA }
+  },
+
+  drummerGoblin: {
+    name: "ゴブリン鼓舞兵",
+    rank: null,
+    race: "goblin",
+    cost: 320,
+    hp: 14,
+    atk: 0,
+    weight: 28,
+    walkSpeed: 50,
+    noCombat: true,     // 一切戦闘しない(索敵・攻撃・追走をしない、ただ前進するだけ)
+    canInspire: true,   // 太鼓による鼓舞バフを持つ
+    inspireRange: 200,          // この範囲内の味方ゴブリンを鼓舞
+    inspireRequiredAllies: 2,   // 範囲内に(自分以外)これだけ味方ゴブリンがいると発動
+    inspireCooldownMs: 4000,    // 発動後、次に発動判定するまでの間隔
+    buffAtkMult: 1.10,          // 1スタックごとに攻撃力を掛け算(3スタックで約1.10^3倍)
+    buffSpeedMult: 1.15,        // 1スタックごとに移動速度を掛け算
+    buffDamageCutMult: 0.70,    // 1スタックごとに被ダメージを掛け算(軽減)
+    buffMaxStacks: 3,
+    icon: ICON_DRUMMER,
+    imageBase: IMG_DRUMMER,
+    pixelScale: (92 * (140/170)) / 494,
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, drum:4, flinch:6, blowback:6, down:2, getup:6
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [205,205,205,205],
+      drum:     [150,150,150,150],
+      flinch:   [185,185,185,185,350,210], // 8個いただいたが画像6枚のため先頭6個を採用
+      blowback: [155,165,185,190,210,250],
+      down:     [350,1000],
+      getup:    [350,200,260,250,350,290]
+    },
+    // 太鼓の衝撃波エフェクト(合成用、共通の「！」マークと同じ黒背景screen合成)
+    fxDrumWave: { count: 4, prefix: "drum_fx_", durations: [135,135,135,135], imageBase: IMG_DRUMMER }
+  },
+
+  catapult: {
+    name: "ゴブリン投石器",
+    rank: null,
+    race: "goblin",
+    cost: 2800,
+    hp: 220,
+    atk: 55,
+    weight: 400,
+    walkSpeed: 14,
+    attackRange: 650,
+    minAttackRange: 400, // これより近いと近すぎて撃てない(範囲外は立ち尽くすだけ)
+    detectionRange: 700,
+    approachMotion: "roll", // 発見後もそのまま同じ足取りで接近(専用の警戒モーションなし)
+    approachSpeed: 14,
+    attackMotionName: "throw",
+    invertFacing: true, // 敵側で反転させるための調整(この素材は通常と前後が逆)
+    ranged: true,
+    splashRadius: 90,          // 着弾地点周辺、この範囲内の敵にまとめてダメージ
+    projectileArc: true,       // 直線ではなく放物線を描いて飛ぶ
+    projectileSpeed: 480,      // 山なりなので銃弾より遅め(到達時間の目安に使用)
+    projectileArcHeight: 160,  // 弧の高さ(px)
+    fxBullet: "fx_rock_fly_1.png",
+    fxImpact: "fx_rock_impact_1.png",
+    // 移動の見た目：車輪の回転は再現できなかったため、移動中に砂埃を纏わせて誤魔化す
+    fxDustMove: { count: 1, prefix: "fx_dust_", durations: [600], imageBase: IMG_CATAPULT },
+    canGuard: false,
+    attackFlags: { breaksShield: true }, // 岩の直撃は盾を破壊する
+    poisonImmune: true, // 図体が大きく毒が効かない
+    icon: ICON_CATAPULT,
+    imageBase: IMG_CATAPULT,
+    pixelScale: 120 / 426, // 画面表示上妥当なサイズにさらに縮小(高さ約120px)
+    hitboxWidth: 220, // 横幅の大きいユニット用。攻撃側はこの幅の近い方の端を狙う
+    frameCounts: {
+      idle:1, roll:2, throw:16, discover:3, flinch:3, blowback:2, down:5
+    },
+    frameDurations: {
+      idle:     [1000],
+      roll:     [280,230],
+      throw:    [225,225,225,265,600,450,400,400,420,550,400,350,320,400,1000,1500],
+      discover: [200,200,200],
+      flinch:   [320,310,425],
+      blowback: [800,1500],
+      down:     [300,350,420,500,1000]
+    },
+    attackImpactFrame: 7 // throw_8(発射の瞬間)
+  }
+};
+
+// 発見モーション共通エフェクト(「！」マーク、黒背景screen合成)
+const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125], imageBase: COMMON_FX };
+
+/* =========================================================
+   2. ステージ定義
+   ========================================================= */
+const STAGES = [
+  { id:"plain", name:"魔の平原", enemyCastleHp:150, playerCastleHp:150 }
+];
+
+/* =========================================================
+   3. 財布レベル(所持金)テーブル
+   ========================================================= */
+const WALLET_LEVELS = [
+  { level:0, rate:30,  cap:1500,  upgradeCost:600   },
+  { level:1, rate:50,  cap:3000,  upgradeCost:1200  },
+  { level:2, rate:80,  cap:6000,  upgradeCost:2400  },
+  { level:3, rate:130, cap:12000, upgradeCost:4800  },
+  { level:4, rate:200, cap:25000, upgradeCost:10000 },
+  { level:5, rate:300, cap:50000, upgradeCost:null  }
+];
+
+/* =========================================================
+   4. 画面遷移
+   ========================================================= */
+const screens = {};
+document.querySelectorAll(".screen").forEach(el => screens[el.id] = el);
+function showScreen(id){
+  Object.values(screens).forEach(el => el.classList.remove("active"));
+  screens[id].classList.add("active");
+}
+
+/* =========================================================
+   5. 編成画面
+   ========================================================= */
+const state = {
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer"],
+  formationCategory: "all",
+  stage: null
+};
+
+const FORMATION_CATEGORIES = [
+  { id: "all",    label: "すべて" },
+  { id: "human",  label: "人間" },
+  { id: "goblin", label: "ゴブリン" },
+  { id: "beast",  label: "魔獣" }
+];
+
+// テイマーのように、召喚すると付随するユニットも同時に出るキャラのコスト合計(セット価格)を返す
+function getDeployCost(def){
+  let total = def.cost;
+  (def.summons || []).forEach(s => {
+    const sub = CHAR_DEFS[s.kind];
+    if (sub) total += sub.cost * s.count;
+  });
+  return total;
+}
+
+function buildFormationScreen(){
+  state.selectedUnits = state.selectedUnits.filter(k => k !== "hound"); // 魔獣は単体編成不可(テイマーに付随)
+  buildFormationSlots();
+  buildCategoryTabs();
+  buildUnitGrid();
+}
+
+// 中央：現在編成に入っているユニットのスロット表示。タップすると編成から外れる
+function buildFormationSlots(){
+  const wrap = document.getElementById("formation-slots");
+  wrap.innerHTML = "";
+  state.selectedUnits.forEach((kind, i) => {
+    const def = CHAR_DEFS[kind];
+    if (!def) return;
+    const slot = document.createElement("div");
+    slot.className = "formation-slot";
+    slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag">${getDeployCost(def)}</div>`;
+    attachImgFallback(slot.querySelector("img"), def.name);
+    slot.title = def.name + "(タップで編成から外す)";
+    slot.addEventListener("click", () => {
+      state.selectedUnits.splice(i, 1);
+      buildFormationScreen();
+    });
+    wrap.appendChild(slot);
+  });
+  // 空きスロットの目安を1つ表示(枠自体に上限はない)
+  const hint = document.createElement("div");
+  hint.className = "formation-slot empty";
+  hint.textContent = "+";
+  wrap.appendChild(hint);
+}
+
+// 下部：カテゴリータブ。タップで一覧の絞り込みが切り替わる
+function buildCategoryTabs(){
+  const wrap = document.getElementById("category-tabs");
+  wrap.innerHTML = "";
+  FORMATION_CATEGORIES.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.className = "category-tab" + (state.formationCategory === cat.id ? " active" : "");
+    btn.textContent = cat.label;
+    btn.addEventListener("click", () => {
+      state.formationCategory = cat.id;
+      buildFormationScreen();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+// 中段：選択中のカテゴリーに属するユニット一覧。タップで編成への追加/削除をトグルする
+function buildUnitGrid(){
+  const grid = document.getElementById("unit-grid");
+  grid.innerHTML = "";
+  const activeCat = state.formationCategory || "all";
+  Object.entries(CHAR_DEFS).forEach(([kind, def]) => {
+    if (def.hiddenFromFormation) return; // 魔獣など、単体では編成できないユニットは一覧に出さない
+    if (activeCat !== "all" && def.race !== activeCat) return;
+    const inFormation = state.selectedUnits.includes(kind);
+    const card = document.createElement("div");
+    card.className = "unit-card" + (inFormation ? " in-formation" : "");
+    card.innerHTML = `
+      <div class="rank-tag">${def.rank || "―"}</div>
+      <div class="icon-wrap"><img src="${def.icon}" alt="${def.name}"></div>
+      <div class="name">${def.name}</div>
+      <div class="cost">${getDeployCost(def)}円</div>
+    `;
+    attachImgFallback(card.querySelector("img"), def.name);
+    card.addEventListener("click", () => {
+      const idx = state.selectedUnits.indexOf(kind);
+      if (idx === -1){
+        state.selectedUnits.push(kind);
+      } else {
+        state.selectedUnits.splice(idx, 1);
+      }
+      buildFormationScreen();
+    });
+    grid.appendChild(card);
+  });
+}
+
+/* =========================================================
+   6. ステージ選択画面
+   ========================================================= */
+function buildStageScreen(){
+  const list = document.getElementById("stage-list");
+  list.innerHTML = "";
+  STAGES.forEach(stage => {
+    const card = document.createElement("div");
+    card.className = "stage-card";
+    card.innerHTML = `
+      <div>
+        <div class="name">${stage.name}</div>
+        <div class="hp">敵城HP ${stage.enemyCastleHp}</div>
+      </div>
+      <button class="primary">出撃</button>
+    `;
+    card.querySelector("button").addEventListener("click", () => {
+      state.stage = stage;
+      startBattle(stage);
+    });
+    list.appendChild(card);
+  });
+}
+
+/* =========================================================
+   7. 戦闘ロジック
+   ========================================================= */
+let battle = null;
+
+function startBattle(stage){
+  const field = document.getElementById("battlefield");
+  field.querySelectorAll(".unit-sprite").forEach(el => el.remove());
+
+  document.getElementById("stage-name-plate").textContent = stage.name;
+
+  battle = {
+    stage,
+    enemyCastleHp: stage.enemyCastleHp,
+    enemyCastleHpMax: stage.enemyCastleHp,
+    playerCastleHp: stage.playerCastleHp,
+    playerCastleHpMax: stage.playerCastleHp,
+    money: 0,
+    walletLevel: 0,
+    units: [],
+    traps: [],
+    lastTick: performance.now(),
+    ended: false,
+    paused: false
+  };
+
+  updateCastleBars();
+  buildDeployRow();
+  buildDebugPanel();
+  showScreen("screen-battle");
+
+  requestAnimationFrame(battleLoop);
+}
+
+function updateCastleBars(){
+  document.getElementById("enemy-hp-num").textContent =
+    Math.max(0,Math.ceil(battle.enemyCastleHp)) + "/" + battle.enemyCastleHpMax;
+  document.getElementById("enemy-hp-fill").style.width =
+    Math.max(0, battle.enemyCastleHp / battle.enemyCastleHpMax * 100) + "%";
+  document.getElementById("player-hp-num").textContent =
+    Math.max(0,Math.ceil(battle.playerCastleHp)) + "/" + battle.playerCastleHpMax;
+  document.getElementById("player-hp-fill").style.width =
+    Math.max(0, battle.playerCastleHp / battle.playerCastleHpMax * 100) + "%";
+}
+
+function buildDeployRow(){
+  const row = document.getElementById("deploy-row");
+  row.innerHTML = "";
+  state.selectedUnits.forEach(kind => {
+    const def = CHAR_DEFS[kind];
+    const btn = document.createElement("button");
+    btn.className = "deploy-btn";
+    btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag">${getDeployCost(def)}</span>`;
+    attachImgFallback(btn.querySelector("img"), def.name);
+    btn.addEventListener("click", () => tryDeploy(kind));
+    row.appendChild(btn);
+  });
+  updateWalletUI();
+}
+
+function tryUpgradeWallet(){
+  const cur = WALLET_LEVELS[battle.walletLevel];
+  if (cur.upgradeCost == null) return;
+  if (battle.money < cur.upgradeCost) return;
+  battle.money -= cur.upgradeCost;
+  battle.walletLevel++;
+  updateWalletUI();
+}
+document.getElementById("wallet-upgrade-btn").addEventListener("click", tryUpgradeWallet);
+
+function updateWalletUI(){
+  if (!battle) return;
+  const lv = WALLET_LEVELS[battle.walletLevel];
+  document.getElementById("money-num").textContent = Math.floor(battle.money) + "円";
+  document.getElementById("money-cap").textContent = "上限" + lv.cap + "円";
+  document.getElementById("money-bar").style.width = (battle.money / lv.cap * 100) + "%";
+  document.getElementById("wallet-lv-label").textContent = "財布Lv" + battle.walletLevel;
+  document.getElementById("wallet-rate-label").textContent = lv.rate + "円/秒";
+
+  const upBtn = document.getElementById("wallet-upgrade-btn");
+  if (lv.upgradeCost == null){
+    upBtn.textContent = "最大強化";
+    upBtn.disabled = true;
+  } else {
+    upBtn.textContent = "強化(" + lv.upgradeCost + "円)";
+    upBtn.disabled = battle.money < lv.upgradeCost;
+  }
+
+  document.querySelectorAll(".deploy-btn").forEach((btn, i) => {
+    const kind = state.selectedUnits[i];
+    const def = CHAR_DEFS[kind];
+    btn.disabled = battle.money < getDeployCost(def);
+  });
+}
+
+function tryDeploy(kind){
+  const def = CHAR_DEFS[kind];
+  const cost = getDeployCost(def);
+  if (battle.money < cost) return;
+  battle.money -= cost;
+  updateWalletUI();
+  spawnUnit(kind, "player");
+  (def.summons || []).forEach(s => {
+    for (let i = 0; i < s.count; i++){
+      // 複数体まとめて出る場合は少しずつ横にずらして重なりすぎないようにする
+      const offset = (i - (s.count - 1) / 2) * 26;
+      spawnUnit(s.kind, "player", offset);
+    }
+  });
+}
+
+/* ---------- ユニット生成・アニメーション ---------- */
+
+function spawnUnit(kind, side, xOffset){
+  const def = CHAR_DEFS[kind];
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field.clientWidth;
+
+  const el = document.createElement("div");
+  el.className = "unit-sprite";
+  const img = document.createElement("img");
+  img.addEventListener("load", () => {
+    const motionScales = def.motionScale || {};
+    const motionFactor = motionScales[img.dataset.motion] != null ? motionScales[img.dataset.motion] : 1;
+    const scale = (def.pixelScale || 1) * motionFactor;
+    const dw = img.naturalWidth * scale;
+    const dh = img.naturalHeight * scale;
+    img.style.width = dw + "px";
+    img.style.height = dh + "px";
+    if (img._ownerUnit){
+      img._ownerUnit._displayWidth = dw;
+      img._ownerUnit._displayHeight = dh;
+    }
+    img._retryCount = 0; // 読み込みに成功したらリトライ回数をリセット
+  });
+  // 読み込みに失敗した場合、少し待って同じ画像を再読込する(モバイルSafariでの一時的な読み込み失敗対策)
+  img.addEventListener("error", () => {
+    img._retryCount = (img._retryCount || 0) + 1;
+    if (img._retryCount > 3) return; // 何度も失敗する場合は諦める(壊れた画像アイコンのまま)
+    const failedSrc = img.src;
+    setTimeout(() => {
+      if (img.src === failedSrc){ // その間に別のコマへ進んでいなければ再読込
+        img.src = "";
+        img.src = failedSrc;
+      }
+    }, 250 * img._retryCount);
+  });
+  el.appendChild(img);
+  const uhp = document.createElement("div");
+  uhp.className = "uhp";
+  uhp.innerHTML = "<i></i>";
+  el.appendChild(uhp);
+  field.appendChild(el);
+
+  const startX = (side === "player" ? fieldWidth - 90 : 90) + (xOffset || 0);
+  // 投石器は素材の都合で通常キャラと前後の向きが逆に作られているため、キャラごとに反転させられるようにする
+  const baseFacing = side === "player" ? -1 : 1;
+  const facing = def.invertFacing ? -baseFacing : baseFacing;
+
+  const unit = {
+    kind, def, side, el, img, uhpFill: uhp.querySelector("i"),
+    x: startX,
+    hp: def.hp,
+    hpMax: def.hp,
+    facing,
+    target: null,
+    motion: null,
+    frameIndex: 0,
+    frameTimer: 0,
+    dead: false,
+    debugLock: false,
+    guardCooldown: 0,     // 残りクールタイム(ms)。0ならガード可能
+    shieldBroken: false,  // true になったらガード・近接攻撃とも二度と使えない
+    dodgeUsed: false,     // true になったら特殊回避は二度と使えない(一度きり)
+    dodgedPastUnit: null, // 回避してすれ違った相手(この相手とは戦わない)
+    buffSources: new Set(), // このユニットを鼓舞したドラマー(死ぬとバフが消える)
+    inspireCooldown: 0,     // 鼓舞兵専用：次に発動判定できるまでの残り時間
+    trapCheckpointIndex: 0,        // 罠兵専用：自軍城前→中間→敵城前のうち、次に設置すべき地点の番号(0〜3、3で設置完了)
+    restrained: false,            // 罠に拘束されている間はtrue(AI停止・ガード/回避不可)
+    restrainRemainingMs: 0,       // 拘束の残り時間(Infinityなら自力脱出しない)
+    launched: false,              // 打ち上げ/吹き飛ばし中はtrue(AI停止・見た目が浮く)
+    launchVY: 0,
+    launchVX: 0,
+    launchY: 0,
+    poisonRemainingMs: 0,         // 毒状態の残り時間
+    poisonStack: 0,               // 毒の蓄積値(%)。閾値に達すると発動
+    poisonTickTimer: 0,
+    poisonTickIntervalMs: 0,
+    poisonDamagePerTick: 0,
+    poisonFxDef: null,
+    poisonFxEl: null,
+    poisonFxFrame: 0,
+    poisonFxTimer: 0,
+    healCooldown: 800,            // ヒーラー専用：次に回復を発動できるまでの残り時間
+    isReviving: false,            // ヒーラー専用：現在蘇生の詠唱中かどうか
+    reviveTarget: null,           // ヒーラー専用：蘇生対象の死体
+    reviveUsesLeft: def.reviveUsesMax || 0, // ヒーラー専用：残り蘇生回数
+    frozenForRevive: false,       // 死体側：蘇生対象として固定され、消滅を待たされている
+    _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
+  };
+  img._ownerUnit = unit;
+  battle.units.push(unit);
+  setMotion(unit, "idle");
+  return unit;
+}
+
+function frameUrl(def, motion, frameIndex1based){
+  const base = (def.motionImageBase && def.motionImageBase[motion]) || def.imageBase;
+  return base + motion + "_" + frameIndex1based + ".png";
+}
+
+function removeUnit(unit){
+  if (unit.buffFxEl) unit.buffFxEl.remove();
+  unit.el.remove();
+  if (battle) battle.units = battle.units.filter(u => u !== unit);
+}
+
+/* ---------- 鼓舞バフ ---------- */
+
+function getBuffStacks(unit){
+  return unit.buffSources ? unit.buffSources.size : 0;
+}
+function getEffectiveAtk(unit){
+  const stacks = getBuffStacks(unit);
+  if (!stacks) return unit.def.atk;
+  return unit.def.atk * Math.pow(unit.def.buffAtkMult || 1, stacks);
+}
+function getEffectiveSpeed(unit, baseSpeed){
+  const stacks = getBuffStacks(unit);
+  if (!stacks) return baseSpeed;
+  return baseSpeed * Math.pow(unit.def.buffSpeedMult || 1, stacks);
+}
+function getDamageCutMultiplier(unit){
+  const stacks = getBuffStacks(unit);
+  if (!stacks) return 1;
+  return Math.pow(unit.def.buffDamageCutMult != null ? unit.def.buffDamageCutMult : 1, stacks);
+}
+
+// このユニットが死亡/消滅した際、そのユニットが与えていたバフを全員から取り除く
+function clearBuffsFrom(deadUnit){
+  if (!battle) return;
+  battle.units.forEach(u => {
+    if (u.buffSources) u.buffSources.delete(deadUnit);
+  });
+}
+
+// 鼓舞兵の太鼓判定：近くに味方ゴブリンが一定数いれば太鼓を叩いてバフを付与する
+function updateInspire(unit, dtMs){
+  const def = unit.def;
+  if (!def.canInspire || unit.dead) return;
+  if (unit.inspireCooldown > 0){
+    unit.inspireCooldown = Math.max(0, unit.inspireCooldown - dtMs);
+    return;
+  }
+  if (unit.motion !== "walk" && unit.motion !== "idle") return; // 怯み中などは判定しない
+
+  const nearbyGoblinAllies = battle.units.filter(other =>
+    other !== unit && !other.dead && other.side === unit.side &&
+    other.def.race === "goblin" &&
+    Math.abs(other.x - unit.x) <= def.inspireRange
+  );
+
+  if (nearbyGoblinAllies.length < (def.inspireRequiredAllies || 2)) return;
+
+  // 太鼓を叩くモーションへ(数ループ再生してから歩行に戻る)
+  let loops = 0;
+  const maxLoops = 2;
+  const onDrumLoopEnd = () => {
+    loops++;
+    if (loops < maxLoops && !unit.dead){
+      setMotion(unit, "drum", { onEnd: onDrumLoopEnd });
+    } else if (!unit.dead){
+      setMotion(unit, "walk", { loop:true });
+    }
+  };
+  setMotion(unit, "drum", { onEnd: onDrumLoopEnd });
+  unit.inspireCooldown = def.inspireCooldownMs || 4000;
+
+  // 太鼓の衝撃波エフェクト
+  if (def.fxDrumWave){
+    const fx = def.fxDrumWave;
+    for (let i = 0; i < fx.count; i++){
+      setTimeout(() => {
+        spawnFx(fx.imageBase + fx.prefix + (i+1) + ".png", unit.x, { height: 60, bottom: 74, lifespan: fx.durations[i] });
+      }, i * (fx.durations[i] || 130));
+    }
+  }
+
+  // バフ付与(このドラマーからまだ受けていない、かつ上限未満の味方ゴブリンのみ)
+  nearbyGoblinAllies.forEach(ally => {
+    if (!ally.buffSources) ally.buffSources = new Set();
+    if (ally.buffSources.has(unit)) return;
+    if (ally.buffSources.size >= (def.buffMaxStacks || 3)) return;
+    ally.buffSources.add(unit);
+
+    // 鼓舞を受けた瞬間、そのゴブリンは何をしていても強制的に咆哮する(スーパーアーマー等を無視して割り込む)
+    if (ally.def.frameCounts && ally.def.frameCounts.roar){
+      setMotion(ally, "roar", {
+        onEnd: () => { if (!ally.dead) setMotion(ally, "walk", { loop:true }); }
+      });
+      const rfx = ally.def.fxRoarWave;
+      if (rfx){
+        const flip = ally.facing === -1; // キャラが左向きなら音波も反転
+        for (let i = 0; i < rfx.count; i++){
+          setTimeout(() => {
+            if (ally.dead) return;
+            spawnFx(rfx.imageBase + rfx.prefix + (i+1) + ".png", ally.x, { height: 50, bottom: 100, lifespan: rfx.durations[i], flip });
+          }, i * (rfx.durations[i] || 175));
+        }
+      }
+    }
+  });
+}
+
+/* ---------- 罠兵：罠の設置 ---------- */
+
+// 罠兵が設置できる3地点(自軍城前・ステージ中間・敵城前)のx座標を返す
+function getTrapCheckpoints(unit){
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field ? field.clientWidth : 800;
+  const ownFront = unit.side === "player" ? fieldWidth - 90 : 90;
+  const midPoint = fieldWidth / 2;
+  const enemyFront = unit.side === "player" ? 60 : fieldWidth - 60;
+  return [ownFront, midPoint, enemyFront];
+}
+
+// 罠兵の罠設置判定：自軍城前→ステージ中間→敵城前の順に、その地点へ辿り着いた時だけ1つ設置する。
+// 各地点は一度設置したら二度と使わない(合計で最大3個)。
+function updateTrapper(unit, dtMs){
+  const def = unit.def;
+  if (!def.canTrap || unit.dead || unit.restrained) return;
+  if (unit.motion !== "walk") return; // 設置中・怯み中などは判定しない
+
+  const checkpoints = getTrapCheckpoints(unit);
+  const idx = unit.trapCheckpointIndex || 0;
+  if (idx >= checkpoints.length) return; // 3地点とも設置済み
+
+  const targetX = checkpoints[idx];
+  const forwardDir = unit.side === "player" ? -1 : 1;
+  const reachTolerance = 3; // 敵城前(最終停止地点)がわずかに手前で止まっても到達扱いにする
+  const reached = forwardDir < 0 ? unit.x <= targetX + reachTolerance : unit.x >= targetX - reachTolerance;
+  if (!reached) return;
+
+  setMotion(unit, "place_trap", {
+    onEnd: () => {
+      if (unit.dead) return;
+      spawnTrap(unit, targetX);
+      unit.trapCheckpointIndex = idx + 1;
+      setMotion(unit, "walk", { loop:true });
+    }
+  });
+}
+
+// 罠エンティティを生成(見た目の網はtrap_fx_1〜6を使い、起動するまではtrap_fx_1のまま静止)
+function spawnTrap(owner, trapX){
+  const def = owner.def;
+  const field = document.getElementById("battlefield");
+  if (!field) return;
+
+  const el = document.createElement("img");
+  el.className = "fx-sprite trap-sprite";
+  el.style.height = "36px";
+  el.style.transform = "translateX(" + trapX + "px)";
+  el.src = def.imageBase + "trap_fx_1.png";
+  field.appendChild(el);
+
+  battle.traps.push({
+    owner, side: owner.side, x: trapX, el,
+    state: "arming",     // arming → armed → triggering → holding
+    armTimer: def.trapArmDelayMs || 1000,
+    frameIndex: 0,
+    frameTimer: 0,
+    captured: [],
+    removed: false
+  });
+}
+
+// 全ての罠の状態更新：起動判定、網の展開アニメ、拘束対象の解放チェック
+function updateTraps(dtMs){
+  if (!battle || !battle.traps.length) return;
+  battle.traps.forEach(trap => {
+    if (trap.removed) return;
+    const def = trap.owner.def;
+    const durations = (def.frameDurations && def.frameDurations.trap_fx) || [1000];
+    const frameCount = (def.frameCounts && def.frameCounts.trap_fx) || durations.length;
+
+    if (trap.state === "arming"){
+      trap.armTimer -= dtMs;
+      if (trap.armTimer <= 0) trap.state = "armed";
+      return;
+    }
+
+    if (trap.state === "armed"){
+      const enemySide = trap.side === "player" ? "enemy" : "player";
+      const nearby = battle.units.filter(u =>
+        u.side === enemySide && !u.dead && !u.restrained &&
+        Math.abs(u.x - trap.x) <= (def.trapTriggerRadius || 50)
+      );
+      const catchable = nearby.filter(u => !u.def.netResistant); // 耐性持ちは罠にかからない
+      if (catchable.length === 0) return; // 誰もいない、または耐性持ちしかいない間は起動しない
+
+      trap.state = "triggering";
+      trap.frameIndex = 1; // trap_fx_2(起動の瞬間)から再生開始
+      trap.frameTimer = 0;
+      trap.captured = catchable;
+
+      // 捕獲対象の中で最も表示サイズが大きいキャラに合わせて網のエフェクトサイズを調整
+      const maxHeight = Math.max(36, ...catchable.map(u => u._displayHeight || 60));
+      trap.el.style.height = Math.round(maxHeight * 0.9) + "px";
+
+      catchable.forEach(u => {
+        u.restrained = true;
+        u.restrainRemainingMs = (u.def.netBreakTimeMs != null) ? u.def.netBreakTimeMs : Infinity;
+        u.img.style.visibility = "hidden"; // 本体だけ隠す(HPバーはelの子のまま残るので見え続ける)
+      });
+      return;
+    }
+
+    if (trap.state === "triggering" || trap.state === "holding"){
+      trap.frameTimer += dtMs;
+      const curDur = durations[Math.min(trap.frameIndex, durations.length - 1)];
+      if (trap.frameTimer >= curDur && trap.frameIndex < frameCount - 1){
+        trap.frameTimer -= curDur;
+        trap.frameIndex++;
+        if (trap.frameIndex >= frameCount - 1) trap.state = "holding";
+      }
+      trap.el.src = def.imageBase + "trap_fx_" + (trap.frameIndex + 1) + ".png";
+
+      // 捕獲対象が全員(死亡または脱出で)いなくなったら罠を消滅させる
+      trap.captured = trap.captured.filter(u => !u.dead && u.restrained);
+      if (trap.state === "holding" && trap.captured.length === 0){
+        trap.removed = true;
+        trap.el.remove();
+      }
+    }
+  });
+  battle.traps = battle.traps.filter(t => !t.removed);
+}
+
+// 拘束時間の経過処理：netBreakTimeMsが設定されている敵は時間経過で自力脱出する
+function updateRestraints(dtMs){
+  if (!battle) return;
+  battle.units.forEach(unit => {
+    if (!unit.restrained || unit.dead) return;
+    if (unit.restrainRemainingMs === Infinity) return;
+    unit.restrainRemainingMs -= dtMs;
+    if (unit.restrainRemainingMs <= 0){
+      unit.restrained = false;
+      unit.img.style.visibility = "visible";
+      unit.target = null;
+      const fallback = unit.def.frameCounts.walk ? "walk" : (unit.def.approachMotion || "walk");
+      setMotion(unit, fallback, { loop:true });
+    }
+  });
+}
+
+/* ---------- 弓兵：毒の継続ダメージ ---------- */
+
+// 毒状態の継続ダメージ処理(attacker=nullで自傷扱いにしない、applyDamageToUnitに再度毒を上書きさせない)
+function updatePoison(unit, dtMs){
+  if (unit.dead || !unit.poisonRemainingMs || unit.poisonRemainingMs <= 0) return;
+  unit.poisonRemainingMs -= dtMs;
+  unit.poisonTickTimer -= dtMs;
+  if (unit.poisonTickTimer <= 0){
+    unit.poisonTickTimer += unit.poisonTickIntervalMs || 1000;
+    applyDamageToUnit(unit, unit.poisonDamagePerTick || 0, null);
+  }
+  if (unit.poisonRemainingMs <= 0){
+    unit.poisonRemainingMs = 0;
+  }
+}
+
+// 毒状態の紫霧エフェクトをユニットの上に重ねてループ表示する(鼓舞バフのオーラと同じ仕組み)
+function updatePoisonFx(unit, dtMs){
+  const active = !unit.dead && unit.poisonRemainingMs > 0 && unit.poisonFxDef;
+
+  if (active && !unit.poisonFxEl){
+    const img = document.createElement("img");
+    img.className = "fx-sprite poison-status-fx";
+    unit.el.appendChild(img);
+    unit.poisonFxEl = img;
+    unit.poisonFxFrame = 0;
+    unit.poisonFxTimer = 0;
+  }
+  if (!active && unit.poisonFxEl){
+    unit.poisonFxEl.remove();
+    unit.poisonFxEl = null;
+  }
+  if (!unit.poisonFxEl) return;
+
+  const fxDef = unit.poisonFxDef;
+  unit.poisonFxTimer += dtMs;
+  const dur = fxDef.durations[unit.poisonFxFrame] || 300;
+  if (unit.poisonFxTimer >= dur){
+    unit.poisonFxTimer -= dur;
+    unit.poisonFxFrame = (unit.poisonFxFrame + 1) % fxDef.count;
+  }
+  unit.poisonFxEl.src = fxDef.imageBase + fxDef.prefix + (unit.poisonFxFrame + 1) + ".png";
+  unit.poisonFxEl.style.left = "50%";
+  unit.poisonFxEl.style.top = "10%";
+}
+
+/* ---------- 打ち上げ・吹き飛ばし(ラッシャーなど) ---------- */
+
+const LAUNCH_GRAVITY = 1400; // px/s^2
+
+// 対象を空中に打ち上げる(knockback:trueで後方への水平吹き飛びも同時に加える)
+function launchUnit(target, attacker, opts){
+  if (target.dead) return;
+  opts = opts || {};
+  target.launched = true;
+  target.launchVY = opts.upSpeed || 380;
+  if (opts.knockback){
+    // 攻撃者から見て奥(=対象から見て後方)へ弾き飛ばす
+    const awayDir = attacker ? Math.sign(target.x - attacker.x) || (target.side === "player" ? 1 : -1) : 1;
+    target.launchVX = awayDir * (opts.backSpeed || 250);
+  } else {
+    target.launchVX = 0;
+  }
+}
+
+// 打ち上げ中の物理更新(重力で放物線を描き、着地したら通常状態に戻す)
+function updateLaunch(unit, dtMs){
+  if (!unit.launched) return;
+  const dt = dtMs / 1000;
+  unit.launchVY -= LAUNCH_GRAVITY * dt;
+  unit.launchY += unit.launchVY * dt;
+  if (unit.launchVX){
+    unit.x += unit.launchVX * dt;
+  }
+  if (unit.launchY <= 0){
+    unit.launchY = 0;
+    unit.launchVY = 0;
+    unit.launchVX = 0;
+    unit.launched = false;
+    if (!unit.dead) setMotion(unit, "flinch", { onEnd: () => afterReaction(unit) }); // 着地の衝撃で一瞬怯む
+  }
+  applyFrame(unit);
+}
+
+/* ---------- ヒーラー：回復オーラ ---------- */
+
+// 鼓舞兵の太鼓と同じ仕組み：クールタイムが明けたら詠唱モーションを1回再生し、
+// その瞬間に範囲内でHPが減っている味方をまとめて固定量回復する
+function updateHealer(unit, dtMs){
+  const def = unit.def;
+  if (!def.canHeal || unit.dead || unit.restrained || unit.isReviving) return;
+  if (unit.healCooldown > 0){
+    unit.healCooldown = Math.max(0, unit.healCooldown - dtMs);
+    return;
+  }
+  if (unit.motion !== "walk" && unit.motion !== "idle") return; // 蘇生中・怯み中などは判定しない
+
+  const nearbyAllies = battle.units.filter(other =>
+    other !== unit && !other.dead && other.side === unit.side &&
+    other.hp < other.hpMax &&
+    edgeDistance(unit, other) <= (def.healRadius || 0)
+  );
+  if (!nearbyAllies.length) return; // 回復が必要な味方がいなければ詠唱しない
+
+  setMotion(unit, "heal_cast", {
+    onEnd: () => { if (!unit.dead && !unit.isReviving) setMotion(unit, "walk", { loop:true }); }
+  });
+  unit.healCooldown = def.healTickIntervalMs || 1500;
+
+  nearbyAllies.forEach(ally => {
+    ally.hp = Math.min(ally.hpMax, ally.hp + (def.healAmountPerTick || 0)); // 回復量は固定
+    applyFrame(ally);
+
+    const fx = def.fxHealAura;
+    if (fx){
+      for (let i = 0; i < fx.count; i++){
+        setTimeout(() => {
+          if (ally.dead) return;
+          spawnFx(fx.imageBase + fx.prefix + (i+1) + ".png", ally.x, { height: 50, bottom: 100, lifespan: fx.durations[i] });
+        }, i * (fx.durations[i] || 200));
+      }
+    }
+  });
+}
+
+function setMotion(unit, motion, opts){
+  opts = opts || {};
+  unit.motion = motion;
+  unit.frameIndex = 0;
+  unit.frameTimer = 0;
+  unit.motionLoop = !!opts.loop;
+  unit.onMotionEnd = opts.onEnd || null;
+  applyFrame(unit);
+  if (motion === "discover"){
+    showAlertMark(unit);
+  }
+}
+
+// 発見モーションに入った瞬間、頭上に共通の「！」マークを表示する
+function showAlertMark(unit){
+  const fx = FX_ALERT_MARK;
+  if (!fx) return;
+  const headBottom = 74 + (unit.img.offsetHeight || 90) + 6; // ユニットの頭の少し上
+  for (let i = 0; i < fx.count; i++){
+    setTimeout(() => {
+      if (unit.dead) return;
+      spawnFx(fx.imageBase + fx.prefix + (i+1) + ".png", unit.x, { height: 34, bottom: headBottom, lifespan: fx.durations[i] });
+    }, i * (fx.durations[i] || 120));
+  }
+}
+
+function applyFrame(unit){
+  const def = unit.def;
+  const count = def.frameCounts[unit.motion] || 1;
+  const idx1 = Math.min(unit.frameIndex + 1, count);
+  unit.img.dataset.motion = unit.motion; // 読み込み完了時にモーション別の縮尺補正を参照するため
+  unit.img.src = frameUrl(def, unit.motion, idx1);
+
+  const overrides = def.frameFacingOverride && def.frameFacingOverride[unit.motion];
+  const correction = overrides ? (overrides[unit.frameIndex] ?? 1) : 1;
+  const finalScale = unit.facing * correction;
+
+  const launchOffset = unit.launched ? Math.round(unit.launchY) : 0;
+  unit.el.style.transform = "translateX(" + unit.x + "px) translateY(-" + launchOffset + "px) scaleX(" + finalScale + ")";
+  unit.uhpFill.style.width = Math.max(0, unit.hp / unit.hpMax * 100) + "%";
+}
+
+function advanceUnit(unit, dtMs){
+  const def = unit.def;
+
+  const durations = def.frameDurations[unit.motion] || [1000];
+  const count = def.frameCounts[unit.motion] || durations.length;
+
+  unit.frameTimer += dtMs;
+  const curDur = durations[Math.min(unit.frameIndex, durations.length-1)];
+  if (unit.frameTimer >= curDur){
+    unit.frameTimer -= curDur;
+    unit.frameIndex++;
+    if (unit.frameIndex >= count){
+      if (unit.motionLoop){
+        unit.frameIndex = 0;
+      } else {
+        unit.frameIndex = count - 1;
+        if (unit.onMotionEnd){
+          const cb = unit.onMotionEnd;
+          unit.onMotionEnd = null;
+          cb(unit);
+        }
+        applyFrame(unit);
+        return;
+      }
+    }
+    const attackMotionName = def.attackMotionName || "attack";
+    if (unit.motion === attackMotionName && unit.frameIndex === def.attackImpactFrame){
+      if (def.ranged){
+        fireProjectile(unit);
+      } else {
+        resolveAttackImpact(unit);
+      }
+    }
+    if (unit.motion === "rage_charge" && def.rageChargeHits){
+      const hit = def.rageChargeHits.find(h => h.frame === unit.frameIndex);
+      if (hit) resolveRageChargeHit(unit, hit);
+    }
+    applyFrame(unit);
+  }
+}
+
+function spawnFx(imgSrc, x, opts){
+  opts = opts || {};
+  const field = document.getElementById("battlefield");
+  if (!field) return null;
+  const el = document.createElement("img");
+  el.src = imgSrc;
+  el.className = "fx-sprite";
+  el.style.height = (opts.height || 30) + "px";
+  el.style.bottom = (opts.bottom != null ? opts.bottom : 110) + "px";
+  el.style.transform = "translateX(" + x + "px)" + (opts.flip ? " scaleX(-1)" : "");
+  field.appendChild(el);
+  if (opts.lifespan){
+    setTimeout(() => el.remove(), opts.lifespan);
+  }
+  return el;
+}
+
+function fireProjectile(unit){
+  if (!battle || battle.ended) return;
+  const def = unit.def;
+  const dir = unit.facing === -1 ? -1 : 1; // 発射方向(左向きユニットなら左へ)
+  const capturedTarget = unit.target; // 発射時点の狙い。飛翔中に相手が死ねば外れ扱いにする
+
+  // 銃口(発射位置)の位置(体の中心から前方・やや高めにオフセット)
+  const muzzleX = unit.x + dir * (def.muzzleOffsetX || 0);
+  const muzzleBottom = def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110;
+
+  if (def.fxMuzzleFlash){
+    spawnFx(def.imageBase + def.fxMuzzleFlash, muzzleX, { flip: dir < 0, lifespan: 150, height: 39, bottom: muzzleBottom });
+  }
+
+  // 命中先の座標を決める(相手ユニット、いなければ城)
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field ? field.clientWidth : 800;
+  const targetX = capturedTarget ? capturedTarget.x : (unit.side === "player" ? 30 : fieldWidth - 30);
+  const distance = Math.abs(targetX - muzzleX);
+  const speed = def.projectileSpeed || 1200;
+  const travelMs = Math.max(40, (distance / speed) * 1000);
+
+  let bullet = null;
+  if (def.fxBullet){
+    bullet = spawnFx(def.imageBase + def.fxBullet, muzzleX, { flip: dir < 0, height: def.projectileArc ? 34 : 10, bottom: muzzleBottom });
+
+    if (def.projectileArc){
+      // 放物線：JSで毎フレーム位置を更新(横方向は等速、縦方向はsinカーブで山なりに)
+      const arcHeight = def.projectileArcHeight || 120;
+      const startTime = performance.now();
+      const step = (now) => {
+        if (!bullet || !bullet.isConnected) return;
+        const t = Math.min(1, (now - startTime) / travelMs);
+        const x = muzzleX + (targetX - muzzleX) * t;
+        const y = Math.sin(t * Math.PI) * arcHeight; // 0→最大→0の山なり
+        bullet.style.transform = "translateX(" + x + "px)" + (dir < 0 ? " scaleX(-1)" : "") + " rotate(" + (t*360*2) + "deg)";
+        bullet.style.bottom = (muzzleBottom + y) + "px";
+        if (t < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    } else {
+      // 直線：CSS transitionでそのまま移動
+      bullet.style.transition = "transform " + travelMs + "ms linear";
+      requestAnimationFrame(() => {
+        bullet.style.transform = "translateX(" + targetX + "px)" + (dir < 0 ? " scaleX(-1)" : "");
+      });
+    }
+  }
+
+  setTimeout(() => {
+    if (bullet) bullet.remove();
+    if (!battle || battle.ended || unit.dead) return;
+
+    if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 350, height: def.splashRadius ? 90 : 45, bottom: muzzleBottom });
+
+    if (def.splashRadius){
+      // 範囲ダメージ：着弾地点周辺の敵ユニットすべてに当たる
+      const enemySide = unit.side === "player" ? "enemy" : "player";
+      let hitAnyUnit = false;
+      battle.units.forEach(other => {
+        if (other.dead || other.side !== enemySide) return;
+        if (Math.abs(other.x - targetX) <= def.splashRadius){
+          hitAnyUnit = true;
+          applyDamageToUnit(other, getEffectiveAtk(unit), unit);
+        }
+      });
+      // ユニットが誰もいなければ、着弾地点が城の目の前なら城にも当たる扱いにする
+      if (!hitAnyUnit && !capturedTarget){
+        if (unit.side === "player"){
+          battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
+          updateCastleBars();
+          if (battle.enemyCastleHp <= 0) endBattle(true);
+        } else {
+          battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit));
+          updateCastleBars();
+          if (battle.playerCastleHp <= 0) endBattle(false);
+        }
+      }
+      return;
+    }
+
+    if (capturedTarget){
+      if (!capturedTarget.dead){
+        applyDamageToUnit(capturedTarget, getEffectiveAtk(unit), unit);
+      }
+      // 狙っていた相手が飛翔中に倒れていた場合は何も起きない(弾は外れた扱い)
+      return;
+    }
+
+    // 相手ユニットがおらず、城を狙っていた場合
+    if (unit.side === "player"){
+      battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
+      updateCastleBars();
+      if (battle.enemyCastleHp <= 0) endBattle(true);
+    } else {
+      battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit));
+      updateCastleBars();
+      if (battle.playerCastleHp <= 0) endBattle(false);
+    }
+  }, travelMs);
+}
+
+// バフスタック数に応じて頭上の赤いオーラを表示・更新する(1重=通常, 2重=赤みを強調, 3重=紫寄り)
+// 全キャラ共通のエフェクトを使うため、キャラごとの位置調整は不要。
+function updateBuffAura(unit, dtMs){
+  const fx = BUFF_AURA_FX;
+  const stacks = getBuffStacks(unit);
+
+  if (stacks !== unit._lastBuffStacks){
+    unit._lastBuffStacks = stacks;
+    if (unit.buffFxEl){ unit.buffFxEl.remove(); unit.buffFxEl = null; }
+    if (stacks >= 1){
+      const img = document.createElement("img");
+      img.className = "fx-sprite buff-aura";
+      unit.el.appendChild(img); // unit.elの子にする = 本体と同じ座標系・向きを自動で共有
+      unit.buffFxEl = img;
+      unit.buffFxFrame = 0;
+      unit.buffFxTimer = 0;
+    }
+  }
+
+  if (!unit.buffFxEl) return;
+
+  unit.buffFxTimer += dtMs;
+  const dur = fx.durations[unit.buffFxFrame] || 150;
+  if (unit.buffFxTimer >= dur){
+    unit.buffFxTimer -= dur;
+    unit.buffFxFrame = (unit.buffFxFrame + 1) % fx.count;
+  }
+  unit.buffFxEl.src = fx.imageBase + fx.prefix + (unit.buffFxFrame + 1) + ".png";
+  unit.buffFxEl.style.left = "50%";
+  unit.buffFxEl.style.top = "0%";
+
+  // 1重=そのまま, 2重=赤みを強調, 3重=紫系へ色相シフト
+  if (stacks >= 3){
+    unit.buffFxEl.style.filter = "hue-rotate(75deg) saturate(1.6) drop-shadow(0 0 4px #b03bff)";
+  } else if (stacks === 2){
+    unit.buffFxEl.style.filter = "saturate(1.8) drop-shadow(0 0 4px #ff2a2a)";
+  } else {
+    unit.buffFxEl.style.filter = "";
+  }
+}
+
+function resolveAttackImpact(unit){
+  if (!battle || battle.ended) return;
+  if (unit.target && !unit.target.dead){
+    applyDamageToUnit(unit.target, getEffectiveAtk(unit), unit);
+    return;
+  }
+  if (unit.side === "player"){
+    battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
+    updateCastleBars();
+    if (battle.enemyCastleHp <= 0) endBattle(true);
+  } else {
+    battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit));
+    updateCastleBars();
+    if (battle.playerCastleHp <= 0) endBattle(false);
+  }
+}
+
+// 特殊技(rage_chargeなど)の多段ヒットを解決する。frame毎にeffect(launchUp/knockback)とダメージ倍率を持つ
+function resolveRageChargeHit(unit, hit){
+  if (!battle || battle.ended) return;
+  const target = unit.target;
+  if (!target || target.dead) return;
+  const amount = getEffectiveAtk(unit) * (hit.dmgMult || 1);
+  applyDamageToUnit(target, amount, unit);
+  if (target.dead) return;
+  if (hit.effect === "knockback"){
+    launchUnit(target, unit, { upSpeed: 340, knockback: true, backSpeed: 260 });
+  } else if (hit.effect === "launchUp"){
+    launchUnit(target, unit, { upSpeed: 380 });
+  }
+}
+
+// 怯み・弾かれ・吹き飛び・ダウン・ガード関連の反応モーション中は、
+// 追加の被弾があっても別の反応モーションに上書きされない(スーパーアーマー)
+function isSuperArmored(unit, attacker){
+  if (attacker && attacker.def.attackFlags && attacker.def.attackFlags.ignoresSuperArmor) return false; // スーパーアーマー無効の一撃は貫通する
+  if (unit.def && unit.def.alwaysSuperArmored) return true; // 常時スーパーアーマー(ラッシャーなど)
+  const attackMotion = (unit.def && unit.def.attackMotionName) || "attack";
+  return unit.motion === "flinch" || unit.motion === "guardbreak" ||
+         unit.motion === "blowback" || unit.motion === "down" ||
+         unit.motion === "guard" || unit.motion === "shieldbreak" ||
+         unit.motion === "shield_destroy" ||
+         (unit.motion === attackMotion && unit.def && unit.def.superArmorDuringAttack); // 攻撃モーション中は怯まない専用キャラ
+}
+
+// 攻撃者がtargetの正面にいるか(盾兵のガードは前方からの攻撃にしか効かない)
+// 横幅のあるユニット(投石器など)同士の距離を、単なる座標の差ではなく
+// 「箱と箱の隙間」で計算する。幅を持たない通常ユニットは従来通りの点同士の距離になる。
+function edgeDistance(a, b){
+  const aw = (a.def && a.def.hitboxWidth) || 0;
+  const bw = (b.def && b.def.hitboxWidth) || 0;
+  const aLeft = a.x, aRight = a.x + aw;
+  const bLeft = b.x, bRight = b.x + bw;
+  if (aRight < bLeft) return bLeft - aRight;
+  if (bRight < aLeft) return aLeft - bRight;
+  return 0; // 重なっている
+}
+
+function isAttackFromFront(target, attacker){
+  if (!attacker) return false;
+  // facing:-1は左向き(=前方は自分より左)、facing:+1は右向き(=前方は自分より右)
+  return target.facing === -1 ? attacker.x <= target.x : attacker.x >= target.x;
+}
+
+// 索敵・ブロック判定の共通ルール：相手が正面にいれば反応してよい。
+// 完全に背後にいる場合は、よほど近く(密着している)ない限り無視する。
+const ADJACENT_ENGAGE_THRESHOLD = 20;
+function isEngageable(unit, other){
+  const forwardDir = unit.side === "player" ? -1 : 1;
+  const dx = other.x - unit.x;
+  if (Math.sign(dx) === forwardDir || dx === 0) return true; // 正面、または真横で重なっている
+  return edgeDistance(unit, other) <= ADJACENT_ENGAGE_THRESHOLD; // 背後でも密着していれば許容
+}
+
+function afterReaction(unit){
+  if (unit.dead) return;
+  unit.target = null; // 攻撃してきた相手を仕切り直しで再索敵させる
+  const fallback = unit.def.frameCounts.walk ? "walk" : (unit.def.approachMotion || "walk");
+  setMotion(unit, fallback, { loop:true });
+}
+
+function killUnit(target){
+  target.dead = true;
+  target.target = null;
+  clearBuffsFrom(target); // このユニットが死んだので、与えていたバフも消える
+
+  // ゴブリン・ヒーラーの自動蘇生判定：味方のゴブリン族が死亡した瞬間、
+  // その時点でフィールドに残っている中で最も価値(コスト)の高いゴブリンであれば、
+  // 範囲内の未使用ヒーラーが自動で蘇生の詠唱を始める
+  if (target.def.race === "goblin"){
+    tryAutoRevive(target);
+  }
+
+  setMotion(target, "down", {
+    onEnd: () => {
+      if (target.frozenForRevive) return; // 蘇生対象として固定中は、詠唱が終わる/中断されるまで消えずに待つ
+      removeUnit(target);
+    }
+  });
+}
+
+// 死んだ味方ゴブリンが、現時点でフィールドに残っている中で最も価値の高いゴブリンかどうかを判定し、
+// 範囲内で手が空いているヒーラーがいれば蘇生の詠唱を開始させる
+function tryAutoRevive(target){
+  if (!battle) return;
+  const sameRaceAllies = battle.units.filter(u =>
+    u !== target && !u.dead && u.side === target.side && u.def.race === "goblin" &&
+    !u.def.canRevive // ヒーラー自身は「価値比較」の対象から除外(蘇生役がいることで蘇生が妨げられないように)
+  );
+  const maxOtherCost = sameRaceAllies.reduce((m, u) => Math.max(m, u.def.cost || 0), 0);
+  if ((target.def.cost || 0) < maxOtherCost) return; // 他にもっと価値の高いゴブリンがまだ生きている
+
+  const candidates = battle.units.filter(u =>
+    !u.dead && u.side === target.side && u.def.canRevive &&
+    !u.isReviving && u.reviveUsesLeft > 0 &&
+    edgeDistance(u, target) <= (u.def.reviveRadius || 0)
+  );
+  if (!candidates.length) return; // 範囲外、または蘇生できるヒーラーがいない
+
+  candidates.sort((a, b) => edgeDistance(a, target) - edgeDistance(b, target));
+  startRevive(candidates[0], target);
+}
+
+function startRevive(healer, corpse){
+  healer.isReviving = true;
+  healer.reviveTarget = corpse;
+  corpse.frozenForRevive = true;
+
+  setMotion(healer, "revive", {
+    onEnd: () => {
+      // 妨害されずに最後まで唱え切った＝蘇生成功。ヒーラーは代償として息絶える
+      healer.isReviving = false;
+      healer.reviveTarget = null;
+      healer.reviveUsesLeft = Math.max(0, healer.reviveUsesLeft - 1);
+      completeRevive(healer, corpse);
+    }
+  });
+}
+
+function completeRevive(healer, corpse){
+  corpse.frozenForRevive = false;
+  corpse.dead = false;
+  const restorePercent = corpse.def.corpseRestoreHpPercent != null ? corpse.def.corpseRestoreHpPercent : 0.4;
+  corpse.hp = Math.max(1, Math.round(corpse.hpMax * restorePercent));
+  corpse.target = null;
+  applyFrame(corpse);
+  const fallback = corpse.def.frameCounts.walk ? "walk" : (corpse.def.approachMotion || "walk");
+  setMotion(corpse, "getup", { onEnd: () => { if (!corpse.dead) setMotion(corpse, fallback, { loop:true }); } });
+
+  // 禁忌の代償：蘇生を成し遂げたヒーラー自身は爆発とともに焼け焦げて死亡する
+  healer.dead = true;
+  removeUnit(healer);
+}
+
+// 蘇生の詠唱中に被弾などでモーションが強制的に変わってしまったら、蘇生失敗として扱う
+// (ヒーラーは死なずに生き残るが、対象の死体は固定を解除されて通常通り消える)
+function updateRevive(dtMs){
+  if (!battle) return;
+  battle.units.forEach(u => {
+    if (!u.isReviving) return;
+    if (u.motion !== "revive"){
+      u.isReviving = false;
+      const corpse = u.reviveTarget;
+      u.reviveTarget = null;
+      if (corpse){
+        corpse.frozenForRevive = false;
+        if (corpse.dead) removeUnit(corpse);
+      }
+    }
+  });
+}
+
+function applyDamageToUnit(target, amount, attacker){
+  if (target.dead) return;
+  const def = target.def;
+  const attackerFlags = (attacker && attacker.def.attackFlags) || {};
+  const meleeRangeCheck = attacker && edgeDistance(target, attacker) <= def.attackRange;
+  amount = amount * getDamageCutMultiplier(target); // 鼓舞バフの被ダメージカットを適用
+
+  // 特殊回避：自分の攻撃射程内(=近接で殴られた時)の前方攻撃だけを一度限り確定で避ける
+  // (火縄銃などの遠距離攻撃は射程外からの被弾になるため対象外)
+  const dodgeReady = def.canDodge && !target.dodgeUsed && !isSuperArmored(target, attacker) && !target.restrained &&
+    meleeRangeCheck && isAttackFromFront(target, attacker) && !attackerFlags.sideHitbox;
+
+  if (dodgeReady){
+    target.dodgeUsed = true;
+    // 攻撃者の"背後"(攻撃者が向いている方向と逆側)へ大きく回り込む
+    const behindOffset = (target.def.attackRange || 40) + 70;
+    target.x = attacker.x - attacker.facing * behindOffset;
+    target.dodgedPastUnit = attacker; // この相手とはもう戦わず素通りする
+    setMotion(target, "dodge", { onEnd: () => afterReaction(target) });
+    return; // ダメージなし
+  }
+
+  const guardReady = def.canGuard && !target.shieldBroken &&
+    target.guardCooldown <= 0 && !isSuperArmored(target, attacker) && !target.restrained &&
+    isAttackFromFront(target, attacker);
+
+  if (guardReady){
+    const flags = attackerFlags;
+
+    if (flags.breaksShield){
+      // ガードブレイカー攻撃：盾が完全に壊れ、以後ガードも近接攻撃も使えなくなる
+      target.shieldBroken = true;
+      target.hp = Math.max(0, target.hp - amount);
+      applyFrame(target);
+      if (target.hp <= 0){ killUnit(target); return; }
+      setMotion(target, "shield_destroy", { onEnd: () => afterReaction(target) });
+      return;
+    }
+
+    if (flags.ignoresGuard){
+      // ガード無効攻撃：ダメージは通り、ガードが一時的に剥がされクールタイムが余分にかかる
+      target.guardCooldown = (def.guardCooldownMs || 1000) + (def.guardIgnoredPenaltyMs || 0);
+      target.hp = Math.max(0, target.hp - amount);
+      applyFrame(target);
+      if (target.hp <= 0){ killUnit(target); return; }
+      setMotion(target, "shieldbreak", { onEnd: () => afterReaction(target) });
+      return;
+    }
+
+    // 通常攻撃はガードで無効化
+    target.guardCooldown = def.guardCooldownMs || 1000;
+    setMotion(target, "guard", { onEnd: () => afterReaction(target) });
+    return;
+  }
+
+  target.hp = Math.max(0, target.hp - amount);
+  applyFrame(target);
+
+  // 毒付与(弓兵の矢など)：蓄積式。閾値に達すると発動し、最大HPの一定割合を効果時間で分割して与える
+  if (attacker && attacker.def.poisonOnHit && target.hp > 0 && !target.def.poisonImmune){
+    const stackPerHit = attacker.def.poisonStackPerHit || 0;
+    const threshold = attacker.def.poisonStackThreshold || 100;
+    target.poisonStack = Math.min(threshold, (target.poisonStack || 0) + stackPerHit);
+    target.poisonFxDef = attacker.def.fxPoisonStatus || target.poisonFxDef;
+
+    if (target.poisonStack >= threshold){
+      const durationMs = attacker.def.poisonDurationMs || 0;
+      const tickInterval = attacker.def.poisonTickIntervalMs || 1000;
+      const tickCount = Math.max(1, Math.round(durationMs / tickInterval));
+      const totalDamage = target.hpMax * (attacker.def.poisonMaxHpPercent || 0);
+      target.poisonRemainingMs = durationMs;
+      target.poisonTickTimer = tickInterval;
+      target.poisonTickIntervalMs = tickInterval;
+      target.poisonDamagePerTick = totalDamage / tickCount;
+      target.poisonStack = 0; // 発動したら蓄積はリセットし、再度貯め直しになる
+    }
+  }
+
+  if (target.hp <= 0){
+    killUnit(target);
+    return;
+  }
+
+  // 打ち上げ・吹き飛ばし効果：スーパーアーマー中の相手にも適用される(ラッシャーの一撃など)
+  // rage_charge中は各ヒットの効果をresolveRageChargeHit側で個別に指定するため、ここでは重複適用しない
+  if (attacker && attacker.def.attackFlags && attacker.motion !== "rage_charge"){
+    if (attacker.def.attackFlags.launchesUp){
+      launchUnit(target, attacker, { upSpeed: 380 });
+    } else if (attacker.def.attackFlags.knocksBack){
+      launchUnit(target, attacker, { upSpeed: 340, knockback: true, backSpeed: 260 });
+    }
+  }
+
+  if (isSuperArmored(target, attacker) || target.restrained || target.launched) return; // スーパーアーマー中・拘束中・打ち上げ中は怯まない
+
+  setMotion(target, "flinch", { onEnd: () => afterReaction(target) });
+}
+
+/* ---------- ユニットのAI(索敵→接敵→攻撃) ---------- */
+
+function findNearestEnemyInRange(unit){
+  if (!battle) return null;
+  let nearest = null, nearestDist = Infinity;
+  battle.units.forEach(other => {
+    if (other === unit || other.dead || other.side === unit.side) return;
+    if (other === unit.dodgedPastUnit) return; // 回避してすれ違った相手とは戦わない
+    const d = edgeDistance(unit, other);
+    if (d > unit.def.detectionRange) return;
+    if (!isEngageable(unit, other)) return; // 完全に背後の敵は無視(密着していれば例外)
+    if (d < nearestDist){
+      nearest = other;
+      nearestDist = d;
+    }
+  });
+  return nearest;
+}
+
+function onAttackEnd(unit){
+  if (unit.dead) return;
+  if (unit.target && unit.target.dead) unit.target = null;
+  const def = unit.def;
+  const approachMotion = def.approachMotion || "run";
+  // いったん歩き/接近モーションへ戻し、次のtickで距離を再評価させる(範囲内ならすぐ攻撃に戻る)
+  const fallback = def.frameCounts.walk ? "walk" : approachMotion;
+  setMotion(unit, unit.target ? approachMotion : fallback, { loop:true });
+}
+function updateUnitAI(unit, dtMs){
+  if (unit.dead || unit.debugLock || unit.restrained || unit.launched) return;
+  const def = unit.def;
+
+  if (def.noCombat){
+    // 非戦闘ユニット(鼓舞兵など)：戦わないが、目の前に敵がいる間は立ち尽くして待つ
+    const blocker = battle.units.find(other =>
+      other !== unit && !other.dead && other.side !== unit.side &&
+      isEngageable(unit, other) &&
+      Math.abs(other.x - unit.x) <= (def.personalSpace || 50)
+    );
+
+    if (blocker){
+      if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
+      return;
+    }
+
+    if (unit.motion !== "walk"){
+      if (unit.motion === "idle") setMotion(unit, "walk", { loop:true });
+      return; // 太鼓演奏中などはそのまま(updateInspire側で管理)
+    }
+
+    const field = document.getElementById("battlefield");
+    const fieldWidth = field.clientWidth;
+    const destX = unit.side === "player" ? 60 : fieldWidth - 60;
+    const dx = destX - unit.x;
+    if (Math.abs(dx) > 2){
+      const dir = dx > 0 ? 1 : -1;
+      const speed = getEffectiveSpeed(unit, def.walkSpeed);
+      unit.x += dir * speed * (dtMs/1000);
+      applyFrame(unit);
+    }
+    return;
+  }
+
+  const approachMotion = def.approachMotion || "run"; // 発見後の接近モーション(兵士は走り、槍兵は忍び足)
+  const approachSpeed = def.approachSpeed != null ? def.approachSpeed : def.runSpeed;
+  const attackMotionName = def.attackMotionName || "attack"; // 攻撃モーションの呼び名(火縄銃兵はshoot)
+
+  // 一撃モーション中・怯み中などは、それぞれのonMotionEndで次の状態が決まるので何もしない
+  if (unit.motion === "idle"){
+    // "walk"という名前のコマを持たないキャラ(投石器など)は、代わりにapproachMotionを使う
+    const initialMoveMotion = def.frameCounts.walk ? "walk" : approachMotion;
+    if (!unit.shieldBroken) setMotion(unit, initialMoveMotion, { loop:true }); // 出現直後は発見モーションなしでそのまま歩く
+    return; // 盾破壊で立ち尽くしているユニットはidleのまま(次の索敵チェックだけ継続したいので下に続けたいところだが、単純化のためここで留める)
+  }
+  if (unit.motion !== "walk" && unit.motion !== approachMotion) return;
+  const walkFallback = def.frameCounts.walk ? "walk" : approachMotion;
+
+  // 敵ユニットの索敵(検知範囲内の最も近い敵)
+  if (!unit.target || unit.target.dead){
+    const found = findNearestEnemyInRange(unit);
+    if (found && unit.motion === walkFallback){
+      unit.target = found;
+      setMotion(unit, "discover", { onEnd: () => setMotion(unit, approachMotion, { loop:true }) });
+      return;
+    }
+    if (!found && unit.target){
+      unit.target = null;
+    }
+    if (!found && unit.motion === approachMotion && unit.motion !== walkFallback){
+      setMotion(unit, walkFallback, { loop:true }); // 追っていた敵を見失ったら歩きに戻る
+      return;
+    }
+  }
+
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field.clientWidth;
+  const forwardDir = unit.side === "player" ? -1 : 1; // 自陣営が進むべき方向。これと逆には進まない
+  let destX = unit.target ? unit.target.x : (unit.side === "player" ? 60 : fieldWidth - 60);
+  let dx = destX - unit.x;
+
+  if (unit.target && dx !== 0 && Math.sign(dx) !== forwardDir){
+    // 索敵対象が自分の後方にいる(回避で追い抜かれた場合など)：後退はせず、その相手は諦めて前進を続ける
+    unit.target = null;
+    destX = unit.side === "player" ? 60 : fieldWidth - 60;
+    dx = destX - unit.x;
+  }
+
+  const rangeDist = unit.target ? edgeDistance(unit, unit.target) : Math.abs(dx);
+  const minRange = unit.def.minAttackRange || 0;
+
+  if (rangeDist <= unit.def.attackRange && rangeDist >= minRange){
+    if (unit.shieldBroken){
+      // 盾が壊れて近接攻撃ができない：その場に立ち尽くす
+      if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
+    } else {
+      setMotion(unit, attackMotionName, { onEnd: onAttackEnd });
+    }
+  } else if (rangeDist < minRange){
+    // 近すぎて撃てない：後退はせず、モーションもそのままにその場で留まる(何もしない)
+  } else {
+    const dir = dx > 0 ? 1 : -1;
+    const baseSpeed = unit.motion === approachMotion ? approachSpeed : unit.def.walkSpeed;
+    const speed = getEffectiveSpeed(unit, baseSpeed);
+    unit.x += dir * speed * (dtMs/1000);
+    applyFrame(unit);
+
+    // 車輪の回転を再現できない代わりに、移動中は足元に砂埃をまとわせて誤魔化す
+    const dustFx = unit.def.fxDustMove;
+    if (dustFx){
+      unit.dustTimer = (unit.dustTimer || 0) + dtMs;
+      const interval = dustFx.durations[0] || 600;
+      if (unit.dustTimer >= interval){
+        unit.dustTimer -= interval;
+        spawnFx(dustFx.imageBase + dustFx.prefix + "1.png", unit.x, {
+          flip: Math.random() < 0.5, height: 70, bottom: 68, lifespan: interval * 1.4
+        });
+      }
+    }
+  }
+}
+
+/* ---------- メインループ ---------- */
+
+function battleLoop(now){
+  if (!battle || battle.ended){ return; }
+  if (battle.paused){
+    battle.lastTick = now;
+    requestAnimationFrame(battleLoop);
+    return;
+  }
+  const dt = now - battle.lastTick;
+  battle.lastTick = now;
+
+  const lv = WALLET_LEVELS[battle.walletLevel];
+  battle.money = Math.min(lv.cap, battle.money + lv.rate * (dt/1000));
+  updateWalletUI();
+
+  battle.units.forEach(unit => {
+    if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
+    updateBuffAura(unit, dt);
+    updateInspire(unit, dt);
+    updateTrapper(unit, dt);
+    updateHealer(unit, dt);
+    updatePoison(unit, dt);
+    updatePoisonFx(unit, dt);
+    updateLaunch(unit, dt);
+    updateUnitAI(unit, dt);
+    advanceUnit(unit, dt);
+  });
+  updateTraps(dt);
+  updateRestraints(dt);
+  updateRevive(dt);
+
+  requestAnimationFrame(battleLoop);
+}
+
+function endBattle(win){
+  if (!battle || battle.ended) return;
+  battle.ended = true;
+  const resultScreen = document.getElementById("screen-result");
+  resultScreen.classList.remove("win","lose");
+  resultScreen.classList.add(win ? "win" : "lose");
+  document.getElementById("result-title").textContent = win ? "勝利" : "敗北";
+  document.getElementById("result-sub").textContent =
+    win ? "敵城を陥落させた。" : "自城が陥落した。";
+  showScreen("screen-result");
+}
+
+document.getElementById("btn-surrender").addEventListener("click", () => {
+  if (battle && !battle.ended) endBattle(false);
+});
+document.getElementById("cheat-enemy-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("soldier", "enemy");
+});
+document.getElementById("cheat-enemy-spear-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("spearman", "enemy");
+});
+document.getElementById("cheat-enemy-shield-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("shieldman", "enemy");
+});
+document.getElementById("cheat-enemy-gun-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("arquebusier", "enemy");
+});
+document.getElementById("cheat-enemy-goblin-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("goblin", "enemy");
+});
+document.getElementById("cheat-enemy-drummer-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("drummerGoblin", "enemy");
+});
+document.getElementById("cheat-enemy-catapult-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("catapult", "enemy");
+});
+document.getElementById("cheat-money-btn").addEventListener("click", () => {
+  if (!battle) return;
+  const lv = WALLET_LEVELS[battle.walletLevel];
+  battle.money = Math.min(lv.cap, battle.money + 1000);
+  updateWalletUI();
+});
+document.getElementById("btn-pause").addEventListener("click", (e) => {
+  if (!battle) return;
+  battle.paused = !battle.paused;
+  e.target.textContent = battle.paused ? "▶" : "Ⅱ";
+});
+
+/* =========================================================
+   8. 動作確認モード(デバッグ)
+   ========================================================= */
+let debugUnit = null;
+let debugMode = false;
+
+document.getElementById("debug-tab").addEventListener("click", () => {
+  debugMode = !debugMode;
+  const panel = document.getElementById("debug-panel");
+  panel.style.display = debugMode ? "flex" : "none";
+  if (debugMode){
+    if (!debugUnit){
+      debugUnit = spawnUnit("soldier", "player");
+      debugUnit.x = 140;
+      debugUnit.debugLock = true;
+      applyFrame(debugUnit);
+    }
+  } else if (debugUnit){
+    debugUnit.el.remove();
+    battle.units = battle.units.filter(u => u !== debugUnit);
+    debugUnit = null;
+  }
+});
+
+function buildDebugPanel(){
+  const panel = document.getElementById("debug-panel");
+  panel.innerHTML = "";
+  const motions = ["idle","walk","run","discover","attack","flinch","guardbreak","blowback","down","getup"];
+  motions.forEach(m => {
+    const b = document.createElement("button");
+    b.textContent = m;
+    b.addEventListener("click", () => {
+      if (!debugUnit) return;
+      const loop = (m === "idle" || m === "walk" || m === "run");
+      setMotion(debugUnit, m, { loop });
+    });
+    panel.appendChild(b);
+  });
+}
+
+/* =========================================================
+   9. 画面遷移イベント
+   ========================================================= */
+document.getElementById("btn-to-formation").addEventListener("click", () => {
+  buildFormationScreen();
+  showScreen("screen-formation");
+});
+document.getElementById("btn-to-stage").addEventListener("click", () => {
+  buildStageScreen();
+  showScreen("screen-stage");
+});
+document.getElementById("btn-back-formation").addEventListener("click", () => {
+  showScreen("screen-formation");
+});
+document.getElementById("btn-result-continue").addEventListener("click", () => {
+  debugUnit = null;
+  buildStageScreen();
+  showScreen("screen-stage");
+});
+
+})();
+</script>
+</body>
+</html>
