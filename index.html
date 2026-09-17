@@ -339,6 +339,8 @@
 /* =========================================================
    0. 定数・画像パス
    ========================================================= */
+// @mainブランチ指定。画像を追加・更新した際に一部が表示されない場合は、
+// jsDelivrのPurgeツール(https://www.jsdelivr.com/tools/purge)で該当ファイルのキャッシュを削除すること。
 const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@main/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
