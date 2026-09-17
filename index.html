@@ -1285,6 +1285,19 @@ function spawnUnit(kind, side, xOffset){
       img._ownerUnit._displayWidth = dw;
       img._ownerUnit._displayHeight = dh;
     }
+    img._retryCount = 0; // 読み込みに成功したらリトライ回数をリセット
+  });
+  // 読み込みに失敗した場合、少し待って同じ画像を再読込する(モバイルSafariでの一時的な読み込み失敗対策)
+  img.addEventListener("error", () => {
+    img._retryCount = (img._retryCount || 0) + 1;
+    if (img._retryCount > 3) return; // 何度も失敗する場合は諦める(壊れた画像アイコンのまま)
+    const failedSrc = img.src;
+    setTimeout(() => {
+      if (img.src === failedSrc){ // その間に別のコマへ進んでいなければ再読込
+        img.src = "";
+        img.src = failedSrc;
+      }
+    }, 250 * img._retryCount);
   });
   el.appendChild(img);
   const uhp = document.createElement("div");
