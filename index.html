@@ -67,6 +67,37 @@
   .topbar button{ font-family:'Yu Gothic',sans-serif; padding:8px 16px; font-size:.8rem; }
 
   .unit-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:10px; flex:1; align-content:start; overflow-y:auto; }
+
+  .formation-slots{
+    display:flex; gap:8px; padding:10px; overflow-x:auto; flex-shrink:0;
+    background:#0d0c09; border:1px solid var(--line); margin-bottom:12px;
+  }
+  .formation-slot{
+    position:relative; width:56px; height:56px; flex-shrink:0;
+    border:1px solid var(--line-dim); background:#050504; cursor:pointer;
+  }
+  .formation-slot img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .formation-slot.empty{
+    display:flex; align-items:center; justify-content:center;
+    color:var(--text-dim); font-size:1.3rem; border-style:dashed; cursor:default;
+  }
+  .formation-slot .cost-tag{
+    position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.75);
+    font-size:.55rem; font-family:monospace; color:var(--gold); text-align:center;
+  }
+
+  .category-tabs{
+    display:flex; gap:6px; padding-top:10px; margin-top:10px;
+    border-top:1px solid var(--line); overflow-x:auto; flex-shrink:0;
+  }
+  .category-tab{
+    flex-shrink:0; padding:8px 14px; font-size:.78rem; font-family:'Yu Gothic',sans-serif;
+    background:#1a1710; border:1px solid var(--line); color:var(--text-dim); cursor:pointer;
+  }
+  .category-tab.active{ color:var(--gold); border-color:var(--gold); }
+
+  .unit-card{ cursor:pointer; }
+  .unit-card.in-formation{ box-shadow:0 0 0 2px var(--gold) inset; }
   .unit-card{
     position:relative; padding:8px; text-align:center;
     background:linear-gradient(180deg,#252112,#1a1710);
@@ -222,7 +253,9 @@
       <h2>編成</h2>
       <button class="primary" id="btn-to-stage">ステージ選択へ</button>
     </div>
+    <div class="formation-slots" id="formation-slots"></div>
     <div class="unit-grid" id="unit-grid"></div>
+    <div class="category-tabs" id="category-tabs"></div>
   </section>
 
   <!-- ステージ選択 -->
@@ -361,7 +394,8 @@ function attachImgFallback(imgEl, label){
 const CHAR_DEFS = {
   soldier: {
     name: "兵士",
-    rank: null, // 後日決定
+    rank: null,
+    race: "human", // 後日決定
     cost: 500,
     hp: 40,
     atk: 12,
@@ -412,6 +446,7 @@ const CHAR_DEFS = {
   spearman: {
     name: "槍兵",
     rank: null, // 後日決定
+    race: "human",
     cost: 550,
     hp: 36,
     atk: 10,
@@ -453,6 +488,7 @@ const CHAR_DEFS = {
   shieldman: {
     name: "盾兵",
     rank: null,
+    race: "human",
     cost: 600,
     hp: 60,
     atk: 5,
@@ -497,6 +533,7 @@ const CHAR_DEFS = {
   arquebusier: {
     name: "火縄銃兵",
     rank: null,
+    race: "human",
     cost: 750,
     hp: 28,
     atk: 30,
@@ -905,6 +942,7 @@ const CHAR_DEFS = {
   catapult: {
     name: "ゴブリン投石器",
     rank: null,
+    race: "goblin",
     cost: 2800,
     hp: 220,
     atk: 55,
@@ -986,15 +1024,74 @@ function showScreen(id){
    ========================================================= */
 const state = {
   selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer"],
+  formationCategory: "all",
   stage: null
 };
 
+const FORMATION_CATEGORIES = [
+  { id: "all",    label: "すべて" },
+  { id: "human",  label: "人間" },
+  { id: "goblin", label: "ゴブリン" },
+  { id: "beast",  label: "魔獣" }
+];
+
 function buildFormationScreen(){
+  buildFormationSlots();
+  buildCategoryTabs();
+  buildUnitGrid();
+}
+
+// 中央：現在編成に入っているユニットのスロット表示。タップすると編成から外れる
+function buildFormationSlots(){
+  const wrap = document.getElementById("formation-slots");
+  wrap.innerHTML = "";
+  state.selectedUnits.forEach((kind, i) => {
+    const def = CHAR_DEFS[kind];
+    if (!def) return;
+    const slot = document.createElement("div");
+    slot.className = "formation-slot";
+    slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag">${def.cost}</div>`;
+    attachImgFallback(slot.querySelector("img"), def.name);
+    slot.title = def.name + "(タップで編成から外す)";
+    slot.addEventListener("click", () => {
+      state.selectedUnits.splice(i, 1);
+      buildFormationScreen();
+    });
+    wrap.appendChild(slot);
+  });
+  // 空きスロットの目安を1つ表示(枠自体に上限はない)
+  const hint = document.createElement("div");
+  hint.className = "formation-slot empty";
+  hint.textContent = "+";
+  wrap.appendChild(hint);
+}
+
+// 下部：カテゴリータブ。タップで一覧の絞り込みが切り替わる
+function buildCategoryTabs(){
+  const wrap = document.getElementById("category-tabs");
+  wrap.innerHTML = "";
+  FORMATION_CATEGORIES.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.className = "category-tab" + (state.formationCategory === cat.id ? " active" : "");
+    btn.textContent = cat.label;
+    btn.addEventListener("click", () => {
+      state.formationCategory = cat.id;
+      buildFormationScreen();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+// 中段：選択中のカテゴリーに属するユニット一覧。タップで編成への追加/削除をトグルする
+function buildUnitGrid(){
   const grid = document.getElementById("unit-grid");
   grid.innerHTML = "";
+  const activeCat = state.formationCategory || "all";
   Object.entries(CHAR_DEFS).forEach(([kind, def]) => {
+    if (activeCat !== "all" && def.race !== activeCat) return;
+    const inFormation = state.selectedUnits.includes(kind);
     const card = document.createElement("div");
-    card.className = "unit-card selected";
+    card.className = "unit-card" + (inFormation ? " in-formation" : "");
     card.innerHTML = `
       <div class="rank-tag">${def.rank || "―"}</div>
       <div class="icon-wrap"><img src="${def.icon}" alt="${def.name}"></div>
@@ -1002,6 +1099,15 @@ function buildFormationScreen(){
       <div class="cost">${def.cost}円</div>
     `;
     attachImgFallback(card.querySelector("img"), def.name);
+    card.addEventListener("click", () => {
+      const idx = state.selectedUnits.indexOf(kind);
+      if (idx === -1){
+        state.selectedUnits.push(kind);
+      } else {
+        state.selectedUnits.splice(idx, 1);
+      }
+      buildFormationScreen();
+    });
     grid.appendChild(card);
   });
 }
