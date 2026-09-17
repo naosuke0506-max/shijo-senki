@@ -855,13 +855,10 @@ const CHAR_DEFS = {
       rage_charge: [510,240,240,240,240,240,525,320,100,295]
     },
     attackImpactFrame: 10, // attack_11(かち上げ命中の瞬間)
-    // 鼓舞バフ発動時の特殊技：突進本体(frame6)から乱打(7〜8)まで打ち上げ、最終段(9)は後方への吹き飛ばし+最大威力
-    rageChargeHits: [
-      { frame: 6, dmgMult: 1,   effect: "launchUp" },  // 突進本体の激突
-      { frame: 7, dmgMult: 1,   effect: "launchUp" },
-      { frame: 8, dmgMult: 1,   effect: "launchUp" },
-      { frame: 9, dmgMult: 2.5, effect: "knockback" }  // 最終段：最大威力+後方吹き飛ばし
-    ]
+    // 鼓舞バフを受けた瞬間に発動する特殊技「猛突進」の設定
+    rageChargeSpeed: 34 * 2.5,      // 突進中の移動速度(通常歩行の2.5倍)
+    rageChargeHitRadius: 55,        // この距離まで近づいたら命中とみなす
+    rageChargeFinalMult: 2.5        // 命中時のダメージ倍率(通常攻撃力に対して)
   },
 
   goblin: {
@@ -1453,6 +1450,11 @@ function updateInspire(unit, dtMs){
     if (ally.buffSources.size >= (def.buffMaxStacks || 3)) return;
     ally.buffSources.add(unit);
 
+    // rage_charge(猛突進)を持つキャラは、鼓舞された瞬間にそれを発動する(スーパーアーマー等を無視して割り込む)
+    if (ally.def.frameCounts && ally.def.frameCounts.rage_charge){
+      startRageCharge(ally);
+    }
+
     // 鼓舞を受けた瞬間、そのゴブリンは何をしていても強制的に咆哮する(スーパーアーマー等を無視して割り込む)
     if (ally.def.frameCounts && ally.def.frameCounts.roar){
       setMotion(ally, "roar", {
@@ -1812,6 +1814,7 @@ function applyFrame(unit){
 }
 
 function advanceUnit(unit, dtMs){
+  if (unit.charging) return; // 猛突進中はupdateChargeが移動・フレーム送りを一括管理する
   const def = unit.def;
 
   const durations = def.frameDurations[unit.motion] || [1000];
@@ -1843,10 +1846,6 @@ function advanceUnit(unit, dtMs){
       } else {
         resolveAttackImpact(unit);
       }
-    }
-    if (unit.motion === "rage_charge" && def.rageChargeHits){
-      const hit = def.rageChargeHits.find(h => h.frame === unit.frameIndex);
-      if (hit) resolveRageChargeHit(unit, hit);
     }
     applyFrame(unit);
   }
@@ -2029,18 +2028,97 @@ function resolveAttackImpact(unit){
   }
 }
 
-// 特殊技(rage_chargeなど)の多段ヒットを解決する。frame毎にeffect(launchUp/knockback)とダメージ倍率を持つ
-function resolveRageChargeHit(unit, hit){
+// 特殊技「猛突進」：鼓舞された瞬間に発動。敵か敵城に当たるまで、最終コマ以外をループしながら前進し続ける
+function startRageCharge(unit){
+  if (unit.dead || unit.charging) return;
+  const def = unit.def;
+  if (!def.frameCounts || !def.frameCounts.rage_charge) return;
+  unit.charging = true;
+  unit.chargeHit = false;
+  unit.chargeHitTarget = null;
+  unit.target = null; // 突進中は通常の索敵ターゲットではなく、衝突判定で処理する
+  unit.motion = "rage_charge";
+  unit.motionLoop = false; // フレーム送りはここではなくupdateChargeで手動管理する
+  unit.onMotionEnd = null;
+  unit.frameIndex = 0;
+  unit.frameTimer = 0;
+  applyFrame(unit);
+}
+
+function updateCharge(unit, dtMs){
+  if (!unit.charging) return;
+  if (unit.dead){ unit.charging = false; return; }
+  const def = unit.def;
+  const count = def.frameCounts.rage_charge;
+  const durations = def.frameDurations.rage_charge || [200];
+  const finalIndex = count - 1;
+
+  if (!unit.chargeHit){
+    // 前進しながら、最終コマ以外をループ再生する
+    const speed = def.rageChargeSpeed || (def.walkSpeed * 2.5);
+    const forwardDir = unit.side === "player" ? -1 : 1;
+    unit.x += forwardDir * speed * (dtMs / 1000);
+
+    unit.frameTimer += dtMs;
+    const curDur = durations[Math.min(unit.frameIndex, durations.length - 1)];
+    if (unit.frameTimer >= curDur){
+      unit.frameTimer -= curDur;
+      unit.frameIndex++;
+      if (unit.frameIndex >= finalIndex) unit.frameIndex = 0; // 最終コマの手前でループ
+      applyFrame(unit);
+    }
+
+    // 衝突判定：射程内の敵、または敵城への到達
+    const field = document.getElementById("battlefield");
+    const fieldWidth = field.clientWidth;
+    const enemySide = unit.side === "player" ? "enemy" : "player";
+    const hitRadius = def.rageChargeHitRadius || 55;
+    const target = battle.units.find(o => !o.dead && o.side === enemySide && edgeDistance(unit, o) <= hitRadius);
+    const castleEdgeX = unit.side === "player" ? 60 : fieldWidth - 60;
+    const reachedCastle = !target && (unit.side === "player" ? unit.x <= castleEdgeX : unit.x >= castleEdgeX);
+
+    if (target || reachedCastle){
+      // 何かに命中：最終コマへ進め、以降はそこで着弾処理を待つ
+      unit.chargeHit = true;
+      unit.chargeHitTarget = target || null;
+      unit.frameIndex = finalIndex;
+      unit.frameTimer = 0;
+      applyFrame(unit);
+    }
+    return;
+  }
+
+  // 最終コマを表示している間：表示時間が経過したら実際のダメージ処理をして通常状態へ復帰する
+  unit.frameTimer += dtMs;
+  const finalDur = durations[finalIndex] || 300;
+  if (unit.frameTimer < finalDur) return;
+
   if (!battle || battle.ended) return;
-  const target = unit.target;
-  if (!target || target.dead) return;
-  const amount = getEffectiveAtk(unit) * (hit.dmgMult || 1);
-  applyDamageToUnit(target, amount, unit);
-  if (target.dead) return;
-  if (hit.effect === "knockback"){
-    launchUnit(target, unit, { upSpeed: 340, knockback: true, backSpeed: 260 });
-  } else if (hit.effect === "launchUp"){
-    launchUnit(target, unit, { upSpeed: 380 });
+  const target = unit.chargeHitTarget;
+  const dmg = getEffectiveAtk(unit) * (def.rageChargeFinalMult || 2.5);
+  if (target){
+    if (!target.dead){
+      applyDamageToUnit(target, dmg, unit);
+      if (!target.dead) launchUnit(target, unit, { upSpeed: 340, knockback: true, backSpeed: 260 });
+    }
+  } else {
+    if (unit.side === "player"){
+      battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - dmg);
+      updateCastleBars();
+      if (battle.enemyCastleHp <= 0) endBattle(true);
+    } else {
+      battle.playerCastleHp = Math.max(0, battle.playerCastleHp - dmg);
+      updateCastleBars();
+      if (battle.playerCastleHp <= 0) endBattle(false);
+    }
+  }
+
+  unit.charging = false;
+  unit.chargeHit = false;
+  unit.chargeHitTarget = null;
+  if (!unit.dead){
+    const fallback = def.frameCounts.walk ? "walk" : (def.approachMotion || "walk");
+    setMotion(unit, fallback, { loop: true });
   }
 }
 
@@ -2311,7 +2389,7 @@ function onAttackEnd(unit){
   setMotion(unit, unit.target ? approachMotion : fallback, { loop:true });
 }
 function updateUnitAI(unit, dtMs){
-  if (unit.dead || unit.debugLock || unit.restrained || unit.launched) return;
+  if (unit.dead || unit.debugLock || unit.restrained || unit.launched || unit.charging) return;
   const def = unit.def;
 
   if (def.noCombat){
@@ -2397,9 +2475,7 @@ function updateUnitAI(unit, dtMs){
       // 盾が壊れて近接攻撃ができない：その場に立ち尽くす
       if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
     } else {
-      // バフ(鼓舞)を受けている間は、通常攻撃の代わりに特殊技(rage_chargeなど)を発動する
-      const useSpecial = def.frameCounts.rage_charge && getBuffStacks(unit) > 0;
-      setMotion(unit, useSpecial ? "rage_charge" : attackMotionName, { onEnd: onAttackEnd });
+      setMotion(unit, attackMotionName, { onEnd: onAttackEnd });
     }
   } else if (rangeDist < minRange){
     // 近すぎて撃てない：後退はせず、モーションもそのままにその場で留まる(何もしない)
@@ -2450,6 +2526,7 @@ function battleLoop(now){
     updatePoison(unit, dt);
     updatePoisonFx(unit, dt);
     updateLaunch(unit, dt);
+    updateCharge(unit, dt);
     updateUnitAI(unit, dt);
     advanceUnit(unit, dt);
   });
