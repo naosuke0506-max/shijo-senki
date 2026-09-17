@@ -755,6 +755,7 @@ const CHAR_DEFS = {
     weight: 24,
     walkSpeed: 42,
     noCombat: true,      // 自身は戦わず、魔獣に指示するだけ
+    summons: [{ kind: "hound", count: 2 }], // 召喚すると双子の魔獣も同時に出撃する
     icon: ICON_TAMER,
     imageBase: IMG_TAMER,
     pixelScale: 92 / 524, // idle画像の切り抜き高さ(524px)基準
@@ -779,6 +780,7 @@ const CHAR_DEFS = {
     name: "魔獣",
     rank: null,
     race: "beast",       // ゴブリン族ではない(鼓舞兵のバフ対象外・ヒーラーの蘇生対象外)
+    hiddenFromFormation: true, // テイマーに付随して出るため、単体では編成一覧に出さない
     cost: 350,
     hp: 30,
     atk: 10,
@@ -1035,7 +1037,18 @@ const FORMATION_CATEGORIES = [
   { id: "beast",  label: "魔獣" }
 ];
 
+// テイマーのように、召喚すると付随するユニットも同時に出るキャラのコスト合計(セット価格)を返す
+function getDeployCost(def){
+  let total = def.cost;
+  (def.summons || []).forEach(s => {
+    const sub = CHAR_DEFS[s.kind];
+    if (sub) total += sub.cost * s.count;
+  });
+  return total;
+}
+
 function buildFormationScreen(){
+  state.selectedUnits = state.selectedUnits.filter(k => k !== "hound"); // 魔獣は単体編成不可(テイマーに付随)
   buildFormationSlots();
   buildCategoryTabs();
   buildUnitGrid();
@@ -1050,7 +1063,7 @@ function buildFormationSlots(){
     if (!def) return;
     const slot = document.createElement("div");
     slot.className = "formation-slot";
-    slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag">${def.cost}</div>`;
+    slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag">${getDeployCost(def)}</div>`;
     attachImgFallback(slot.querySelector("img"), def.name);
     slot.title = def.name + "(タップで編成から外す)";
     slot.addEventListener("click", () => {
@@ -1088,6 +1101,7 @@ function buildUnitGrid(){
   grid.innerHTML = "";
   const activeCat = state.formationCategory || "all";
   Object.entries(CHAR_DEFS).forEach(([kind, def]) => {
+    if (def.hiddenFromFormation) return; // 魔獣など、単体では編成できないユニットは一覧に出さない
     if (activeCat !== "all" && def.race !== activeCat) return;
     const inFormation = state.selectedUnits.includes(kind);
     const card = document.createElement("div");
@@ -1096,7 +1110,7 @@ function buildUnitGrid(){
       <div class="rank-tag">${def.rank || "―"}</div>
       <div class="icon-wrap"><img src="${def.icon}" alt="${def.name}"></div>
       <div class="name">${def.name}</div>
-      <div class="cost">${def.cost}円</div>
+      <div class="cost">${getDeployCost(def)}円</div>
     `;
     attachImgFallback(card.querySelector("img"), def.name);
     card.addEventListener("click", () => {
@@ -1188,7 +1202,7 @@ function buildDeployRow(){
     const def = CHAR_DEFS[kind];
     const btn = document.createElement("button");
     btn.className = "deploy-btn";
-    btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag">${def.cost}</span>`;
+    btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag">${getDeployCost(def)}</span>`;
     attachImgFallback(btn.querySelector("img"), def.name);
     btn.addEventListener("click", () => tryDeploy(kind));
     row.appendChild(btn);
@@ -1227,21 +1241,29 @@ function updateWalletUI(){
   document.querySelectorAll(".deploy-btn").forEach((btn, i) => {
     const kind = state.selectedUnits[i];
     const def = CHAR_DEFS[kind];
-    btn.disabled = battle.money < def.cost;
+    btn.disabled = battle.money < getDeployCost(def);
   });
 }
 
 function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
-  if (battle.money < def.cost) return;
-  battle.money -= def.cost;
+  const cost = getDeployCost(def);
+  if (battle.money < cost) return;
+  battle.money -= cost;
   updateWalletUI();
   spawnUnit(kind, "player");
+  (def.summons || []).forEach(s => {
+    for (let i = 0; i < s.count; i++){
+      // 複数体まとめて出る場合は少しずつ横にずらして重なりすぎないようにする
+      const offset = (i - (s.count - 1) / 2) * 26;
+      spawnUnit(s.kind, "player", offset);
+    }
+  });
 }
 
 /* ---------- ユニット生成・アニメーション ---------- */
 
-function spawnUnit(kind, side){
+function spawnUnit(kind, side, xOffset){
   const def = CHAR_DEFS[kind];
   const field = document.getElementById("battlefield");
   const fieldWidth = field.clientWidth;
@@ -1269,7 +1291,7 @@ function spawnUnit(kind, side){
   el.appendChild(uhp);
   field.appendChild(el);
 
-  const startX = side === "player" ? fieldWidth - 90 : 90;
+  const startX = (side === "player" ? fieldWidth - 90 : 90) + (xOffset || 0);
   // 投石器は素材の都合で通常キャラと前後の向きが逆に作られているため、キャラごとに反転させられるようにする
   const baseFacing = side === "player" ? -1 : 1;
   const facing = def.invertFacing ? -baseFacing : baseFacing;
