@@ -333,6 +333,12 @@ const IMG_BRUTE = REPO_BASE + "images/brute_repo_upload/";
 const ICON_BRUTE = REPO_BASE + "icons/brute_goblin_icon.png";
 const IMG_HEALER = REPO_BASE + "images/healer_repo_upload/";
 const ICON_HEALER = REPO_BASE + "icons/healer_goblin_icon.png";
+const IMG_TAMER = REPO_BASE + "images/tamer_repo_upload/";
+const ICON_TAMER = REPO_BASE + "icons/tamer_goblin_icon.png";
+const IMG_HOUND = REPO_BASE + "images/hound_repo_upload/";
+const ICON_HOUND = REPO_BASE + "icons/hound_icon.png";
+const IMG_RUSHER = REPO_BASE + "images/rusher_repo_upload/";
+const ICON_RUSHER = REPO_BASE + "icons/rusher_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -700,6 +706,115 @@ const CHAR_DEFS = {
     fxHealAura: { count:4, prefix:"heal_fx_", durations:[215,215,215,215], imageBase: IMG_HEALER },
     // 蘇生エフェクト(対象の亡骸に重ねて再生、最初の1枚だけ長く持たせて溜めを表現)
     fxResurrect: { count:6, prefix:"resurrect_fx_", durations:[3000,250,250,250,250,400], imageBase: IMG_HEALER }
+  },
+
+  tamer: {
+    name: "ゴブリンテイマー",
+    rank: null,
+    race: "goblin",
+    cost: 300,          // 本体は指示役。コストの大半は犬2匹側に乗せる想定(暫定)
+    hp: 20,
+    atk: 0,
+    weight: 24,
+    walkSpeed: 42,
+    noCombat: true,      // 自身は戦わず、魔獣に指示するだけ
+    icon: ICON_TAMER,
+    imageBase: IMG_TAMER,
+    pixelScale: 92 / 524, // idle画像の切り抜き高さ(524px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, discover:2, flinch:3, blowback:5, down:2, getup:4
+    },
+    frameDurations: {
+      idle:      [1000],
+      walk:      [190,190,190,190],
+      discover:  [380,380],
+      flinch:    [280,325,270],
+      blowback:  [350,300,310,360,420],
+      down:      [500,500],
+      getup:     [260,260,260,260]
+    }
+  },
+
+  hound: {
+    name: "魔獣",
+    rank: null,
+    race: "beast",       // ゴブリン族ではない(鼓舞兵のバフ対象外・ヒーラーの蘇生対象外)
+    cost: 350,
+    hp: 30,
+    atk: 10,
+    weight: 32,
+    walkSpeed: 58,
+    attackRange: 60,
+    detectionRange: 220,
+    icon: ICON_HOUND,
+    imageBase: IMG_HOUND,
+    pixelScale: 92 / 878, // idle画像の切り抜き高さ(878px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:3, attack:9, discover:2, flinch:5, blowback:6, down:2, getup:4
+    },
+    frameDurations: {
+      idle:      [1000],
+      // walk: 実画像3枚に対し4個の時間指定をいただいたため、先頭3つを暫定使用(要確認)
+      walk:      [225,225,225],
+      // attack: 実画像9枚に対し8個の時間指定をいただいたため、末尾を複製して暫定調整(要確認)
+      attack:    [200,225,350,320,290,200,200,200,200],
+      discover:  [380,380],
+      flinch:    [250,250,250,250,250],
+      blowback:  [280,325,315,350,400,290],
+      down:      [500,500],
+      getup:     [320,320,320,320]
+    },
+    attackImpactFrame: 3 // attack_4(暫定：噛みつき命中付近)
+  },
+
+  rusher: {
+    name: "ゴブリン・ラッシャー",
+    rank: null,
+    race: "beast",
+    cost: 900,
+    hp: 90,
+    atk: 24,
+    weight: 130,
+    walkSpeed: 34,
+    attackRange: 60,
+    detectionRange: 240,
+    canGuard: false,
+    alwaysSuperArmored: true, // 常時スーパーアーマー(スーパーアーマー無効の攻撃以外では怯まない)
+    attackFlags: { ignoresGuard: true, launchesUp: true }, // 通常攻撃もガード無効・打ち上げ効果を持つ
+    icon: ICON_RUSHER,
+    imageBase: IMG_RUSHER,
+    pixelScale: 92 / 921, // idle画像の切り抜き高さ(921px)基準
+    motionScale: {
+      down: 0.68
+    },
+    frameCounts: {
+      idle:1, walk:4, attack:12, discover:2, flinch:4, blowback:5, down:2, getup:2, rage_charge:10
+    },
+    frameDurations: {
+      idle:        [1000],
+      walk:        [260,260,260,260],
+      attack:      [200,200,200,200,200,200,200,200,200,450,500,350],
+      discover:    [350,350],
+      flinch:      [295,280,295,325],
+      blowback:    [350,350,350,350,350],
+      down:        [500,500],
+      getup:       [350,350],
+      rage_charge: [510,240,240,240,240,240,525,320,100,295]
+    },
+    attackImpactFrame: 10, // attack_11(かち上げ命中の瞬間)
+    // 鼓舞バフ発動時の特殊技：突進本体(frame6)から乱打(7〜8)まで打ち上げ、最終段(9)は後方への吹き飛ばし+最大威力
+    rageChargeHits: [
+      { frame: 6, dmgMult: 1,   effect: "launchUp" },  // 突進本体の激突
+      { frame: 7, dmgMult: 1,   effect: "launchUp" },
+      { frame: 8, dmgMult: 1,   effect: "launchUp" },
+      { frame: 9, dmgMult: 2.5, effect: "knockback" }  // 最終段：最大威力+後方吹き飛ばし
+    ]
   },
 
   goblin: {
@@ -1074,6 +1189,10 @@ function spawnUnit(kind, side){
     trapCheckpointIndex: 0,        // 罠兵専用：自軍城前→中間→敵城前のうち、次に設置すべき地点の番号(0〜3、3で設置完了)
     restrained: false,            // 罠に拘束されている間はtrue(AI停止・ガード/回避不可)
     restrainRemainingMs: 0,       // 拘束の残り時間(Infinityなら自力脱出しない)
+    launched: false,              // 打ち上げ/吹き飛ばし中はtrue(AI停止・見た目が浮く)
+    launchVY: 0,
+    launchVX: 0,
+    launchY: 0,
     poisonRemainingMs: 0,         // 毒状態の残り時間
     poisonStack: 0,               // 毒の蓄積値(%)。閾値に達すると発動
     poisonTickTimer: 0,
@@ -1392,6 +1511,44 @@ function updatePoisonFx(unit, dtMs){
   unit.poisonFxEl.style.top = "10%";
 }
 
+/* ---------- 打ち上げ・吹き飛ばし(ラッシャーなど) ---------- */
+
+const LAUNCH_GRAVITY = 1400; // px/s^2
+
+// 対象を空中に打ち上げる(knockback:trueで後方への水平吹き飛びも同時に加える)
+function launchUnit(target, attacker, opts){
+  if (target.dead) return;
+  opts = opts || {};
+  target.launched = true;
+  target.launchVY = opts.upSpeed || 380;
+  if (opts.knockback){
+    // 攻撃者から見て奥(=対象から見て後方)へ弾き飛ばす
+    const awayDir = attacker ? Math.sign(target.x - attacker.x) || (target.side === "player" ? 1 : -1) : 1;
+    target.launchVX = awayDir * (opts.backSpeed || 250);
+  } else {
+    target.launchVX = 0;
+  }
+}
+
+// 打ち上げ中の物理更新(重力で放物線を描き、着地したら通常状態に戻す)
+function updateLaunch(unit, dtMs){
+  if (!unit.launched) return;
+  const dt = dtMs / 1000;
+  unit.launchVY -= LAUNCH_GRAVITY * dt;
+  unit.launchY += unit.launchVY * dt;
+  if (unit.launchVX){
+    unit.x += unit.launchVX * dt;
+  }
+  if (unit.launchY <= 0){
+    unit.launchY = 0;
+    unit.launchVY = 0;
+    unit.launchVX = 0;
+    unit.launched = false;
+    if (!unit.dead) setMotion(unit, "flinch", { onEnd: () => afterReaction(unit) }); // 着地の衝撃で一瞬怯む
+  }
+  applyFrame(unit);
+}
+
 /* ---------- ヒーラー：回復オーラ ---------- */
 
 // 鼓舞兵の太鼓と同じ仕組み：クールタイムが明けたら詠唱モーションを1回再生し、
@@ -1470,7 +1627,8 @@ function applyFrame(unit){
   const correction = overrides ? (overrides[unit.frameIndex] ?? 1) : 1;
   const finalScale = unit.facing * correction;
 
-  unit.el.style.transform = "translateX(" + unit.x + "px) scaleX(" + finalScale + ")";
+  const launchOffset = unit.launched ? Math.round(unit.launchY) : 0;
+  unit.el.style.transform = "translateX(" + unit.x + "px) translateY(-" + launchOffset + "px) scaleX(" + finalScale + ")";
   unit.uhpFill.style.width = Math.max(0, unit.hp / unit.hpMax * 100) + "%";
 }
 
@@ -1506,6 +1664,10 @@ function advanceUnit(unit, dtMs){
       } else {
         resolveAttackImpact(unit);
       }
+    }
+    if (unit.motion === "rage_charge" && def.rageChargeHits){
+      const hit = def.rageChargeHits.find(h => h.frame === unit.frameIndex);
+      if (hit) resolveRageChargeHit(unit, hit);
     }
     applyFrame(unit);
   }
@@ -1688,9 +1850,26 @@ function resolveAttackImpact(unit){
   }
 }
 
+// 特殊技(rage_chargeなど)の多段ヒットを解決する。frame毎にeffect(launchUp/knockback)とダメージ倍率を持つ
+function resolveRageChargeHit(unit, hit){
+  if (!battle || battle.ended) return;
+  const target = unit.target;
+  if (!target || target.dead) return;
+  const amount = getEffectiveAtk(unit) * (hit.dmgMult || 1);
+  applyDamageToUnit(target, amount, unit);
+  if (target.dead) return;
+  if (hit.effect === "knockback"){
+    launchUnit(target, unit, { upSpeed: 340, knockback: true, backSpeed: 260 });
+  } else if (hit.effect === "launchUp"){
+    launchUnit(target, unit, { upSpeed: 380 });
+  }
+}
+
 // 怯み・弾かれ・吹き飛び・ダウン・ガード関連の反応モーション中は、
 // 追加の被弾があっても別の反応モーションに上書きされない(スーパーアーマー)
-function isSuperArmored(unit){
+function isSuperArmored(unit, attacker){
+  if (attacker && attacker.def.attackFlags && attacker.def.attackFlags.ignoresSuperArmor) return false; // スーパーアーマー無効の一撃は貫通する
+  if (unit.def && unit.def.alwaysSuperArmored) return true; // 常時スーパーアーマー(ラッシャーなど)
   const attackMotion = (unit.def && unit.def.attackMotionName) || "attack";
   return unit.motion === "flinch" || unit.motion === "guardbreak" ||
          unit.motion === "blowback" || unit.motion === "down" ||
@@ -1835,7 +2014,7 @@ function applyDamageToUnit(target, amount, attacker){
 
   // 特殊回避：自分の攻撃射程内(=近接で殴られた時)の前方攻撃だけを一度限り確定で避ける
   // (火縄銃などの遠距離攻撃は射程外からの被弾になるため対象外)
-  const dodgeReady = def.canDodge && !target.dodgeUsed && !isSuperArmored(target) && !target.restrained &&
+  const dodgeReady = def.canDodge && !target.dodgeUsed && !isSuperArmored(target, attacker) && !target.restrained &&
     meleeRangeCheck && isAttackFromFront(target, attacker) && !attackerFlags.sideHitbox;
 
   if (dodgeReady){
@@ -1849,7 +2028,7 @@ function applyDamageToUnit(target, amount, attacker){
   }
 
   const guardReady = def.canGuard && !target.shieldBroken &&
-    target.guardCooldown <= 0 && !isSuperArmored(target) && !target.restrained &&
+    target.guardCooldown <= 0 && !isSuperArmored(target, attacker) && !target.restrained &&
     isAttackFromFront(target, attacker);
 
   if (guardReady){
@@ -1909,7 +2088,17 @@ function applyDamageToUnit(target, amount, attacker){
     return;
   }
 
-  if (isSuperArmored(target) || target.restrained) return; // スーパーアーマー中・拘束中は怯まない
+  // 打ち上げ・吹き飛ばし効果：スーパーアーマー中の相手にも適用される(ラッシャーの一撃など)
+  // rage_charge中は各ヒットの効果をresolveRageChargeHit側で個別に指定するため、ここでは重複適用しない
+  if (attacker && attacker.def.attackFlags && attacker.motion !== "rage_charge"){
+    if (attacker.def.attackFlags.launchesUp){
+      launchUnit(target, attacker, { upSpeed: 380 });
+    } else if (attacker.def.attackFlags.knocksBack){
+      launchUnit(target, attacker, { upSpeed: 340, knockback: true, backSpeed: 260 });
+    }
+  }
+
+  if (isSuperArmored(target, attacker) || target.restrained || target.launched) return; // スーパーアーマー中・拘束中・打ち上げ中は怯まない
 
   setMotion(target, "flinch", { onEnd: () => afterReaction(target) });
 }
@@ -1943,7 +2132,7 @@ function onAttackEnd(unit){
   setMotion(unit, unit.target ? approachMotion : fallback, { loop:true });
 }
 function updateUnitAI(unit, dtMs){
-  if (unit.dead || unit.debugLock || unit.restrained) return;
+  if (unit.dead || unit.debugLock || unit.restrained || unit.launched) return;
   const def = unit.def;
 
   if (def.noCombat){
@@ -2079,6 +2268,7 @@ function battleLoop(now){
     updateHealer(unit, dt);
     updatePoison(unit, dt);
     updatePoisonFx(unit, dt);
+    updateLaunch(unit, dt);
     updateUnitAI(unit, dt);
     advanceUnit(unit, dt);
   });
