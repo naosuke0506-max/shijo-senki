@@ -800,12 +800,11 @@ const CHAR_DEFS = {
       down: 0.68
     },
     frameCounts: {
-      idle:1, walk:3, attack:9, discover:2, flinch:5, blowback:6, down:2, getup:4
+      idle:1, walk:2, attack:9, discover:2, flinch:5, blowback:6, down:2, getup:4
     },
     frameDurations: {
       idle:      [1000],
-      // walk: 実画像3枚に対し4個の時間指定をいただいたため、先頭3つを暫定使用(要確認)
-      walk:      [225,225,225],
+      walk:      [225,225],
       // attack: 実画像9枚に対し8個の時間指定をいただいたため、末尾を複製して暫定調整(要確認)
       attack:    [200,225,350,320,290,200,200,200,200],
       discover:  [380,380],
@@ -2073,17 +2072,34 @@ function updateCharge(unit, dtMs){
     const fieldWidth = field.clientWidth;
     const enemySide = unit.side === "player" ? "enemy" : "player";
     const hitRadius = def.rageChargeHitRadius || 55;
-    const target = battle.units.find(o => !o.dead && o.side === enemySide && edgeDistance(unit, o) <= hitRadius);
+    const target = battle.units.find(o =>
+      !o.dead && o.side === enemySide && o !== unit.chargePlowedThrough &&
+      edgeDistance(unit, o) <= hitRadius
+    );
     const castleEdgeX = unit.side === "player" ? 60 : fieldWidth - 60;
     const reachedCastle = !target && (unit.side === "player" ? unit.x <= castleEdgeX : unit.x >= castleEdgeX);
 
-    if (target || reachedCastle){
-      // 何かに命中：最終コマへ進め、以降はそこで着弾処理を待つ
+    if (reachedCastle){
+      // 敵城に到達：そのまま最終コマへ進めて着弾処理する
       unit.chargeHit = true;
-      unit.chargeHitTarget = target || null;
+      unit.chargeHitTarget = null;
       unit.frameIndex = finalIndex;
       unit.frameTimer = 0;
       applyFrame(unit);
+    } else if (target){
+      if (unit.frameIndex === finalIndex - 1){
+        // ちょうど最終コマ直前で命中：そのまま本命の一撃をぶつける
+        unit.chargeHit = true;
+        unit.chargeHitTarget = target;
+        unit.frameIndex = finalIndex;
+        unit.frameTimer = 0;
+        applyFrame(unit);
+      } else {
+        // まだ序盤〜中盤のコマで接触：体当たりでかち上げるだけで、突進自体は止めずに突っ切る
+        applyDamageToUnit(target, getEffectiveAtk(unit), unit);
+        if (!target.dead) launchUnit(target, unit, { upSpeed: 340 });
+        unit.chargePlowedThrough = target; // 同じ相手を同じ突進中に何度も巻き込まないようにする
+      }
     }
     return;
   }
@@ -2116,6 +2132,7 @@ function updateCharge(unit, dtMs){
   unit.charging = false;
   unit.chargeHit = false;
   unit.chargeHitTarget = null;
+  unit.chargePlowedThrough = null;
   if (!unit.dead){
     const fallback = def.frameCounts.walk ? "walk" : (def.approachMotion || "walk");
     setMotion(unit, fallback, { loop: true });
