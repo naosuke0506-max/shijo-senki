@@ -838,7 +838,7 @@ const CHAR_DEFS = {
     attackFlags: { ignoresGuard: true, launchesUp: true }, // 通常攻撃もガード無効・打ち上げ効果を持つ
     icon: ICON_RUSHER,
     imageBase: IMG_RUSHER,
-    pixelScale: 92 / 921, // idle画像の切り抜き高さ(921px)基準
+    pixelScale: 92 * (220/140) / 921, // 全高2.2m(通常ゴブリン140cm比)、idle画像の切り抜き高さ(921px)基準
     motionScale: {
       down: 0.68
     },
@@ -2521,7 +2521,20 @@ function updateUnitAI(unit, dtMs){
     const dir = dx > 0 ? 1 : -1;
     const baseSpeed = unit.motion === approachMotion ? approachSpeed : unit.def.walkSpeed;
     const speed = getEffectiveSpeed(unit, baseSpeed);
-    unit.x += dir * speed * (dtMs/1000);
+    const moveAmount = dir * speed * (dtMs/1000);
+
+    // 今の交戦相手を追っている最中でも、通り道に未交戦の非戦闘ユニットがいればすり抜けずに足止めする
+    const passThroughBlocker = battle.units.find(other =>
+      other !== unit.target && !other.dead && other.side !== unit.side && other.def.noCombat &&
+      Math.sign(other.x - unit.x) === dir &&
+      Math.abs(other.x - unit.x) <= Math.abs(moveAmount)
+    );
+    if (passThroughBlocker){
+      unit.target = passThroughBlocker;
+      return;
+    }
+
+    unit.x += moveAmount;
     applyFrame(unit);
 
     // 車輪の回転を再現できない代わりに、移動中は足元に砂埃をまとわせて誤魔化す
