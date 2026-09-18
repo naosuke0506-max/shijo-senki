@@ -374,6 +374,8 @@ const IMG_HOUND = REPO_BASE + "images/hound_repo_upload/";
 const ICON_HOUND = REPO_BASE + "icons/hound_icon.png";
 const IMG_RUSHER = REPO_BASE + "images/rusher_repo_upload/";
 const ICON_RUSHER = REPO_BASE + "icons/rusher_icon.png";
+const IMG_CHIEF = REPO_BASE + "images/chief_repo_upload/";
+const ICON_CHIEF = REPO_BASE + "icons/chief_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -861,6 +863,70 @@ const CHAR_DEFS = {
     rageChargeSpeed: 34 * 2.5,      // 突進中の移動速度(通常歩行の2.5倍)
     rageChargeHitRadius: 55,        // この距離まで近づいたら命中とみなす
     rageChargeFinalMult: 2.5        // 命中時のダメージ倍率(通常攻撃力に対して)
+  },
+
+  chief: {
+    name: "ゴブリン長",
+    rank: null,
+    race: "goblin",
+    buffEligible: true, // 鼓舞兵のバフ対象(通常ゴブリンなので自動でtrueだが明示)
+    cost: 1600,        // 仮:屈強なゴブリン(750)・ラッシャー(900)より上、投石器(2800)より下
+    hp: 115,           // 仮
+    atk: 16,           // 仮:近接連撃・中距離連撃とも1ヒットあたりの値として共用
+    weight: 60,
+    walkSpeed: 38,
+    attackRange: 58,
+    detectionRange: 240,
+    canGuard: true,
+    icon: ICON_CHIEF,
+    imageBase: IMG_CHIEF,
+    pixelScale: 92 * (190/140) / 1536, // 仮:身長190cm、idle_1.pngの縦1536px基準。身長を変えたい場合は190を差し替えてください
+    motionScale: {
+      down: 0.68 // 他キャラに倣った仮値、down画像の見え方次第で調整
+    },
+    frameCounts: {
+      idle:1, walk:3, attack:14, discover:2, midrange:16,
+      flinch:2, blowback:5, down:1, getup:4,
+      special:2
+    },
+    frameDurations: {
+      idle:      [1000],
+      walk:      [215,215,215],
+      attack:    [170,170,170,170,170,170,170,170,170,170,170,170,170,170],
+      discover:  [350,350],
+      midrange:  [250,225,195,195,260,285,650,350,225,200,210,225,260,220,235,300],
+      flinch:    [268,268],
+      blowback:  [295,295,295,295,295],
+      down:      [1000],
+      getup:     [240,240,240,240]
+    },
+
+    // --- 近接攻撃:4連続ヒット(attack_4,6,10,12が命中コマ、0始まり) ---
+    // TODO: エンジンは現状 attackImpactFrame(単数)のみ対応。多段ヒット対応の改修が必要
+    attackImpactFrames: [3,5,9,11],
+
+    // --- 中距離攻撃:midrangeモーション内の命中コマ ---
+    // 21~24接近(0-3)/25-26ヒット(4-5)/27-29バックステップ(6-8)/30後隙(9)/31-36前進連撃(10-15、うち33-36=12-15がヒット)
+    // TODO: midrangeの多段フェーズ挙動(接近→❌字斬り→後隙→後退→前進連撃)は新規ロジックが必要
+    midrangeImpactFrames: [4,5,12,13,14,15],
+
+    // --- 出血 ---
+    // TODO: 蓄積・発動・ダメージ計算のロジックは未実装(このキャラが初導入)
+    bleedOnHit: true,
+    bleedStackPerHit: 0.20,        // 1ヒットにつき20%蓄積
+    bleedTriggerAt: 1.0,           // 100%到達で発動
+    bleedDamagePercentMaxHp: 0.15, // 対象最大HPの15%
+    bleedDamageFlat: 0,            // TODO: 固定値部分を指定
+    fxBleed: { count:4, prefix:"bleed_fx_", durations:[175,175,175,175], imageBase: IMG_CHIEF },
+
+    // --- 旗バフ:登場時に味方ゴブリン全員へ付与、本体が退場するまで永続 ---
+    // TODO: 範囲無制限・永続型のバフ種別は新規実装が必要
+    flagBuffAtkVsBuildingMult: 1.5,
+    fxFlagBuff: { count:1, prefix:"flag_buff_fx_", durations:[1000], imageBase: IMG_CHIEF },
+
+    // --- 特殊技:鼓舞されると発動、10秒間ステージ上の味方ゴブリン全員(自身含む)に近接攻撃中スーパーアーマー ---
+    // TODO: rage_chargeと同じ「鼓舞された瞬間トリガー」の仕組みを流用しつつ、中身(全体バフ)は新規実装
+    specialDurationMs: 10000
   },
 
   goblin: {
