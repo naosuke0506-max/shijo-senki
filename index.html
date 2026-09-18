@@ -783,6 +783,7 @@ const CHAR_DEFS = {
     rank: null,
     race: "beast",       // ゴブリン族ではない(鼓舞兵のバフ対象外・ヒーラーの蘇生対象外)
     buffEligible: true,  // 例外的に鼓舞兵のバフを受けられる
+    tamerBuffEligible: true, // テイマーが生きている間、攻撃力+10%
     hiddenFromFormation: true, // テイマーに付随して出るため、単体では編成一覧に出さない
     cost: 350,
     hp: 30,
@@ -793,6 +794,7 @@ const CHAR_DEFS = {
     approachSpeed: 58,
     attackRange: 60,
     detectionRange: 220,
+    attackLungeDistance: 30, // 攻撃モーション中、その場で殴らず30px前方へ踏み込みながら攻撃する
     icon: ICON_HOUND,
     imageBase: IMG_HOUND,
     pixelScale: 92 / 878, // idle画像の切り抜き高さ(878px)基準
@@ -821,6 +823,7 @@ const CHAR_DEFS = {
     rank: null,
     race: "beast",
     buffEligible: true, // 例外的に鼓舞兵のバフを受けられる
+    tamerBuffEligible: true, // テイマーが生きている間、攻撃力+10%
     cost: 900,
     hp: 90,
     atk: 24,
@@ -1376,10 +1379,18 @@ function removeUnit(unit){
 function getBuffStacks(unit){
   return unit.buffSources ? unit.buffSources.size : 0;
 }
+// このユニットの陣営に、生きているテイマーがいるかどうか(範囲無限)
+function hasLivingTamerAlly(unit){
+  if (!battle) return false;
+  return battle.units.some(u => !u.dead && u.side === unit.side && u.kind === "tamer");
+}
 function getEffectiveAtk(unit){
   const stacks = getBuffStacks(unit);
-  if (!stacks) return unit.def.atk;
-  return unit.def.atk * Math.pow(unit.def.buffAtkMult || 1, stacks);
+  let atk = stacks ? unit.def.atk * Math.pow(unit.def.buffAtkMult || 1, stacks) : unit.def.atk;
+  if (unit.def.tamerBuffEligible && hasLivingTamerAlly(unit)){
+    atk *= 1.10; // テイマーが在陣している間、攻撃力+10%(範囲無限、テイマーが死ぬと自動的に外れる)
+  }
+  return atk;
 }
 function getEffectiveSpeed(unit, baseSpeed){
   const stacks = getBuffStacks(unit);
@@ -1815,6 +1826,15 @@ function applyFrame(unit){
 function advanceUnit(unit, dtMs){
   if (unit.charging) return; // 猛突進中はupdateChargeが移動・フレーム送りを一括管理する
   const def = unit.def;
+
+  // 攻撃モーション中、その場で殴らず前方へ踏み込みながら攻撃するキャラ用(犬など)
+  const lungeMotionName = def.attackMotionName || "attack";
+  if (def.attackLungeDistance && unit.motion === lungeMotionName){
+    const lungeDurations = def.frameDurations[lungeMotionName] || [1000];
+    const lungeTotalMs = lungeDurations.reduce((a, b) => a + b, 0) || 1;
+    const forwardDir = unit.side === "player" ? -1 : 1;
+    unit.x += forwardDir * (def.attackLungeDistance / lungeTotalMs) * dtMs;
+  }
 
   const durations = def.frameDurations[unit.motion] || [1000];
   const count = def.frameCounts[unit.motion] || durations.length;
