@@ -192,6 +192,7 @@
   .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
   .buff-aura{ bottom:auto; height:34px; transform:translate(-50%,-75%); z-index:5; }
   .trap-sprite{ mix-blend-mode:normal; bottom:66px; left:0; z-index:2; } /* 写実素材なのでscreen合成を解除、ユニットより奥に表示 */
+  .flag-buff-icon{ bottom:auto; left:calc(50% + 28px); top:0; height:26px; transform:translate(-50%,-115%); z-index:5; mix-blend-mode:normal; } /* 軍旗バフ：透過PNGなのでscreen合成は使わない */
   .poison-status-fx{ bottom:auto; height:70px; transform:translate(-50%,-45%); z-index:5; opacity:.85; }
 
   /* 下部バー：左(財布)／中央〜(出撃キャラ)／右(予約スペース) */
@@ -308,6 +309,7 @@
       <button id="cheat-enemy-goblin-btn" style="position:absolute;left:0;top:220px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン召喚(検証用)</button>
       <button id="cheat-enemy-drummer-btn" style="position:absolute;left:0;top:256px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鼓舞兵召喚(検証用)</button>
       <button id="cheat-enemy-catapult-btn" style="position:absolute;left:0;top:292px;z-index:6;font-size:.62rem;padding:6px 8px;">敵投石器召喚(検証用)</button>
+      <button id="cheat-enemy-chief-btn" style="position:absolute;left:0;top:328px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン長召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -869,64 +871,65 @@ const CHAR_DEFS = {
     name: "ゴブリン長",
     rank: null,
     race: "goblin",
-    buffEligible: true, // 鼓舞兵のバフ対象(通常ゴブリンなので自動でtrueだが明示)
-    cost: 1600,        // 仮:屈強なゴブリン(750)・ラッシャー(900)より上、投石器(2800)より下
-    hp: 115,           // 仮
-    atk: 16,           // 仮:近接連撃・中距離連撃とも1ヒットあたりの値として共用
-    weight: 60,
-    walkSpeed: 38,
+    cost: 1800,           // 屈強なゴブリン(750)・ラッシャー(900)より上、投石器(2800)より下の中堅上位(暫定)
+    hp: 150,
+    atk: 6,               // 近接7連撃の「1ヒットあたり」の威力(フルヒットで42)。中距離技は下のmultで倍率をかける
+    weight: 120,
+    walkSpeed: 34,
     attackRange: 58,
-    detectionRange: 240,
-    canGuard: true,
+    detectionRange: 260,
+    approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく
+    approachSpeed: 34,
+    canGuard: false,
+    attackFlags: {},
+    // 軍旗：自分の周囲にいる味方ゴブリン族(自分以外)の移動速度を上げる。複数いても効果は重複しない(一番強いものだけ)。
+    // 旗が倒れる(=ゴブリン長が死ぬ)と効果も消える。
+    flagSpeedMult: 1.20,
+    flagAuraRange: 220,
+    fxFlagBuff: "flag_buff_fx_1.png",
+    // 中距離技：×字に構えて突進→同時斬り→後退→前進しながら5連斬り。
+    // 相手との間合い(edgeDistance)が minRange〜maxRange の時にクールタイムが明けていれば発動する。
+    midrange: {
+      motion: "midrange",
+      minRange: 90,
+      maxRange: 210,
+      cooldownMs: 7000,
+      hitReach: 100,           // 命中判定：前方この距離(px)以内の敵全員にヒット(範囲攻撃)
+      stopGap: 26,             // 突進中、相手にめり込まないよう最低これだけ間隔を空けて止まる
+      // 各コマの間に動く距離(px)。プラスが前進、マイナスが後退(コマの表示時間で按分して滑らかに動く)
+      moveByFrame: [34,34,34,34, 12,0,0, 0,0,-14,-14, 12,12,12,12,12],
+      // hits: frameは0始まり(midrange_6=5)。multは atk に掛ける倍率
+      hits: [
+        { frame: 5,  mult: 3 },                  // ×字の同時斬り(midrange_6)
+        { frame: 11, mult: 1 }, { frame: 12, mult: 1 }, { frame: 13, mult: 1 },
+        { frame: 14, mult: 1 }, { frame: 15, mult: 1 }   // 前進しながらの5連斬り(midrange_12〜16)
+      ]
+    },
     icon: ICON_CHIEF,
     imageBase: IMG_CHIEF,
-    pixelScale: 92 * (190/140) / 1536, // 仮:身長190cm、idle_1.pngの縦1536px基準。身長を変えたい場合は190を差し替えてください
+    // idle以外のコマ(歩行・攻撃など)は、旗を除いた身長がおよそ838pxの縮尺で作られている。
+    // 身長175cm(兵士170cm比)に合わせて表示身長を約95pxにする。
+    pixelScale: 92 * (175/170) / 838,
     motionScale: {
-      down: 0.68 // 他キャラに倣った仮値、down画像の見え方次第で調整
+      idle: 1024 / 1536  // idleだけ他のコマの約1.5倍の大きさで作られているので縮小して揃える
     },
     frameCounts: {
-      idle:1, walk:3, attack:14, discover:2, midrange:16,
-      flinch:2, blowback:5, down:1, getup:4,
-      special:2
+      idle:1, walk:3, discover:2, attack:14, midrange:16, flinch:2, blowback:5, down:1, getup:4
     },
+    // ★暫定値：実測していないので、動作確認しながら調整してください
     frameDurations: {
-      idle:      [1000],
-      walk:      [215,215,215],
-      attack:    [170,170,170,170,170,170,170,170,170,170,170,170,170,170],
-      discover:  [350,350],
-      midrange:  [250,225,195,195,260,285,650,350,225,200,210,225,260,220,235,300],
-      flinch:    [268,268],
-      blowback:  [295,295,295,295,295],
-      down:      [1000],
-      getup:     [240,240,240,240]
+      idle:     [1000],
+      walk:     [260,260,260],
+      discover: [300,500],
+      attack:   [130,150,120,110,120,120,150,150,120,90,90,90,90,260],
+      midrange: [110,110,110,110,110,90,180,140,140,130,130,110,110,110,110,240],
+      flinch:   [220,320],
+      blowback: [200,200,220,240,280],
+      down:     [1000],
+      getup:    [240,240,240,280]
     },
-
-    // --- 近接攻撃:4連続ヒット(attack_4,6,10,12が命中コマ、0始まり) ---
-    // TODO: エンジンは現状 attackImpactFrame(単数)のみ対応。多段ヒット対応の改修が必要
-    attackImpactFrames: [3,5,9,11],
-
-    // --- 中距離攻撃:midrangeモーション内の命中コマ ---
-    // 21~24接近(0-3)/25-26ヒット(4-5)/27-29バックステップ(6-8)/30後隙(9)/31-36前進連撃(10-15、うち33-36=12-15がヒット)
-    // TODO: midrangeの多段フェーズ挙動(接近→❌字斬り→後隙→後退→前進連撃)は新規ロジックが必要
-    midrangeImpactFrames: [4,5,12,13,14,15],
-
-    // --- 出血 ---
-    // TODO: 蓄積・発動・ダメージ計算のロジックは未実装(このキャラが初導入)
-    bleedOnHit: true,
-    bleedStackPerHit: 0.20,        // 1ヒットにつき20%蓄積
-    bleedTriggerAt: 1.0,           // 100%到達で発動
-    bleedDamagePercentMaxHp: 0.15, // 対象最大HPの15%
-    bleedDamageFlat: 0,            // TODO: 固定値部分を指定
-    fxBleed: { count:4, prefix:"bleed_fx_", durations:[175,175,175,175], imageBase: IMG_CHIEF },
-
-    // --- 旗バフ:登場時に味方ゴブリン全員へ付与、本体が退場するまで永続 ---
-    // TODO: 範囲無制限・永続型のバフ種別は新規実装が必要
-    flagBuffAtkVsBuildingMult: 1.5,
-    fxFlagBuff: { count:1, prefix:"flag_buff_fx_", durations:[1000], imageBase: IMG_CHIEF },
-
-    // --- 特殊技:鼓舞されると発動、10秒間ステージ上の味方ゴブリン全員(自身含む)に近接攻撃中スーパーアーマー ---
-    // TODO: rage_chargeと同じ「鼓舞された瞬間トリガー」の仕組みを流用しつつ、中身(全体バフ)は新規実装
-    specialDurationMs: 10000
+    // 近接7連撃の命中コマ(0始まり)：attack_4, 6, 10, 11, 12, 13, 14
+    attackImpactFrames: [3, 5, 9, 10, 11, 12, 13]
   },
 
   goblin: {
@@ -1098,7 +1101,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer"],
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer", "chief"],
   formationCategory: "all",
   stage: null
 };
@@ -1416,6 +1419,9 @@ function spawnUnit(kind, side, xOffset){
     poisonFxEl: null,
     poisonFxFrame: 0,
     poisonFxTimer: 0,
+    midCooldown: 0,               // ゴブリン長専用：次に中距離技を出せるまでの残り時間(ms)
+    attackHadTarget: false,       // 攻撃開始時に対象ユニットがいたか(多段攻撃の途中で対象が倒れたら残りの段を城へ流さない)
+    flagFxEl: null,               // 軍旗バフのアイコン
     healCooldown: 800,            // ヒーラー専用：次に回復を発動できるまでの残り時間
     isReviving: false,            // ヒーラー専用：現在蘇生の詠唱中かどうか
     reviveTarget: null,           // ヒーラー専用：蘇生対象の死体
@@ -1460,8 +1466,10 @@ function getEffectiveAtk(unit){
 }
 function getEffectiveSpeed(unit, baseSpeed){
   const stacks = getBuffStacks(unit);
-  if (!stacks) return baseSpeed;
-  return baseSpeed * Math.pow(unit.def.buffSpeedMult || 1, stacks);
+  let speed = stacks ? baseSpeed * Math.pow(unit.def.buffSpeedMult || 1, stacks) : baseSpeed;
+  const flagSource = getFlagSource(unit); // ゴブリン長の軍旗による加速
+  if (flagSource) speed *= flagSource.def.flagSpeedMult;
+  return speed;
 }
 function getDamageCutMultiplier(unit){
   const stacks = getBuffStacks(unit);
@@ -1847,6 +1855,84 @@ function updateHealer(unit, dtMs){
   });
 }
 
+/* ---------- ゴブリン長：軍旗バフ ---------- */
+
+// このユニットに軍旗の効果を与えているゴブリン長を返す(いなければnull)。
+// 対象は味方のゴブリン族(ゴブリン長本人は含まない)。複数いる場合は最も強い1人だけが有効。
+function getFlagSource(unit){
+  if (!battle || unit.dead || unit.def.race !== "goblin") return null;
+  let best = null;
+  battle.units.forEach(o => {
+    if (o === unit || o.dead || o.side !== unit.side || !o.def.flagSpeedMult) return;
+    if (Math.abs(o.x - unit.x) > (o.def.flagAuraRange || 0)) return;
+    if (!best || o.def.flagSpeedMult > best.def.flagSpeedMult) best = o;
+  });
+  return best;
+}
+
+// 軍旗の効果範囲内にいる間だけ、頭上に小さな旗のアイコンを出す
+function updateFlagBuff(unit){
+  const src = getFlagSource(unit);
+  if (src && !unit.flagFxEl){
+    const img = document.createElement("img");
+    img.className = "fx-sprite flag-buff-icon";
+    img.src = src.def.imageBase + (src.def.fxFlagBuff || "flag_buff_fx_1.png");
+    unit.el.appendChild(img);
+    unit.flagFxEl = img;
+  } else if (!src && unit.flagFxEl){
+    unit.flagFxEl.remove();
+    unit.flagFxEl = null;
+  }
+}
+
+/* ---------- ゴブリン長：中距離技(突進×字斬り→後退→5連斬り) ---------- */
+
+function startMidrange(unit){
+  const mid = unit.def.midrange;
+  unit.midCooldown = mid.cooldownMs || 6000;
+  unit.attackHadTarget = !!unit.target;
+  setMotion(unit, mid.motion || "midrange", { onEnd: onAttackEnd });
+}
+
+// 中距離技モーション中の移動。コマごとの移動量(moveByFrame)をそのコマの表示時間で按分して毎tick動かす
+function applyMidrangeMove(unit, dtMs){
+  const def = unit.def;
+  const mid = def.midrange;
+  const motion = mid.motion || "midrange";
+  const disp = (mid.moveByFrame && mid.moveByFrame[unit.frameIndex]) || 0;
+  if (!disp) return;
+  const durs = def.frameDurations[motion] || [];
+  const dur = durs[unit.frameIndex] || 100;
+  let step = disp * (dtMs / dur);
+  const forwardDir = unit.side === "player" ? -1 : 1;
+  if (step > 0 && unit.target && !unit.target.dead){
+    // 前進は相手にめり込む手前で止める
+    const gap = edgeDistance(unit, unit.target);
+    const stopGap = mid.stopGap != null ? mid.stopGap : 26;
+    step = Math.max(0, Math.min(step, gap - stopGap));
+  }
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field ? field.clientWidth : 800;
+  unit.x = Math.max(60, Math.min(fieldWidth - 60, unit.x + forwardDir * step));
+  applyFrame(unit);
+}
+
+// 中距離技の命中処理：前方の一定距離以内にいる敵全員にダメージ(範囲攻撃)
+function resolveMidrangeHit(unit, hit){
+  if (!battle || battle.ended || unit.dead) return;
+  const mid = unit.def.midrange;
+  const enemySide = unit.side === "player" ? "enemy" : "player";
+  const forwardDir = unit.side === "player" ? -1 : 1;
+  const reach = hit.reach != null ? hit.reach : (mid.hitReach || 80);
+  const dmg = getEffectiveAtk(unit) * (hit.mult != null ? hit.mult : 1);
+  const victims = battle.units.filter(o =>
+    !o.dead && o.side === enemySide &&
+    (Math.sign(o.x - unit.x) === forwardDir || o.x === unit.x) &&
+    edgeDistance(unit, o) <= reach
+  );
+  victims.forEach(o => applyDamageToUnit(o, dmg, unit));
+}
+
 function setMotion(unit, motion, opts){
   opts = opts || {};
   unit.motion = motion;
@@ -1902,6 +1988,11 @@ function advanceUnit(unit, dtMs){
     unit.x += forwardDir * (def.attackLungeDistance / lungeTotalMs) * dtMs;
   }
 
+  // 中距離技(ゴブリン長)：モーション中は前進・後退しながら動く
+  if (def.midrange && unit.motion === (def.midrange.motion || "midrange")){
+    applyMidrangeMove(unit, dtMs);
+  }
+
   const durations = def.frameDurations[unit.motion] || [1000];
   const count = def.frameCounts[unit.motion] || durations.length;
 
@@ -1925,12 +2016,21 @@ function advanceUnit(unit, dtMs){
       }
     }
     const attackMotionName = def.attackMotionName || "attack";
-    if (unit.motion === attackMotionName && unit.frameIndex === def.attackImpactFrame){
+    // 多段攻撃(ゴブリン長の7連撃など)は attackImpactFrames に命中コマを配列で指定する
+    const isImpactFrame = def.attackImpactFrames
+      ? def.attackImpactFrames.includes(unit.frameIndex)
+      : unit.frameIndex === def.attackImpactFrame;
+    if (unit.motion === attackMotionName && isImpactFrame){
       if (def.ranged){
         fireProjectile(unit);
       } else {
         resolveAttackImpact(unit);
       }
+    }
+    if (def.midrange && unit.motion === (def.midrange.motion || "midrange")){
+      (def.midrange.hits || []).forEach(h => {
+        if (h.frame === unit.frameIndex) resolveMidrangeHit(unit, h);
+      });
     }
     applyFrame(unit);
   }
@@ -2098,6 +2198,8 @@ function updateBuffAura(unit, dtMs){
 
 function resolveAttackImpact(unit){
   if (!battle || battle.ended) return;
+  // 多段攻撃の途中で対象が倒れた場合、残りの段は空振りにする(城へダメージが流れないように)
+  if (unit.def.attackImpactFrames && unit.attackHadTarget && (!unit.target || unit.target.dead)) return;
   if (unit.target && !unit.target.dead){
     applyDamageToUnit(unit.target, getEffectiveAtk(unit), unit);
     return;
@@ -2574,11 +2676,20 @@ function updateUnitAI(unit, dtMs){
   const rangeDist = unit.target ? edgeDistance(unit, unit.target) : Math.abs(dx);
   const minRange = unit.def.minAttackRange || 0;
 
+  // 中距離技(ゴブリン長)：近接の間合いの外で、中距離の間合いに入っていてクールタイムが明けていれば発動
+  const mid = def.midrange;
+  if (mid && unit.target && !unit.shieldBroken && unit.midCooldown <= 0 &&
+      rangeDist > def.attackRange && rangeDist >= mid.minRange && rangeDist <= mid.maxRange){
+    startMidrange(unit);
+    return;
+  }
+
   if (rangeDist <= unit.def.attackRange && rangeDist >= minRange){
     if (unit.shieldBroken){
       // 盾が壊れて近接攻撃ができない：その場に立ち尽くす
       if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
     } else {
+      unit.attackHadTarget = !!unit.target;
       setMotion(unit, attackMotionName, { onEnd: onAttackEnd });
     }
   } else if (rangeDist < minRange){
@@ -2636,7 +2747,9 @@ function battleLoop(now){
 
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
+    if (unit.midCooldown > 0) unit.midCooldown = Math.max(0, unit.midCooldown - dt);
     updateBuffAura(unit, dt);
+    updateFlagBuff(unit);
     updateInspire(unit, dt);
     updateTrapper(unit, dt);
     updateHealer(unit, dt);
@@ -2696,6 +2809,10 @@ document.getElementById("cheat-enemy-drummer-btn").addEventListener("click", () 
 document.getElementById("cheat-enemy-catapult-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("catapult", "enemy");
+});
+document.getElementById("cheat-enemy-chief-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("chief", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
