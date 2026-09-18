@@ -2096,7 +2096,7 @@ function updateCharge(unit, dtMs){
       !o.dead && o.side === enemySide && o !== unit.chargePlowedThrough &&
       edgeDistance(unit, o) <= hitRadius
     );
-    const castleEdgeX = unit.side === "player" ? 60 : fieldWidth - 60;
+    const castleEdgeX = unit.side === "player" ? 90 : fieldWidth - 90; // キャラが出現する位置まで(それより奥=城の中には入れない)
     const reachedCastle = !target && (unit.side === "player" ? unit.x <= castleEdgeX : unit.x >= castleEdgeX);
 
     if (reachedCastle){
@@ -2195,6 +2195,7 @@ function isAttackFromFront(target, attacker){
 // 完全に背後にいる場合は、よほど近く(密着している)ない限り無視する。
 const ADJACENT_ENGAGE_THRESHOLD = 20;
 function isEngageable(unit, other){
+  if (other.def.noCombat) return true; // 非戦闘ユニットは自衛できないので、前後関係に関わらず常に攻撃対象にできる
   const forwardDir = unit.side === "player" ? -1 : 1;
   const dx = other.x - unit.x;
   if (Math.sign(dx) === forwardDir || dx === 0) return true; // 正面、または真横で重なっている
