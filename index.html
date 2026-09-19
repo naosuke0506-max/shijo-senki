@@ -312,6 +312,7 @@
       <button id="cheat-enemy-catapult-btn" style="position:absolute;left:0;top:292px;z-index:6;font-size:.62rem;padding:6px 8px;">敵投石器召喚(検証用)</button>
       <button id="cheat-enemy-chief-btn" style="position:absolute;left:0;top:328px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン長召喚(検証用)</button>
       <button id="cheat-enemy-fortress-btn" style="position:absolute;left:0;top:364px;z-index:6;font-size:.62rem;padding:6px 8px;">敵フォートレス召喚(検証用)</button>
+      <button id="cheat-enemy-queen-btn" style="position:absolute;left:0;top:400px;z-index:6;font-size:.62rem;padding:6px 8px;">敵女王召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -382,6 +383,8 @@ const IMG_CHIEF = REPO_BASE + "images/chief_repo_upload/";
 const ICON_CHIEF = REPO_BASE + "icons/chief_icon.png";
 const IMG_FORTRESS = REPO_BASE + "images/fortress_repo_upload/";
 const ICON_FORTRESS = REPO_BASE + "icons/fortress_icon.png";
+const IMG_QUEEN = REPO_BASE + "images/queen_repo_upload/";
+const ICON_QUEEN = REPO_BASE + "icons/queen_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -1010,6 +1013,86 @@ const CHAR_DEFS = {
     ladderFrac: 0.30           // 梯子の位置(後ろ端から)。死亡時、ゴブリンはここから降りる
   },
 
+  queen: {
+    name: "ゴブリンの女王",
+    rank: null,
+    race: "goblin",
+    heightM: 4,                // シールドが守れるのは4m以下(フォートレスは6mなので対象外)
+    cost: 4500,                // ★数値はすべて暫定
+    hp: 600,
+    atk: 28,                   // 近接(輝石の叩きつけ)の威力。範囲攻撃
+    weight: 300,
+    walkSpeed: 24,
+    attackRange: 60,
+    detectionRange: 320,
+    approachMotion: "walk",
+    approachSpeed: 24,
+    canGuard: false,
+    noRevive: true,            // ヒーラーの自動蘇生の対象外
+    attackFlags: {},
+    staggerOnLaunch: true,     // 打ち上げ・吹き飛ばしは無効。大きくよろめいて後退する
+    staggerSlideSpeed: 25,
+    hitboxWidth: 115,
+    spawnFullyInside: true,
+    hpBarWidth: 70,
+    icon: ICON_QUEEN,
+    imageBase: IMG_QUEEN,
+    // 歩行などのコマ(高さ約920px)を基準に、表示上の全高(杖の先まで)を約130pxにする
+    pixelScale: 130 / 921,
+    motionScale: {
+      idle: 919 / 1181   // 待機だけ他のコマの約1.29倍の大きさで作られているので縮小して揃える
+    },
+    frameCounts: {
+      idle:1, walk:4, discover:2, attack:7, shield:4, meteor:7, flinch:3, blowback:4, down:2, getup:3, transform:13, ring:5
+    },
+    frameDurations: {
+      idle:      [1000],
+      walk:      [235,235,235,235],
+      discover:  [400,400],
+      attack:    [260,280,295,450,390,250,260],
+      shield:    [295,325,395,295],
+      meteor:    [395,350,425,465,455,420,395],
+      flinch:    [295,295,295],
+      blowback:  [310,400,520,350],
+      down:      [500,500],
+      getup:     [350,350,350],
+      transform: [295,250,700,408,250,285,200,315,350,350,295,295,295],
+      ring:      [185,185,250,350,185]
+    },
+    attackImpactFrame: 4,      // attack_5(杖の輝石が地面に着いた瞬間)
+    areaHitReach: 90,          // 叩きつけの欠片が届く範囲(前方この距離の敵全員)
+    fxStompDust: { count:5, prefix:"shard_fx_", durations:[170,170,170,170,170], imageBase: IMG_QUEEN, height:90, frontFrac:0.88 },
+    // 第一形態の魔法
+    skills: {
+      // シールド：遠距離攻撃を持つ敵が近くにいるとき、前方に紫のバリアを張る。バリア内の味方(4m以下)は遠距離攻撃を受けない
+      shield: { range: 420, cooldownMs: 14000, durationMs: 6000, reach: 100, activateFrame: 1 },
+      // メテオ：杖を突き刺して詠唱し、斜め前上空の黒い穴からメテオを1発ずつ計2発落とす
+      meteor: { range: 380, cooldownMs: 12000, riftFrame: 1, holeForward: 70, holeHeight: 150, holeSize: 90,
+                launchAt: [700, 1500], travelMs: 550, damage: 30, radius: 60 }
+    },
+    // HPが50%以下になると一度だけ第二形態(queenBeast)へ移行する
+    transformAtHpRatio: 0.5,
+    transformTo: "queenBeast",
+    transformHealers: 2,       // 移行時に魔法陣から召喚するヒーラーの数
+    healerFrame: 4,            // 何コマ目から召喚するか(0始まり)
+    // キングとのコンボ(お互いが場にいる状態で揃った瞬間に指輪を掲げる)。キングは未実装
+    comboRole: "queen",
+    ringShatterFrame: 3,       // 指輪が砕けるコマ(0始まり)
+    ringHand: { x: 0.66, y: 0.16 }, // 掲げた手の位置(画像の後ろ端からの横位置・上端からの縦位置の比)
+    fx: {
+      imageBase: IMG_QUEEN,
+      barrier:      { prefix:"barrier_fx_", count:6, dur:200, height:130 },
+      rift:         { prefix:"rift_fx_", count:5, durations:[250,250,1750,250,250], size:90 },
+      meteorFly:    { prefix:"meteor_fx_", count:3, dur:245, height:110, aspect:687/1024 },
+      meteorImpact: { prefix:"meteor_impact_fx_", count:4, dur:170, height:100 },
+      circle:       { prefix:"circle_fx_", count:4, dur:195, height:80 },
+      ringBreak:    { prefix:"ring_fx_", count:4, dur:200, height:110 },
+      energy:       { prefix:"energy_fx_", count:3, dur:170, height:200, aspect:339/1024, riseSpeed:300 }
+    },
+    // 指輪コンボの隕石(20秒後から降り注ぐ。女王が倒されても降る。永遠には降らない)
+    comboMeteor: { delayMs: 20000, durationMs: 10000, intervalMs: 450, damage: 22, radius: 55, minSeparation: 65, travelMs: 800 }
+  },
+
   goblin: {
     name: "ゴブリン",
     rank: null,
@@ -1143,6 +1226,39 @@ const CHAR_DEFS = {
   }
 };
 
+// ゴブリンの女王・第二形態(四足)。第一形態からの移行後に、定義ごと入れ替えて使う。編成画面には出さない。
+CHAR_DEFS.queenBeast = Object.assign({}, CHAR_DEFS.queen, {
+  hiddenFromFormation: true,
+  imagePrefix: "beast_",     // 画像は beast_ を頭に付けたファイル名
+  atk: 24,                   // 近接は爪の2ヒット(1ヒットあたりの威力)
+  walkSpeed: 58,             // 四足で駆け抜ける(移動速度アップ)
+  approachSpeed: 58,
+  attackRange: 55,
+  skills: null,              // バリア・メテオなどの魔法は使えなくなる(コンボの隕石は例外)
+  transformAtHpRatio: null,
+  areaHitReach: null,        // 第二形態は範囲攻撃ではなく、爪で目の前の相手を2回攻撃する
+  fxStompDust: null,
+  attackImpactFrame: null,
+  attackImpactFrames: [1, 3],
+  motionScale: {},
+  frameCounts: {
+    idle:1, walk:5, discover:2, attack:5, flinch:3, blowback:4, down:2, getup:2, ring:4
+  },
+  frameDurations: {
+    idle:     [1000],
+    walk:     [245,245,245,245,245],
+    discover: [340,350],
+    attack:   [320,460,295,420,500],
+    flinch:   [260,450,350],
+    blowback: [270,880,250,360],
+    down:     [500,500],
+    getup:    [500,500],
+    ring:     [375,950,1500,750]
+  },
+  ringShatterFrame: 2,
+  ringHand: { x: 0.90, y: 0.07 }
+});
+
 // 発見モーション共通エフェクト(「！」マーク、黒背景screen合成)
 const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125], imageBase: COMMON_FX };
 
@@ -1179,7 +1295,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer", "chief", "fortress"],
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer", "chief", "fortress", "queen"],
   formationCategory: "all",
   stage: null
 };
@@ -1312,6 +1428,7 @@ let battle = null;
 function startBattle(stage){
   const field = document.getElementById("battlefield");
   field.querySelectorAll(".unit-sprite").forEach(el => el.remove());
+  field.querySelectorAll(".fx-sprite").forEach(el => el.remove());
 
   document.getElementById("stage-name-plate").textContent = stage.name;
 
@@ -1327,7 +1444,9 @@ function startBattle(stage){
     traps: [],
     lastTick: performance.now(),
     ended: false,
-    paused: false
+    paused: false,
+    fxList: [],                    // 毎フレーム進めるエフェクト・タイマー(一時停止に連動する)
+    comboDone: { player: false, enemy: false } // 指輪コンボは陣営ごとに1回だけ
   };
 
   updateCastleBars();
@@ -1426,9 +1545,10 @@ function spawnUnit(kind, side, xOffset, opts){
   el.className = "unit-sprite";
   const img = document.createElement("img");
   img.addEventListener("load", () => {
-    const motionScales = def.motionScale || {};
+    const curDef = (img._ownerUnit && img._ownerUnit.def) || def; // 形態変化(女王)で定義が入れ替わることがあるので、現在の定義を見る
+    const motionScales = curDef.motionScale || {};
     const motionFactor = motionScales[img.dataset.motion] != null ? motionScales[img.dataset.motion] : 1;
-    const scale = (def.pixelScale || 1) * motionFactor * ((img._ownerUnit && img._ownerUnit.scaleMult) || 1);
+    const scale = (curDef.pixelScale || 1) * motionFactor * ((img._ownerUnit && img._ownerUnit.scaleMult) || 1);
     const dw = img.naturalWidth * scale;
     const dh = img.naturalHeight * scale;
     img.style.width = dw + "px";
@@ -1512,6 +1632,13 @@ function spawnUnit(kind, side, xOffset, opts){
     riders: null,                 // フォートレス専用：背中に乗っているゴブリンの一覧
     downFinished: false,          // フォートレス専用：ダウンモーションを最後まで再生し終えた
     staggerVX: 0,                 // よろめき後退中の速度(px/秒)
+    shieldCooldown: 0,            // 女王：シールドを次に張れるまで(ms)
+    meteorCooldown: 0,            // 女王：メテオを次に唱えられるまで(ms)
+    barrierMs: 0,                 // 女王：バリアの残り時間(ms)
+    casting: null,                // 女王：詠唱中の魔法のモーション名(中断されたらキャンセル)
+    castId: 0,
+    transformed: false,           // 女王：第二形態へ移行済み
+    transforming: false,          // 女王：移行モーション中(中断されない)
     healCooldown: 800,            // ヒーラー専用：次に回復を発動できるまでの残り時間
     isReviving: false,            // ヒーラー専用：現在蘇生の詠唱中かどうか
     reviveTarget: null,           // ヒーラー専用：蘇生対象の死体
@@ -1523,6 +1650,7 @@ function spawnUnit(kind, side, xOffset, opts){
   battle.units.push(unit);
   setMotion(unit, "idle");
   if (opts && opts.mount) mountRider(unit, opts.mount, opts.slot);
+  if (!(opts && opts.mount)) checkRingCombo(unit);
   if (def.riders){
     // 背中に乗るゴブリンたちを一緒に出す
     unit.riders = [];
@@ -1535,7 +1663,7 @@ function spawnUnit(kind, side, xOffset, opts){
 
 function frameUrl(def, motion, frameIndex1based){
   const base = (def.motionImageBase && def.motionImageBase[motion]) || def.imageBase;
-  return base + motion + "_" + frameIndex1based + ".png";
+  return base + (def.imagePrefix || "") + motion + "_" + frameIndex1based + ".png";
 }
 
 function removeUnit(unit){
@@ -2072,6 +2200,351 @@ function resolveMidrangeHit(unit, hit){
   victims.forEach(o => applyDamageToUnit(o, dmg, unit));
 }
 
+/* ---------- ゴブリンの女王 ---------- */
+
+function unitCenterX(u){ return u.x + (u._displayWidth || 0) / 2; }
+
+// 毎フレーム進めるタスクを登録する(falseを返すと終了)。一時停止中は進まない
+function addFxTask(fn){ if (battle) battle.fxList.push(fn); }
+
+// コマ送りのエフェクトを1つ再生する。loopを指定すると、keep()がtrueの間だけ from〜to のコマを繰り返す
+function playFxSeq(spec){
+  const field = document.getElementById("battlefield");
+  if (!field || !battle) return null;
+  const el = document.createElement("img");
+  el.className = "fx-sprite";
+  el.style.height = spec.height + "px";
+  if (spec.blend) el.style.mixBlendMode = spec.blend;
+  const urlOf = i => spec.imageBase + spec.prefix + (i + 1) + ".png";
+  let frame = 0, t = 0;
+  el.src = urlOf(0);
+  field.appendChild(el);
+  const place = () => {
+    const p = spec.pos();
+    el.style.bottom = p.bottom + "px";
+    el.style.transform = "translateX(" + p.x + "px) translateX(-50%)" + (p.flip ? " scaleX(-1)" : "");
+  };
+  place();
+  addFxTask(dt => {
+    if (spec.alive && !spec.alive()){ el.remove(); return false; }
+    t += dt;
+    place();
+    let dur = spec.durations[frame] || 150;
+    while (t >= dur){
+      t -= dur;
+      if (spec.loop && frame === spec.loop.to && spec.loop.keep()) frame = spec.loop.from;
+      else frame++;
+      if (frame >= spec.count){ el.remove(); if (spec.onDone) spec.onDone(); return false; }
+      el.src = urlOf(frame);
+      dur = spec.durations[frame] || 150;
+    }
+    return true;
+  });
+  return el;
+}
+
+function constDurations(count, dur){ const a = []; for (let i = 0; i < count; i++) a.push(dur); return a; }
+
+// バリア内の味方(4m以下)は遠距離攻撃を受けない。バリアは女王の前方にある
+function isShielded(target){
+  const tx = unitCenterX(target);
+  return battle.units.some(q => {
+    if (q.dead || q.side !== target.side || !(q.barrierMs > 0) || !q.def.skills || !q.def.skills.shield) return false;
+    const W = q._displayWidth || 110;
+    const reach = q.def.skills.shield.reach;
+    const lo = q.facing === -1 ? q.x - reach : q.x;
+    const hi = q.facing === -1 ? q.x + W : q.x + W + reach;
+    return tx >= lo && tx <= hi;
+  });
+}
+
+function tryQueenSkills(unit, rangeDist){
+  const sk = unit.def.skills;
+  if (unit.motion !== "walk" && unit.motion !== unit.def.approachMotion) return false;
+  // シールド：射程の長い(遠距離攻撃を持つ)敵が近くにいて、バリアが張られていなければ張る
+  if (sk.shield && unit.shieldCooldown <= 0 && !(unit.barrierMs > 0)){
+    const threat = battle.units.some(o => !o.dead && o.side !== unit.side && o.def.ranged &&
+      Math.abs(unitCenterX(o) - unitCenterX(unit)) <= sk.shield.range);
+    if (threat){ startShieldCast(unit); return true; }
+  }
+  // メテオ：近接の間合いの外にいる相手が、メテオの射程内にいれば唱える
+  if (sk.meteor && unit.meteorCooldown <= 0 && rangeDist > unit.def.attackRange + 20 && rangeDist <= sk.meteor.range){
+    startMeteorCast(unit);
+    return true;
+  }
+  return false;
+}
+
+function startShieldCast(unit){
+  const sk = unit.def.skills.shield;
+  unit.shieldCooldown = sk.cooldownMs;
+  unit.casting = "shield";
+  unit.castId = (unit.castId || 0) + 1;
+  setMotion(unit, "shield", { onEnd: () => { unit.casting = null; onAttackEnd(unit); } });
+}
+
+function activateBarrier(unit){
+  const sk = unit.def.skills.shield;
+  const fx = unit.def.fx.barrier;
+  unit.barrierMs = sk.durationMs;
+  const aspect = 687 / 1024;
+  const width = fx.height * aspect;
+  playFxSeq({
+    imageBase: unit.def.fx.imageBase, prefix: fx.prefix, count: fx.count, durations: constDurations(fx.count, fx.dur),
+    height: fx.height,
+    // 完成のコマ(3・4番目)を、バリアが続く間だけ交互に繰り返す。残り0.4秒になったら弱まって砕ける2コマへ
+    loop: { from: 2, to: 3, keep: () => unit.barrierMs > fx.dur * 2 },
+    alive: () => { if (unit.dead || unit.transforming){ unit.barrierMs = 0; return false; } return true; },
+    pos: () => {
+      const W = unit._displayWidth || 110;
+      const front = unit.facing === 1 ? unit.x + W + width * 0.45 : unit.x - width * 0.45;
+      return { x: front, bottom: 74, flip: unit.facing === -1 };
+    }
+  });
+}
+
+function startMeteorCast(unit){
+  const sk = unit.def.skills.meteor;
+  unit.meteorCooldown = sk.cooldownMs;
+  unit.casting = "meteor";
+  unit.castId = (unit.castId || 0) + 1;
+  unit.castTargetX = unit.target ? unitCenterX(unit.target) : null;
+  unit.attackHadTarget = !!unit.target;
+  setMotion(unit, "meteor", { onEnd: () => { unit.casting = null; onAttackEnd(unit); } });
+}
+
+// 詠唱の途中で、女王の少し斜め前の上空に黒い穴を開け、穴からメテオを1発ずつ落とす
+function openRift(unit){
+  const sk = unit.def.skills.meteor;
+  const fx = unit.def.fx.rift;
+  const id = unit.castId;
+  const field = document.getElementById("battlefield");
+  const dir = unit.side === "player" ? -1 : 1;
+  const hx = unitCenterX(unit) + dir * sk.holeForward;
+  const hb = Math.min(74 + sk.holeHeight, field.clientHeight - sk.holeSize / 2 - 6);
+  playFxSeq({
+    imageBase: unit.def.fx.imageBase, prefix: fx.prefix, count: fx.count, durations: fx.durations,
+    height: sk.holeSize, blend: "normal", // 穴は透過PNGなので通常合成
+    alive: () => !unit.dead && unit.castId === id,
+    pos: () => ({ x: hx, bottom: hb - sk.holeSize / 2 })
+  });
+  let t = 0;
+  const fired = sk.launchAt.map(() => false);
+  addFxTask(dt => {
+    if (unit.dead || unit.castId !== id) return false;
+    t += dt;
+    sk.launchAt.forEach((at, i) => {
+      if (!fired[i] && t >= at){
+        fired[i] = true;
+        const tx = (unit.target && !unit.target.dead) ? unitCenterX(unit.target) : (unit.castTargetX != null ? unit.castTargetX : hx + dir * 120);
+        launchMeteor(unit.def.fx, unit.side, { x: hx, b: hb }, tx, { travelMs: sk.travelMs, damage: sk.damage, radius: sk.radius });
+      }
+    });
+    return !fired.every(f => f);
+  });
+}
+
+// メテオを1発飛ばす(from=発射位置、toX=着弾する横位置)。尾が進行方向の後ろに伸びるよう回転させる
+function launchMeteor(fx, side, from, toX, o){
+  const field = document.getElementById("battlefield");
+  if (!field || !battle) return;
+  const m = fx.meteorFly;
+  const h = m.height;
+  const el = document.createElement("img");
+  el.className = "fx-sprite";
+  el.style.height = h + "px";
+  field.appendChild(el);
+  const gb = 74; // 地面の高さ
+  const dx = toX - from.x, db = gb - from.b;
+  const len = Math.hypot(dx, db) || 1;
+  const ux = dx / len, ub = db / len;
+  const theta = Math.atan2(-ux, -ub) * 180 / Math.PI;
+  let t = 0, frame = 0, ft = 0;
+  el.src = fx.imageBase + m.prefix + "1.png";
+  addFxTask(dt => {
+    t += dt; ft += dt;
+    while (ft >= m.dur){ ft -= m.dur; frame = (frame + 1) % m.count; el.src = fx.imageBase + m.prefix + (frame + 1) + ".png"; }
+    const p = Math.min(1, t / o.travelMs);
+    const hx = from.x + dx * p, hb = from.b + db * p; // 先端(岩)の位置
+    const cx = hx - ux * h * 0.3, cb = hb - ub * h * 0.3; // 画像の中心(尾が後ろへ伸びる)
+    el.style.bottom = (cb - h / 2) + "px";
+    el.style.transform = "translateX(" + cx + "px) translateX(-50%) rotate(" + theta + "deg)";
+    if (p >= 1){
+      el.remove();
+      meteorImpact(fx, side, toX, o);
+      return false;
+    }
+    return true;
+  });
+}
+
+// 着弾：爆発を出し、範囲内の敵ユニットにダメージを与える(城には当たらない)。味方には当たらない
+function meteorImpact(fx, side, ix, o){
+  const im = fx.meteorImpact;
+  playFxSeq({
+    imageBase: fx.imageBase, prefix: im.prefix, count: im.count, durations: constDurations(im.count, im.dur),
+    height: im.height, pos: () => ({ x: ix, bottom: 74 })
+  });
+  const enemySide = side === "player" ? "enemy" : "player";
+  battle.units.filter(u => !u.dead && !u.mounted && u.side === enemySide && Math.abs(unitCenterX(u) - ix) <= o.radius)
+    .forEach(u => applyDamageToUnit(u, o.damage, null));
+}
+
+/* ---- 第二形態への移行 ---- */
+
+function startTransform(unit){
+  const def = unit.def;
+  unit.transformed = true;
+  unit.transforming = true;
+  unit.casting = null;
+  unit.castId = (unit.castId || 0) + 1; // 詠唱中の魔法・バリアはキャンセル
+  unit.barrierMs = 0;
+  unit.target = null;
+  unit.staggerVX = 0;
+  setMotion(unit, "transform", { onEnd: () => finishTransform(unit) });
+  // 足元に広がる魔法陣：2コマ目と3コマ目を、移行モーションが終わるまで繰り返す
+  const fx = def.fx.circle;
+  playFxSeq({
+    imageBase: def.fx.imageBase, prefix: fx.prefix, count: fx.count, durations: constDurations(fx.count, fx.dur),
+    height: fx.height,
+    loop: { from: 1, to: 2, keep: () => unit.transforming && !unit.dead },
+    pos: () => ({ x: unitCenterX(unit), bottom: 70 })
+  });
+}
+
+function finishTransform(unit){
+  if (unit.dead) return;
+  unit.transforming = false;
+  unit.def = CHAR_DEFS[unit.def.transformTo];
+  unit.form2 = true;
+  unit.target = null;
+  setMotion(unit, "walk", { loop:true });
+}
+
+// 移行モーションの途中で、魔法陣からヒーラーを召喚する
+function summonQueenHealers(unit){
+  const n = unit.def.transformHealers || 0;
+  const center = unitCenterX(unit);
+  for (let i = 0; i < n; i++){
+    const h = spawnUnit("healer", unit.side, 0);
+    const off = (i % 2 === 0 ? 1 : -1) * (55 + Math.floor(i / 2) * 30);
+    h.x = center + off - (h._displayWidth || 30) / 2;
+    applyFrame(h);
+  }
+}
+
+/* ---- 指輪コンボ(キングとの連携) ---- */
+
+// キングと女王がお互い場にいる状態になった瞬間に、指輪を掲げる。キングの動きはキング実装時に追加する
+function checkRingCombo(unit){
+  if (!battle || !unit.def.comboRole) return;
+  const partner = battle.units.find(u => u !== unit && !u.dead && u.side === unit.side &&
+    u.def.comboRole && u.def.comboRole !== unit.def.comboRole);
+  if (!partner || battle.comboDone[unit.side]) return;
+  battle.comboDone[unit.side] = true;
+  const queen = unit.def.comboRole === "queen" ? unit : partner;
+  startRingCombo(queen);
+}
+
+function startRingCombo(queen){
+  if (queen.transforming){ // 移行モーション中なら終わるまで待つ
+    addFxTask(() => { if (queen.dead) return false; if (queen.transforming) return true; startRingCombo(queen); return false; });
+    return;
+  }
+  if (queen.dead) return;
+  queen.casting = null;
+  queen.castId = (queen.castId || 0) + 1;
+  queen.target = null;
+  setMotion(queen, "ring", { onEnd: () => { if (!queen.dead) setMotion(queen, "walk", { loop:true }); } });
+  // 20秒後から隕石が降り注ぐ(女王が倒されても降る)
+  const cfg = queen.def.comboMeteor;
+  const fx = queen.def.fx;
+  const side = queen.side;
+  let t = 0;
+  addFxTask(dt => {
+    t += dt;
+    if (t < cfg.delayMs) return true;
+    startMeteorRain(fx, side, cfg);
+    return false;
+  });
+}
+
+// 手の位置(掲げた指輪)の画面上の位置
+function ringHandPos(unit){
+  const W = unit._displayWidth || 110, H = unit._displayHeight || 120;
+  const hand = unit.def.ringHand;
+  const fe = unit.facing === 1 ? hand.x : 1 - hand.x;
+  return { x: unit.x + fe * W, b: 74 + (1 - hand.y) * H };
+}
+
+// 指輪が砕ける瞬間：割れるエフェクトを出し、紫のエネルギーが天へ昇って画面外へ消える
+function onRingShatter(unit){
+  const fx = unit.def.fx;
+  const hp = ringHandPos(unit);
+  const br = fx.ringBreak;
+  playFxSeq({
+    imageBase: fx.imageBase, prefix: br.prefix, count: br.count, durations: constDurations(br.count, br.dur),
+    height: br.height, pos: () => ({ x: hp.x, bottom: hp.b - br.height / 2 })
+  });
+  const en = fx.energy;
+  const field = document.getElementById("battlefield");
+  const h = en.height;
+  const el = document.createElement("img");
+  el.className = "fx-sprite";
+  el.style.height = h + "px";
+  el.src = fx.imageBase + en.prefix + "1.png";
+  field.appendChild(el);
+  let rise = 0, frame = 0, ft = 0;
+  addFxTask(dt => {
+    rise += en.riseSpeed * (dt / 1000);
+    ft += dt;
+    while (ft >= en.dur){ ft -= en.dur; frame = (frame + 1) % en.count; el.src = fx.imageBase + en.prefix + (frame + 1) + ".png"; }
+    // 画像の上側が光の玉、下側が尾。玉が手の位置から真上へ昇る
+    const bottom = hp.b - h * 0.65 + rise;
+    if (bottom > field.clientHeight + 20){ el.remove(); return false; }
+    el.style.bottom = bottom + "px";
+    el.style.transform = "translateX(" + hp.x + "px) translateX(-50%)";
+    return true;
+  });
+}
+
+// 隕石の雨：ランダムな位置に、同じ場所には落ちないように降らせる
+function startMeteorRain(fx, side, cfg){
+  const field = document.getElementById("battlefield");
+  const fw = field.clientWidth, fh = field.clientHeight;
+  const used = [];
+  let elapsed = 0, next = 0;
+  addFxTask(dt => {
+    elapsed += dt;
+    if (elapsed >= cfg.durationMs) return false;
+    next -= dt;
+    while (next <= 0){
+      next += cfg.intervalMs;
+      let best = null, bestD = -1;
+      for (let k = 0; k < 40; k++){
+        const x = 40 + Math.random() * (fw - 80);
+        const d = used.length ? Math.min.apply(null, used.map(u => Math.abs(u - x))) : Infinity;
+        if (d >= cfg.minSeparation){ best = x; break; }
+        if (d > bestD){ bestD = d; best = x; }
+      }
+      used.push(best);
+      const startX = best + (Math.random() * 120 - 60);
+      launchMeteor(fx, side, { x: startX, b: fh + 60 }, best, { travelMs: cfg.travelMs, damage: cfg.damage, radius: cfg.radius });
+    }
+    return true;
+  });
+}
+
+// 女王のコマごとの出来事(コマが切り替わった瞬間に呼ばれる)
+function onQueenFrame(unit){
+  const def = unit.def;
+  const sk = def.skills;
+  if (unit.motion === "shield" && sk && sk.shield && unit.frameIndex === sk.shield.activateFrame) activateBarrier(unit);
+  if (unit.motion === "meteor" && sk && sk.meteor && unit.frameIndex === sk.meteor.riftFrame) openRift(unit);
+  if (unit.motion === "transform" && unit.frameIndex === def.healerFrame) summonQueenHealers(unit);
+  if (unit.motion === "ring" && unit.frameIndex === def.ringShatterFrame) onRingShatter(unit);
+}
+
 /* ---------- ゴブリン・ビースト・フォートレス ---------- */
 
 // 表示倍率(scaleMult)を変えたとき、読み込み済みの画像の大きさを即座に更新する
@@ -2219,7 +2692,7 @@ function updateFortressCorpse(unit){
 
 // 打ち上げ・吹き飛ばしは宙に浮かず、大きくよろめいて後退する
 function startStagger(target, attacker){
-  if (target.dead || !target.def.frameCounts.blowback) return;
+  if (target.dead || target.transforming || !target.def.frameCounts.blowback) return;
   const awayDir = attacker ? (Math.sign(target.x - attacker.x) || 1) : 1;
   target.staggerVX = awayDir * (target.def.staggerSlideSpeed || 20);
   setMotion(target, "blowback", { onEnd: () => { target.staggerVX = 0; afterReaction(target); } });
@@ -2260,6 +2733,11 @@ function spawnStompDust(unit){
 
 function setMotion(unit, motion, opts){
   opts = opts || {};
+  // 詠唱(シールド・メテオ)の途中で別のモーションに切り替わった=中断された。詠唱に紐づく効果はキャンセルする
+  if (unit.casting && motion !== unit.casting){
+    unit.casting = null;
+    unit.castId = (unit.castId || 0) + 1;
+  }
   unit.motion = motion;
   unit.frameIndex = 0;
   unit.frameTimer = 0;
@@ -2366,6 +2844,7 @@ function advanceUnit(unit, dtMs){
         if (h.frame === unit.frameIndex) resolveMidrangeHit(unit, h);
       });
     }
+    if (def.comboRole === "queen") onQueenFrame(unit);
     applyFrame(unit);
   }
 }
@@ -2674,6 +3153,7 @@ function updateCharge(unit, dtMs){
 function isSuperArmored(unit, attacker){
   if (attacker && attacker.def.attackFlags && attacker.def.attackFlags.ignoresSuperArmor) return false; // スーパーアーマー無効の一撃は貫通する
   if (unit.def && unit.def.alwaysSuperArmored) return true; // 常時スーパーアーマー(ラッシャーなど)
+  if (unit.transforming) return true; // 女王の第二形態への移行中は中断されない
   const attackMotion = (unit.def && unit.def.attackMotionName) || "attack";
   return unit.motion === "flinch" || unit.motion === "guardbreak" ||
          unit.motion === "blowback" || unit.motion === "down" ||
@@ -2750,6 +3230,7 @@ function killUnit(target){
 // 範囲内で手が空いているヒーラーがいれば蘇生の詠唱を開始させる
 function tryAutoRevive(target){
   if (!battle) return;
+  if (target.def.noRevive) return; // 女王など、蘇生できないユニット
   const sameRaceAllies = battle.units.filter(u =>
     u !== target && !u.dead && u.side === target.side && u.def.race === "goblin" &&
     !u.def.canRevive // ヒーラー自身は「価値比較」の対象から除外(蘇生役がいることで蘇生が妨げられないように)
@@ -2819,6 +3300,8 @@ function updateRevive(dtMs){
 
 function applyDamageToUnit(target, amount, attacker){
   if (target.dead || target.mounted) return; // フォートレスの背中に乗っている間は攻撃を受けない
+  // 女王のバリア：範囲内の味方(4m以下)は、敵の遠距離攻撃を受けない
+  if (attacker && attacker.def.ranged && (target.def.heightM || 2) <= 4 && isShielded(target)) return;
   const def = target.def;
   const attackerFlags = (attacker && attacker.def.attackFlags) || {};
   const meleeRangeCheck = attacker && edgeDistance(target, attacker) <= def.attackRange;
@@ -2921,6 +3404,12 @@ function applyDamageToUnit(target, amount, attacker){
     } else if (attacker.def.attackFlags.knocksBack){
       launchUnit(target, attacker, { upSpeed: 340, knockback: true, backSpeed: 260 });
     }
+  }
+
+  // 女王：HPが一定割合以下になったら、一度だけ第二形態へ移行する(その一撃では怯まず、移行モーションに入る)
+  if (def.transformAtHpRatio && !target.transformed && target.hp / target.hpMax <= def.transformAtHpRatio){
+    startTransform(target);
+    return;
   }
 
   if (isSuperArmored(target, attacker) || target.restrained || target.launched) return; // スーパーアーマー中・拘束中・打ち上げ中は怯まない
@@ -3052,6 +3541,9 @@ function updateUnitAI(unit, dtMs){
     return;
   }
 
+  // 女王の魔法(シールド・メテオ)
+  if (def.skills && unit.target && tryQueenSkills(unit, rangeDist)) return;
+
   if (rangeDist <= unit.def.attackRange && rangeDist >= minRange){
     if (unit.shieldBroken){
       // 盾が壊れて近接攻撃ができない：その場に立ち尽くす
@@ -3117,6 +3609,9 @@ function battleLoop(now){
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
     if (unit.midCooldown > 0) unit.midCooldown = Math.max(0, unit.midCooldown - dt);
     if (unit.attackArmorMs > 0) unit.attackArmorMs = Math.max(0, unit.attackArmorMs - dt);
+    if (unit.shieldCooldown > 0) unit.shieldCooldown = Math.max(0, unit.shieldCooldown - dt);
+    if (unit.meteorCooldown > 0) unit.meteorCooldown = Math.max(0, unit.meteorCooldown - dt);
+    if (unit.barrierMs > 0) unit.barrierMs = Math.max(0, unit.barrierMs - dt);
     updateMount(unit, dt);
     updateFortressCorpse(unit);
     updateBuffAura(unit, dt);
@@ -3134,6 +3629,7 @@ function battleLoop(now){
   updateTraps(dt);
   updateRestraints(dt);
   updateRevive(dt);
+  battle.fxList = battle.fxList.filter(task => task(dt) !== false); // エフェクト・タイマーを進める
 
   requestAnimationFrame(battleLoop);
 }
@@ -3188,6 +3684,10 @@ document.getElementById("cheat-enemy-chief-btn").addEventListener("click", () =>
 document.getElementById("cheat-enemy-fortress-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("fortress", "enemy");
+});
+document.getElementById("cheat-enemy-queen-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("queen", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
