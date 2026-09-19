@@ -3309,6 +3309,7 @@ function updateRevive(dtMs){
 
 function applyDamageToUnit(target, amount, attacker){
   if (target.dead || target.mounted) return; // フォートレスの背中に乗っている間は攻撃を受けない
+  if (target.transforming) return; // 女王の第二形態への移行モーション中は無敵(毒などのダメージも受けない)
   // 女王のバリア：範囲内の味方(4m以下)は、敵の遠距離攻撃を受けない
   if (attacker && attacker.def.ranged && (target.def.heightM || 2) <= 4 && isShielded(target)) return;
   const def = target.def;
