@@ -192,7 +192,8 @@
   .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
   .buff-aura{ bottom:auto; height:34px; transform:translate(-50%,-75%); z-index:5; }
   .trap-sprite{ mix-blend-mode:normal; bottom:66px; left:0; z-index:2; } /* 写実素材なのでscreen合成を解除、ユニットより奥に表示 */
-  .flag-buff-icon{ bottom:auto; left:calc(50% + 28px); top:0; height:26px; transform:translate(-50%,-115%); z-index:5; mix-blend-mode:normal; } /* 軍旗バフ：透過PNGなのでscreen合成は使わない */
+  .bleed-fx{ bottom:auto; left:50%; top:45%; height:56px; transform:translate(-50%,-50%); z-index:5; mix-blend-mode:normal; }
+  .flag-buff-icon{ bottom:auto; left:calc(50% + 28px); top:0; height:26px; transform:translate(-50%,-115%); z-index:5; mix-blend-mode:normal; } /* 旗バフ：透過PNGなのでscreen合成は使わない */
   .poison-status-fx{ bottom:auto; height:70px; transform:translate(-50%,-45%); z-index:5; opacity:.85; }
 
   /* 下部バー：左(財布)／中央〜(出撃キャラ)／右(予約スペース) */
@@ -873,7 +874,7 @@ const CHAR_DEFS = {
     race: "goblin",
     cost: 1800,           // 屈強なゴブリン(750)・ラッシャー(900)より上、投石器(2800)より下の中堅上位(暫定)
     hp: 150,
-    atk: 6,               // 近接7連撃の「1ヒットあたり」の威力(フルヒットで42)。中距離技は下のmultで倍率をかける
+    atk: 8,               // 近接は「1ヒットあたり」の威力(4ヒットでフルヒット32)。中距離技は下のmultで倍率をかける(暫定)
     weight: 120,
     walkSpeed: 34,
     attackRange: 58,
@@ -882,12 +883,21 @@ const CHAR_DEFS = {
     approachSpeed: 34,
     canGuard: false,
     attackFlags: {},
-    // 軍旗：自分の周囲にいる味方ゴブリン族(自分以外)の移動速度を上げる。複数いても効果は重複しない(一番強いものだけ)。
-    // 旗が倒れる(=ゴブリン長が死ぬ)と効果も消える。
-    flagSpeedMult: 1.20,
-    flagAuraRange: 220,
+    // 旗バフ：ゴブリン長が場にいる間(出現した瞬間から消えるまで)、範囲無制限で味方のゴブリン族全員
+    // (ゴブリン長本人を含む)の「敵城への攻撃力」が1.5倍になる。複数いても重複しない。
+    flagCastleAtkMult: 1.5,
     fxFlagBuff: "flag_buff_fx_1.png",
-    // 中距離技：×字に構えて突進→同時斬り→後退→前進しながら5連斬り。
+    // 特殊モーション：鼓舞バフを受けた瞬間に発動。ステージ上の味方ゴブリン族全員(自身も)に、
+    // 近接攻撃中のスーパーアーマーを10秒間付与する。
+    specialArmorMs: 10000,
+    // 出血：近接・中距離の1ヒットごとに20%蓄積。100%で発動し、
+    // 「対象の最大HP×15% + 固定値」のダメージ(固定値は暫定)。発動後は蓄積0に戻る。
+    bleedStackPerHit: 20,
+    bleedStackThreshold: 100,
+    bleedMaxHpPercent: 0.15,
+    bleedFixedDamage: 5,
+    fxBleed: { count:4, prefix:"bleed_fx_", durations:[175,175,175,175], imageBase: IMG_CHIEF },
+    // 中距離技：突進(1〜4)→×字の同時斬り(5〜6=命中)→バックステップ(7〜9)→後隙(10)→前進しながら連続斬り(11〜16、命中は13〜16)。
     // 相手との間合い(edgeDistance)が minRange〜maxRange の時にクールタイムが明けていれば発動する。
     midrange: {
       motion: "midrange",
@@ -897,12 +907,12 @@ const CHAR_DEFS = {
       hitReach: 100,           // 命中判定：前方この距離(px)以内の敵全員にヒット(範囲攻撃)
       stopGap: 26,             // 突進中、相手にめり込まないよう最低これだけ間隔を空けて止まる
       // 各コマの間に動く距離(px)。プラスが前進、マイナスが後退(コマの表示時間で按分して滑らかに動く)
-      moveByFrame: [34,34,34,34, 12,0,0, 0,0,-14,-14, 12,12,12,12,12],
-      // hits: frameは0始まり(midrange_6=5)。multは atk に掛ける倍率
+      moveByFrame: [34,34,34,34, 10,0, -12,-12,-12, 0, 12,12,12,12,12,12],
+      // hits: frameは0始まり(midrange_5=4)。multは atk に掛ける倍率
       hits: [
-        { frame: 5,  mult: 3 },                  // ×字の同時斬り(midrange_6)
-        { frame: 11, mult: 1 }, { frame: 12, mult: 1 }, { frame: 13, mult: 1 },
-        { frame: 14, mult: 1 }, { frame: 15, mult: 1 }   // 前進しながらの5連斬り(midrange_12〜16)
+        { frame: 4,  mult: 1.5 }, { frame: 5,  mult: 1.5 },   // ×字の同時斬り
+        { frame: 12, mult: 1 }, { frame: 13, mult: 1 },
+        { frame: 14, mult: 1 }, { frame: 15, mult: 1 }         // 前進しながらの連続斬り(midrange_13〜16)
       ]
     },
     icon: ICON_CHIEF,
@@ -914,22 +924,22 @@ const CHAR_DEFS = {
       idle: 1024 / 1536  // idleだけ他のコマの約1.5倍の大きさで作られているので縮小して揃える
     },
     frameCounts: {
-      idle:1, walk:3, discover:2, attack:14, midrange:16, flinch:2, blowback:5, down:1, getup:4
+      idle:1, walk:3, discover:2, attack:14, midrange:16, flinch:2, blowback:5, down:1, getup:4, special:2
     },
-    // ★暫定値：実測していないので、動作確認しながら調整してください
     frameDurations: {
       idle:     [1000],
-      walk:     [260,260,260],
-      discover: [300,500],
-      attack:   [130,150,120,110,120,120,150,150,120,90,90,90,90,260],
-      midrange: [110,110,110,110,110,90,180,140,140,130,130,110,110,110,110,240],
-      flinch:   [220,320],
-      blowback: [200,200,220,240,280],
+      walk:     [215,215,215],
+      discover: [350,350],
+      attack:   [170,170,170,170,170,170,170,170,170,170,170,170,170,170],
+      midrange: [250,225,195,195,260,285,650,350,225,200,210,225,260,220,235,300],
+      flinch:   [268,268],
+      blowback: [295,295,295,295,295],
       down:     [1000],
-      getup:    [240,240,240,280]
+      getup:    [240,240,240,240],
+      special:  [400,600]   // ★未実測の暫定値
     },
-    // 近接7連撃の命中コマ(0始まり)：attack_4, 6, 10, 11, 12, 13, 14
-    attackImpactFrames: [3, 5, 9, 10, 11, 12, 13]
+    // 近接の命中コマ(0始まり)：attack_4, 6, 10, 12
+    attackImpactFrames: [3, 5, 9, 11]
   },
 
   goblin: {
@@ -1421,7 +1431,9 @@ function spawnUnit(kind, side, xOffset){
     poisonFxTimer: 0,
     midCooldown: 0,               // ゴブリン長専用：次に中距離技を出せるまでの残り時間(ms)
     attackHadTarget: false,       // 攻撃開始時に対象ユニットがいたか(多段攻撃の途中で対象が倒れたら残りの段を城へ流さない)
-    flagFxEl: null,               // 軍旗バフのアイコン
+    flagFxEl: null,               // 旗バフのアイコン
+    attackArmorMs: 0,             // 近接攻撃中スーパーアーマーの残り時間(ms)。ゴブリン長の特殊モーションで付与
+    bleedStack: 0,                // 出血の蓄積値(%)
     healCooldown: 800,            // ヒーラー専用：次に回復を発動できるまでの残り時間
     isReviving: false,            // ヒーラー専用：現在蘇生の詠唱中かどうか
     reviveTarget: null,           // ヒーラー専用：蘇生対象の死体
@@ -1466,10 +1478,8 @@ function getEffectiveAtk(unit){
 }
 function getEffectiveSpeed(unit, baseSpeed){
   const stacks = getBuffStacks(unit);
-  let speed = stacks ? baseSpeed * Math.pow(unit.def.buffSpeedMult || 1, stacks) : baseSpeed;
-  const flagSource = getFlagSource(unit); // ゴブリン長の軍旗による加速
-  if (flagSource) speed *= flagSource.def.flagSpeedMult;
-  return speed;
+  if (!stacks) return baseSpeed;
+  return baseSpeed * Math.pow(unit.def.buffSpeedMult || 1, stacks);
 }
 function getDamageCutMultiplier(unit){
   const stacks = getBuffStacks(unit);
@@ -1537,6 +1547,11 @@ function updateInspire(unit, dtMs){
     // rage_charge(猛突進)を持つキャラは、鼓舞された瞬間にそれを発動する(スーパーアーマー等を無視して割り込む)
     if (ally.def.frameCounts && ally.def.frameCounts.rage_charge){
       startRageCharge(ally);
+    }
+
+    // 特殊モーション(ゴブリン長)：鼓舞された瞬間に発動する
+    if (ally.def.frameCounts && ally.def.frameCounts.special){
+      startChiefSpecial(ally);
     }
 
     // 鼓舞を受けた瞬間、そのゴブリンは何をしていても強制的に咆哮する(スーパーアーマー等を無視して割り込む)
@@ -1855,22 +1870,57 @@ function updateHealer(unit, dtMs){
   });
 }
 
-/* ---------- ゴブリン長：軍旗バフ ---------- */
+/* ---------- ゴブリン長：旗バフ・特殊モーション ---------- */
 
-// このユニットに軍旗の効果を与えているゴブリン長を返す(いなければnull)。
-// 対象は味方のゴブリン族(ゴブリン長本人は含まない)。複数いる場合は最も強い1人だけが有効。
+// このユニットに旗バフを与えているゴブリン長を返す(いなければnull)。
+// 対象は味方のゴブリン族全員(ゴブリン長本人を含む)、範囲は無制限。複数いても効果は重複しない。
 function getFlagSource(unit){
   if (!battle || unit.dead || unit.def.race !== "goblin") return null;
   let best = null;
   battle.units.forEach(o => {
-    if (o === unit || o.dead || o.side !== unit.side || !o.def.flagSpeedMult) return;
-    if (Math.abs(o.x - unit.x) > (o.def.flagAuraRange || 0)) return;
-    if (!best || o.def.flagSpeedMult > best.def.flagSpeedMult) best = o;
+    if (o.dead || o.side !== unit.side || !o.def.flagCastleAtkMult) return;
+    if (!best || o.def.flagCastleAtkMult > best.def.flagCastleAtkMult) best = o;
   });
   return best;
 }
+// 敵城に与えるダメージの倍率(旗バフ)
+function getCastleDamageMult(unit){
+  const src = getFlagSource(unit);
+  return src ? src.def.flagCastleAtkMult : 1;
+}
 
-// 軍旗の効果範囲内にいる間だけ、頭上に小さな旗のアイコンを出す
+// 特殊モーション：鼓舞を受けた瞬間に発動。ステージ上の味方ゴブリン族全員(自身も)に
+// 近接攻撃中のスーパーアーマーを付与する(再度鼓舞されると10秒に延長し直す)
+function startChiefSpecial(unit){
+  if (unit.dead || unit.charging || !battle) return;
+  const ms = unit.def.specialArmorMs || 10000;
+  battle.units.forEach(o => {
+    if (!o.dead && o.side === unit.side && o.def.race === "goblin") o.attackArmorMs = ms;
+  });
+  setMotion(unit, "special", {
+    onEnd: () => { if (!unit.dead) setMotion(unit, "walk", { loop:true }); }
+  });
+}
+
+// 出血エフェクト：対象の上で1回再生して消える
+function playBleedFx(target, attackerDef){
+  const fx = attackerDef.fxBleed;
+  if (!fx || !target.el) return;
+  const img = document.createElement("img");
+  img.className = "fx-sprite bleed-fx";
+  target.el.appendChild(img);
+  let i = 0;
+  const step = () => {
+    if (i >= fx.count || !img.isConnected){ img.remove(); return; }
+    img.src = fx.imageBase + fx.prefix + (i + 1) + ".png";
+    const d = fx.durations[i] || 175;
+    i++;
+    setTimeout(step, d);
+  };
+  step();
+}
+
+// 旗バフを受けている間だけ、頭上に小さな旗のアイコンを出す
 function updateFlagBuff(unit){
   const src = getFlagSource(unit);
   if (src && !unit.flagFxEl){
@@ -2122,11 +2172,11 @@ function fireProjectile(unit){
       // ユニットが誰もいなければ、着弾地点が城の目の前なら城にも当たる扱いにする
       if (!hitAnyUnit && !capturedTarget){
         if (unit.side === "player"){
-          battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
+          battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit));
           updateCastleBars();
           if (battle.enemyCastleHp <= 0) endBattle(true);
         } else {
-          battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit));
+          battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit));
           updateCastleBars();
           if (battle.playerCastleHp <= 0) endBattle(false);
         }
@@ -2144,11 +2194,11 @@ function fireProjectile(unit){
 
     // 相手ユニットがおらず、城を狙っていた場合
     if (unit.side === "player"){
-      battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
+      battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit));
       updateCastleBars();
       if (battle.enemyCastleHp <= 0) endBattle(true);
     } else {
-      battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit));
+      battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit));
       updateCastleBars();
       if (battle.playerCastleHp <= 0) endBattle(false);
     }
@@ -2205,11 +2255,11 @@ function resolveAttackImpact(unit){
     return;
   }
   if (unit.side === "player"){
-    battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit));
+    battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit));
     updateCastleBars();
     if (battle.enemyCastleHp <= 0) endBattle(true);
   } else {
-    battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit));
+    battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit));
     updateCastleBars();
     if (battle.playerCastleHp <= 0) endBattle(false);
   }
@@ -2337,7 +2387,8 @@ function isSuperArmored(unit, attacker){
          unit.motion === "blowback" || unit.motion === "down" ||
          unit.motion === "guard" || unit.motion === "shieldbreak" ||
          unit.motion === "shield_destroy" ||
-         (unit.motion === attackMotion && unit.def && unit.def.superArmorDuringAttack); // 攻撃モーション中は怯まない専用キャラ
+         (unit.motion === attackMotion && unit.def && unit.def.superArmorDuringAttack) || // 攻撃モーション中は怯まない専用キャラ
+         (unit.motion === attackMotion && unit.attackArmorMs > 0); // ゴブリン長の特殊モーションによる一時的なスーパーアーマー
 }
 
 // 攻撃者がtargetの正面にいるか(盾兵のガードは前方からの攻撃にしか効かない)
@@ -2546,6 +2597,19 @@ function applyDamageToUnit(target, amount, attacker){
     }
   }
 
+  // 出血付与(ゴブリン長の斬撃)：蓄積式。100%で発動し「最大HPの一定割合＋固定値」のダメージ
+  if (attacker && attacker.def.bleedStackPerHit && target.hp > 0 && !target.def.bleedImmune){
+    const threshold = attacker.def.bleedStackThreshold || 100;
+    target.bleedStack = Math.min(threshold, (target.bleedStack || 0) + attacker.def.bleedStackPerHit);
+    if (target.bleedStack >= threshold){
+      target.bleedStack = 0; // 発動したら蓄積はリセット
+      const bleedDmg = target.hpMax * (attacker.def.bleedMaxHpPercent || 0) + (attacker.def.bleedFixedDamage || 0);
+      target.hp = Math.max(0, target.hp - bleedDmg);
+      applyFrame(target);
+      playBleedFx(target, attacker.def);
+    }
+  }
+
   if (target.hp <= 0){
     killUnit(target);
     return;
@@ -2748,6 +2812,7 @@ function battleLoop(now){
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
     if (unit.midCooldown > 0) unit.midCooldown = Math.max(0, unit.midCooldown - dt);
+    if (unit.attackArmorMs > 0) unit.attackArmorMs = Math.max(0, unit.attackArmorMs - dt);
     updateBuffAura(unit, dt);
     updateFlagBuff(unit);
     updateInspire(unit, dt);
