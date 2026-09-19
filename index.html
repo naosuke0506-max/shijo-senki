@@ -311,6 +311,7 @@
       <button id="cheat-enemy-drummer-btn" style="position:absolute;left:0;top:256px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鼓舞兵召喚(検証用)</button>
       <button id="cheat-enemy-catapult-btn" style="position:absolute;left:0;top:292px;z-index:6;font-size:.62rem;padding:6px 8px;">敵投石器召喚(検証用)</button>
       <button id="cheat-enemy-chief-btn" style="position:absolute;left:0;top:328px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン長召喚(検証用)</button>
+      <button id="cheat-enemy-fortress-btn" style="position:absolute;left:0;top:364px;z-index:6;font-size:.62rem;padding:6px 8px;">敵フォートレス召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -379,6 +380,8 @@ const IMG_RUSHER = REPO_BASE + "images/rusher_repo_upload/";
 const ICON_RUSHER = REPO_BASE + "icons/rusher_icon.png";
 const IMG_CHIEF = REPO_BASE + "images/chief_repo_upload/";
 const ICON_CHIEF = REPO_BASE + "icons/chief_icon.png";
+const IMG_FORTRESS = REPO_BASE + "images/fortress_repo_upload/";
+const ICON_FORTRESS = REPO_BASE + "icons/fortress_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -942,6 +945,71 @@ const CHAR_DEFS = {
     attackImpactFrames: [3, 5, 9, 11]
   },
 
+  fortress: {
+    name: "ゴブリン・ビースト・フォートレス",
+    rank: null,
+    race: "beast",
+    buffEligible: true,        // 背中の鼓舞兵のバフを本体も受けられる
+    cost: 5000,                // ★数値はすべて暫定。背中のゴブリン7体(鼓舞兵1・ゴブリン2・弓兵4)込みの価格
+    hp: 700,
+    atk: 40,                   // 踏み潰し(範囲攻撃)の威力
+    weight: 800,
+    walkSpeed: 28,
+    attackRange: 70,           // 箱(hitboxWidth)の前端からの距離
+    detectionRange: 260,
+    approachMotion: "walk",    // 専用の接近モーションは持たず、発見後も同じ足取りで近づく
+    approachSpeed: 28,
+    canGuard: false,
+    alwaysSuperArmored: true,  // 常時スーパーアーマー(怯まない)
+    attackFlags: { breaksShield: true }, // 踏み潰しは盾を破壊する
+    areaHitReach: 110,         // 踏み潰し：前方この距離(箱の端から)以内の敵全員にヒット
+    poisonImmune: true,        // 巨体なので毒は効かない
+    netResistant: true,        // 巨体なので罠にかからない
+    staggerOnLaunch: true,     // 打ち上げ・吹き飛ばしは無効。代わりに大きくよろめいて後退する
+    staggerSlideSpeed: 20,     // よろめき中に後退する速さ(px/秒)
+    hitboxWidth: 240,          // 横幅の大きいユニット(投石器と同じ仕組み)
+    spawnFullyInside: true,    // 出撃時に体が画面外へはみ出さないよう、箱の幅だけ内側から出す
+    hpBarWidth: 80,
+    icon: ICON_FORTRESS,
+    imageBase: IMG_FORTRESS,
+    // 歩行などのコマ(高さ約654px)を基準に、表示上の全高(旗の先まで)を約165pxにする
+    pixelScale: 165 / 654,
+    motionScale: {
+      idle: 654 / 980   // 待機だけ他のコマの約1.5倍の大きさで作られているので縮小して揃える
+    },
+    frameCounts: {
+      idle:1, walk:4, attack:7, discover:2, flinch:3, blowback:5, down:2, getup:3
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [230,230,230,230],
+      attack:   [185,228,395,265,800,300,350],
+      discover: [350,700],
+      flinch:   [280,280,280],
+      blowback: [215,305,450,600,500],
+      down:     [500,500],
+      getup:    [300,500,300]
+    },
+    attackImpactFrame: 4,      // attack_5(踏み下ろしが地面に着いた瞬間)
+    // 踏み潰しの砂煙(足元に重ねて再生。黒背景なのでscreen合成)
+    fxStompDust: { count:5, prefix:"dust_fx_", durations:[200,200,200,200,200], imageBase: IMG_FORTRESS, height:110, frontFrac:0.86 },
+    // 背中の拠点に乗っているゴブリン(出撃と同時に一緒に出る。乗っている間は攻撃を受けず、狙われない)
+    // frac：体の後ろ端(0)から前端(1)までの位置。tower:true は見張り台の上
+    riders: [
+      { kind: "drummerGoblin", frac: 0.29, tower: true },
+      { kind: "archer",        frac: 0.16 },
+      { kind: "archer",        frac: 0.38 },
+      { kind: "goblin",        frac: 0.48 },
+      { kind: "archer",        frac: 0.60 },
+      { kind: "goblin",        frac: 0.72 },
+      { kind: "archer",        frac: 0.84 }
+    ],
+    riderScale: 0.42,          // 乗っているゴブリンの縮尺(通常サイズに対する比)
+    deckHeightFrac: 0.80,      // デッキの床の高さ(画像の高さに対する比)
+    towerHeightFrac: 0.905,    // 見張り台の床の高さ
+    ladderFrac: 0.30           // 梯子の位置(後ろ端から)。死亡時、ゴブリンはここから降りる
+  },
+
   goblin: {
     name: "ゴブリン",
     rank: null,
@@ -1111,7 +1179,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer", "chief"],
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer", "chief", "fortress"],
   formationCategory: "all",
   stage: null
 };
@@ -1349,7 +1417,7 @@ function tryDeploy(kind){
 
 /* ---------- ユニット生成・アニメーション ---------- */
 
-function spawnUnit(kind, side, xOffset){
+function spawnUnit(kind, side, xOffset, opts){
   const def = CHAR_DEFS[kind];
   const field = document.getElementById("battlefield");
   const fieldWidth = field.clientWidth;
@@ -1360,7 +1428,7 @@ function spawnUnit(kind, side, xOffset){
   img.addEventListener("load", () => {
     const motionScales = def.motionScale || {};
     const motionFactor = motionScales[img.dataset.motion] != null ? motionScales[img.dataset.motion] : 1;
-    const scale = (def.pixelScale || 1) * motionFactor;
+    const scale = (def.pixelScale || 1) * motionFactor * ((img._ownerUnit && img._ownerUnit.scaleMult) || 1);
     const dw = img.naturalWidth * scale;
     const dh = img.naturalHeight * scale;
     img.style.width = dw + "px";
@@ -1387,16 +1455,17 @@ function spawnUnit(kind, side, xOffset){
   const uhp = document.createElement("div");
   uhp.className = "uhp";
   uhp.innerHTML = "<i></i>";
+  if (def.hpBarWidth) uhp.style.width = def.hpBarWidth + "px";
   el.appendChild(uhp);
   field.appendChild(el);
 
-  const startX = (side === "player" ? fieldWidth - 90 : 90) + (xOffset || 0);
+  const startX = (side === "player" ? fieldWidth - 90 - (def.spawnFullyInside ? (def.hitboxWidth || 0) : 0) : 90) + (xOffset || 0);
   // 投石器は素材の都合で通常キャラと前後の向きが逆に作られているため、キャラごとに反転させられるようにする
   const baseFacing = side === "player" ? -1 : 1;
   const facing = def.invertFacing ? -baseFacing : baseFacing;
 
   const unit = {
-    kind, def, side, el, img, uhpFill: uhp.querySelector("i"),
+    kind, def, side, el, img, uhpFill: uhp.querySelector("i"), uhpEl: uhp,
     x: startX,
     hp: def.hp,
     hpMax: def.hp,
@@ -1434,6 +1503,15 @@ function spawnUnit(kind, side, xOffset){
     flagFxEl: null,               // 旗バフのアイコン
     attackArmorMs: 0,             // 近接攻撃中スーパーアーマーの残り時間(ms)。ゴブリン長の特殊モーションで付与
     bleedStack: 0,                // 出血の蓄積値(%)
+    mounted: false,               // 拠点(フォートレス)の背中に乗っている間はtrue(攻撃されず、狙われない)
+    mount: null,                  // 乗っている相手(フォートレス)
+    slot: null,                   // 背中での立ち位置
+    scaleMult: 1,                 // 表示倍率の追加補正(乗っている間は小さく描く)
+    rideY: 0,                     // 地面からの高さ(px)。乗っている間はデッキの高さ
+    dismounting: false,           // 梯子から降りている最中
+    riders: null,                 // フォートレス専用：背中に乗っているゴブリンの一覧
+    downFinished: false,          // フォートレス専用：ダウンモーションを最後まで再生し終えた
+    staggerVX: 0,                 // よろめき後退中の速度(px/秒)
     healCooldown: 800,            // ヒーラー専用：次に回復を発動できるまでの残り時間
     isReviving: false,            // ヒーラー専用：現在蘇生の詠唱中かどうか
     reviveTarget: null,           // ヒーラー専用：蘇生対象の死体
@@ -1444,6 +1522,14 @@ function spawnUnit(kind, side, xOffset){
   img._ownerUnit = unit;
   battle.units.push(unit);
   setMotion(unit, "idle");
+  if (opts && opts.mount) mountRider(unit, opts.mount, opts.slot);
+  if (def.riders){
+    // 背中に乗るゴブリンたちを一緒に出す
+    unit.riders = [];
+    def.riders.forEach(slot => {
+      unit.riders.push(spawnUnit(slot.kind, side, 0, { mount: unit, slot }));
+    });
+  }
   return unit;
 }
 
@@ -1654,7 +1740,7 @@ function updateTraps(dtMs){
     if (trap.state === "armed"){
       const enemySide = trap.side === "player" ? "enemy" : "player";
       const nearby = battle.units.filter(u =>
-        u.side === enemySide && !u.dead && !u.restrained &&
+        u.side === enemySide && !u.dead && !u.restrained && !u.mounted &&
         Math.abs(u.x - trap.x) <= (def.trapTriggerRadius || 50)
       );
       const catchable = nearby.filter(u => !u.def.netResistant); // 耐性持ちは罠にかからない
@@ -1768,6 +1854,7 @@ const LAUNCH_GRAVITY = 1400; // px/s^2
 // 対象を空中に打ち上げる(knockback:trueで後方への水平吹き飛びも同時に加える)
 function launchUnit(target, attacker, opts){
   if (target.dead) return;
+  if (target.def.staggerOnLaunch){ startStagger(target, attacker); return; } // 巨体は宙に浮かない
   opts = opts || {};
   target.launched = true;
   target.launchVY = opts.upSpeed || 380;
@@ -1929,7 +2016,9 @@ function updateFlagBuff(unit){
     img.src = src.def.imageBase + (src.def.fxFlagBuff || "flag_buff_fx_1.png");
     unit.el.appendChild(img);
     unit.flagFxEl = img;
-  } else if (!src && unit.flagFxEl){
+  }
+  if (unit.flagFxEl) unit.flagFxEl.style.height = (26 * (unit.scaleMult || 1)) + "px";
+  if (!src && unit.flagFxEl){
     unit.flagFxEl.remove();
     unit.flagFxEl = null;
   }
@@ -1976,11 +2065,197 @@ function resolveMidrangeHit(unit, hit){
   const reach = hit.reach != null ? hit.reach : (mid.hitReach || 80);
   const dmg = getEffectiveAtk(unit) * (hit.mult != null ? hit.mult : 1);
   const victims = battle.units.filter(o =>
-    !o.dead && o.side === enemySide &&
+    !o.dead && !o.mounted && o.side === enemySide &&
     (Math.sign(o.x - unit.x) === forwardDir || o.x === unit.x) &&
     edgeDistance(unit, o) <= reach
   );
   victims.forEach(o => applyDamageToUnit(o, dmg, unit));
+}
+
+/* ---------- ゴブリン・ビースト・フォートレス ---------- */
+
+// 表示倍率(scaleMult)を変えたとき、読み込み済みの画像の大きさを即座に更新する
+function applyUnitScale(unit){
+  const img = unit.img;
+  if (!img.naturalWidth) return;
+  const def = unit.def;
+  const motionScales = def.motionScale || {};
+  const motionFactor = motionScales[img.dataset.motion] != null ? motionScales[img.dataset.motion] : 1;
+  const scale = (def.pixelScale || 1) * motionFactor * (unit.scaleMult || 1);
+  const dw = img.naturalWidth * scale;
+  const dh = img.naturalHeight * scale;
+  img.style.width = dw + "px";
+  img.style.height = dh + "px";
+  unit._displayWidth = dw;
+  unit._displayHeight = dh;
+}
+
+// ゴブリンをフォートレスの背中に乗せる(小さく描き、フォートレスの画像の後ろ側に重ねる=手すりの奥に見える)
+function mountRider(r, mount, slot){
+  r.mounted = true;
+  r.mount = mount;
+  r.slot = slot;
+  r.scaleMult = mount.def.riderScale || 0.42;
+  r.uhpEl.style.display = "none";
+  r.el.parentNode.insertBefore(r.el, mount.el);
+  syncRiderToMount(r);
+}
+
+// 乗っているゴブリンの位置を、フォートレスの現在の位置・向き・大きさに合わせる
+function syncRiderToMount(r){
+  const m = r.mount;
+  if (!m) return;
+  const md = m.def;
+  const W = m._displayWidth || 240;
+  const H = m._displayHeight || 165;
+  const rw = r._displayWidth || 20;
+  const fe = m.facing === 1 ? r.slot.frac : 1 - r.slot.frac; // 左向き(自軍側)は画像が反転しているので後ろ端が右側
+  r.x = m.x + fe * W - rw / 2;
+  r.rideY = H * (r.slot.tower ? md.towerHeightFrac : md.deckHeightFrac);
+  r.facing = m.facing;
+  applyFrame(r);
+}
+
+// 乗っている間のゴブリンの行動：その場に立ち、弓兵だけ射程内の敵(いなければ敵城)を撃つ
+function updateMountedAI(unit){
+  const def = unit.def;
+  if (unit.motion === "walk"){ // 太鼓を叩き終えたあと等に歩きモーションへ戻るので、その場に立たせる
+    setMotion(unit, "idle", { loop:true });
+    return;
+  }
+  if (!def.ranged || unit.motion !== "idle") return;
+
+  const enemy = findNearestEnemyInRange(unit);
+  let shoot = false;
+  unit.target = null;
+  if (enemy){
+    if (edgeDistance(unit, enemy) <= def.attackRange){ unit.target = enemy; shoot = true; }
+  } else {
+    const field = document.getElementById("battlefield");
+    const castleX = unit.side === "player" ? 60 : field.clientWidth - 60;
+    if (Math.abs(unit.x - castleX) <= def.attackRange) shoot = true; // 敵城が射程に入った
+  }
+  if (!shoot) return;
+  unit.attackHadTarget = !!unit.target;
+  setMotion(unit, def.attackMotionName || "attack", {
+    onEnd: () => { if (!unit.dead && unit.mounted && !unit.dismounting) setMotion(unit, "idle", { loop:true }); }
+  });
+}
+
+function updateMount(unit, dtMs){
+  if (!unit.mounted) return;
+  if (unit.dismounting) updateDismount(unit, dtMs);
+  else syncRiderToMount(unit);
+}
+
+// フォートレスが倒れたとき、背中のゴブリンを一人ずつ梯子から降ろし始める
+function startDismount(m){
+  (m.riders || []).forEach((r, i) => {
+    if (r.dead || !r.mounted) return;
+    r.dismounting = true;
+    r.dismountPhase = "wait";
+    r.dismountDelay = 500 + i * 450;
+    r.startRideY = r.rideY;
+  });
+}
+
+function hasRidersLeft(m){
+  return (m.riders || []).some(r => !r.dead && r.mount === m);
+}
+
+// 梯子まで歩く → 梯子を降りる(降りながら通常の大きさに戻る) → 地上に降りて通常ユニットになる
+function updateDismount(r, dtMs){
+  const m = r.mount;
+  if (!m){ finishDismount(r); return; }
+  if (r.dismountDelay > 0){ r.dismountDelay -= dtMs; return; }
+  if (r.dismountPhase === "wait"){
+    r.dismountPhase = "walk";
+    r.el.parentNode.appendChild(r.el); // フォートレスの体より手前に出す(梯子は手前側の側面にある)
+    if (r.def.frameCounts.walk) setMotion(r, "walk", { loop:true });
+  }
+  const W = m._displayWidth || 240;
+  const fe = m.facing === 1 ? m.def.ladderFrac : 1 - m.def.ladderFrac;
+  const ladderX = () => m.x + fe * W - (r._displayWidth || 20) / 2;
+
+  if (r.dismountPhase === "walk"){
+    const dx = ladderX() - r.x;
+    if (Math.abs(dx) <= 2){ r.dismountPhase = "climb"; return; }
+    const dir = dx > 0 ? 1 : -1;
+    r.x += dir * 60 * (dtMs / 1000);
+    r.facing = dir;
+    applyFrame(r);
+    return;
+  }
+
+  // climb
+  r.rideY = Math.max(0, r.rideY - 80 * (dtMs / 1000));
+  const p = 1 - r.rideY / (r.startRideY || 1);
+  const base = m.def.riderScale || 0.42;
+  r.scaleMult = base + (1 - base) * p;
+  applyUnitScale(r);
+  r.x = ladderX();
+  applyFrame(r);
+  if (r.rideY <= 0) finishDismount(r);
+}
+
+function finishDismount(r){
+  r.mounted = false;
+  r.mount = null;
+  r.dismounting = false;
+  r.rideY = 0;
+  r.scaleMult = 1;
+  applyUnitScale(r);
+  r.uhpEl.style.display = "";
+  r.target = null;
+  r.facing = r.side === "player" ? -1 : 1;
+  const fallback = r.def.frameCounts.walk ? "walk" : (r.def.approachMotion || "walk");
+  setMotion(r, fallback, { loop:true });
+}
+
+// 倒れたフォートレスは、背中のゴブリンが全員降りきるまで消えない
+function updateFortressCorpse(unit){
+  if (unit.dead && unit.riders && unit.downFinished && !hasRidersLeft(unit)) removeUnit(unit);
+}
+
+// 打ち上げ・吹き飛ばしは宙に浮かず、大きくよろめいて後退する
+function startStagger(target, attacker){
+  if (target.dead || !target.def.frameCounts.blowback) return;
+  const awayDir = attacker ? (Math.sign(target.x - attacker.x) || 1) : 1;
+  target.staggerVX = awayDir * (target.def.staggerSlideSpeed || 20);
+  setMotion(target, "blowback", { onEnd: () => { target.staggerVX = 0; afterReaction(target); } });
+}
+
+// 踏み潰し：前方の一定距離以内にいる敵全員にダメージ(砂煙つき)
+function resolveAreaHit(unit){
+  const def = unit.def;
+  const enemySide = unit.side === "player" ? "enemy" : "player";
+  const forwardDir = unit.side === "player" ? -1 : 1;
+  const centerX = unit.x + (def.hitboxWidth || 0) / 2;
+  if (def.fxStompDust) spawnStompDust(unit);
+  const dmg = getEffectiveAtk(unit);
+  battle.units.filter(o =>
+    !o.dead && !o.mounted && o.side === enemySide &&
+    Math.sign(o.x - centerX) === forwardDir &&
+    edgeDistance(unit, o) <= def.areaHitReach
+  ).forEach(o => applyDamageToUnit(o, dmg, unit));
+}
+
+// 踏み潰しの砂煙：踏んだ足(体の前端付近)の地面に、5コマを順番に重ねる
+function spawnStompDust(unit){
+  const fx = unit.def.fxStompDust;
+  const W = unit._displayWidth || 240;
+  const fe = unit.facing === 1 ? fx.frontFrac : 1 - fx.frontFrac;
+  const cx = unit.x + fe * W;
+  let delay = 0;
+  for (let i = 0; i < fx.count; i++){
+    const dur = fx.durations[i] || 200;
+    setTimeout(() => {
+      if (!battle) return;
+      const el = spawnFx(fx.imageBase + fx.prefix + (i + 1) + ".png", cx, { height: fx.height, bottom: 74, lifespan: dur });
+      if (el) el.style.transform = "translateX(" + cx + "px) translateX(-50%)";
+    }, delay);
+    delay += dur;
+  }
 }
 
 function setMotion(unit, motion, opts){
@@ -2021,7 +2296,8 @@ function applyFrame(unit){
   const finalScale = unit.facing * correction;
 
   const launchOffset = unit.launched ? Math.round(unit.launchY) : 0;
-  unit.el.style.transform = "translateX(" + unit.x + "px) translateY(-" + launchOffset + "px) scaleX(" + finalScale + ")";
+  const rideOffset = Math.round(unit.rideY || 0); // フォートレスの背中に乗っている間の高さ
+  unit.el.style.transform = "translateX(" + unit.x + "px) translateY(" + (-(launchOffset + rideOffset)) + "px) scaleX(" + finalScale + ")";
   unit.uhpFill.style.width = Math.max(0, unit.hp / unit.hpMax * 100) + "%";
 }
 
@@ -2036,6 +2312,14 @@ function advanceUnit(unit, dtMs){
     const lungeTotalMs = lungeDurations.reduce((a, b) => a + b, 0) || 1;
     const forwardDir = unit.side === "player" ? -1 : 1;
     unit.x += forwardDir * (def.attackLungeDistance / lungeTotalMs) * dtMs;
+  }
+
+  // よろめき後退(フォートレス)：吹き飛びモーション中、ゆっくり後ろへ下がる
+  if (unit.staggerVX && unit.motion === "blowback"){
+    const fieldEl = document.getElementById("battlefield");
+    const fw = fieldEl ? fieldEl.clientWidth : 800;
+    unit.x = Math.max(30, Math.min(fw - 30 - (def.hitboxWidth || 0), unit.x + unit.staggerVX * (dtMs / 1000)));
+    applyFrame(unit);
   }
 
   // 中距離技(ゴブリン長)：モーション中は前進・後退しながら動く
@@ -2111,7 +2395,9 @@ function fireProjectile(unit){
 
   // 銃口(発射位置)の位置(体の中心から前方・やや高めにオフセット)
   const muzzleX = unit.x + dir * (def.muzzleOffsetX || 0);
-  const muzzleBottom = def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110;
+  const groundMuzzleBottom = def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110;
+  // フォートレスの背中から撃つときは、デッキの高さから発射する(矢は地上の相手へ向かって降下する)
+  const muzzleBottom = unit.mounted ? 74 + (unit.rideY || 0) + (groundMuzzleBottom - 74) * (unit.scaleMult || 1) : groundMuzzleBottom;
 
   if (def.fxMuzzleFlash){
     spawnFx(def.imageBase + def.fxMuzzleFlash, muzzleX, { flip: dir < 0, lifespan: 150, height: 39, bottom: muzzleBottom });
@@ -2145,9 +2431,10 @@ function fireProjectile(unit){
       requestAnimationFrame(step);
     } else {
       // 直線：CSS transitionでそのまま移動
-      bullet.style.transition = "transform " + travelMs + "ms linear";
+      bullet.style.transition = "transform " + travelMs + "ms linear" + (muzzleBottom !== groundMuzzleBottom ? ", bottom " + travelMs + "ms linear" : "");
       requestAnimationFrame(() => {
         bullet.style.transform = "translateX(" + targetX + "px)" + (dir < 0 ? " scaleX(-1)" : "");
+        if (muzzleBottom !== groundMuzzleBottom) bullet.style.bottom = groundMuzzleBottom + "px";
       });
     }
   }
@@ -2156,14 +2443,14 @@ function fireProjectile(unit){
     if (bullet) bullet.remove();
     if (!battle || battle.ended || unit.dead) return;
 
-    if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 350, height: def.splashRadius ? 90 : 45, bottom: muzzleBottom });
+    if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 350, height: def.splashRadius ? 90 : 45, bottom: groundMuzzleBottom });
 
     if (def.splashRadius){
       // 範囲ダメージ：着弾地点周辺の敵ユニットすべてに当たる
       const enemySide = unit.side === "player" ? "enemy" : "player";
       let hitAnyUnit = false;
       battle.units.forEach(other => {
-        if (other.dead || other.side !== enemySide) return;
+        if (other.dead || other.mounted || other.side !== enemySide) return;
         if (Math.abs(other.x - targetX) <= def.splashRadius){
           hitAnyUnit = true;
           applyDamageToUnit(other, getEffectiveAtk(unit), unit);
@@ -2235,6 +2522,7 @@ function updateBuffAura(unit, dtMs){
   unit.buffFxEl.src = fx.imageBase + fx.prefix + (unit.buffFxFrame + 1) + ".png";
   unit.buffFxEl.style.left = "50%";
   unit.buffFxEl.style.top = "0%";
+  unit.buffFxEl.style.height = (34 * (unit.scaleMult || 1)) + "px"; // フォートレスの背中で小さく描かれている間はオーラも小さく
 
   // 1重=そのまま, 2重=赤みを強調, 3重=紫系へ色相シフト
   if (stacks >= 3){
@@ -2250,7 +2538,11 @@ function resolveAttackImpact(unit){
   if (!battle || battle.ended) return;
   // 多段攻撃の途中で対象が倒れた場合、残りの段は空振りにする(城へダメージが流れないように)
   if (unit.def.attackImpactFrames && unit.attackHadTarget && (!unit.target || unit.target.dead)) return;
-  if (unit.target && !unit.target.dead){
+  if (unit.def.areaHitReach){
+    // 範囲攻撃(フォートレスの踏み潰し)：前方の敵全員に当たる。対象がユニットなら城には当たらない
+    resolveAreaHit(unit);
+    if (unit.attackHadTarget) return;
+  } else if (unit.target && !unit.target.dead){
     applyDamageToUnit(unit.target, getEffectiveAtk(unit), unit);
     return;
   }
@@ -2311,7 +2603,7 @@ function updateCharge(unit, dtMs){
     const enemySide = unit.side === "player" ? "enemy" : "player";
     const hitRadius = def.rageChargeHitRadius || 55;
     const target = battle.units.find(o =>
-      !o.dead && o.side === enemySide && o !== unit.chargePlowedThrough &&
+      !o.dead && !o.mounted && o.side === enemySide && o !== unit.chargePlowedThrough &&
       edgeDistance(unit, o) <= hitRadius
     );
     const castleEdgeX = unit.side === "player" ? 90 : fieldWidth - 90; // キャラが出現する位置まで(それより奥=城の中には入れない)
@@ -2443,9 +2735,15 @@ function killUnit(target){
   setMotion(target, "down", {
     onEnd: () => {
       if (target.frozenForRevive) return; // 蘇生対象として固定中は、詠唱が終わる/中断されるまで消えずに待つ
+      if (target.riders){
+        // フォートレス：ダウンの最終コマで止まったまま、背中のゴブリンが全員降りるまで消えない
+        target.downFinished = true;
+        if (hasRidersLeft(target)) return;
+      }
       removeUnit(target);
     }
   });
+  if (target.riders) startDismount(target);
 }
 
 // 死んだ味方ゴブリンが、現時点でフィールドに残っている中で最も価値の高いゴブリンかどうかを判定し、
@@ -2520,7 +2818,7 @@ function updateRevive(dtMs){
 }
 
 function applyDamageToUnit(target, amount, attacker){
-  if (target.dead) return;
+  if (target.dead || target.mounted) return; // フォートレスの背中に乗っている間は攻撃を受けない
   const def = target.def;
   const attackerFlags = (attacker && attacker.def.attackFlags) || {};
   const meleeRangeCheck = attacker && edgeDistance(target, attacker) <= def.attackRange;
@@ -2637,6 +2935,7 @@ function findNearestEnemyInRange(unit){
   let nearest = null, nearestDist = Infinity;
   battle.units.forEach(other => {
     if (other === unit || other.dead || other.side === unit.side) return;
+    if (other.mounted) return; // フォートレスの背中に乗っている間は狙えない
     if (other === unit.dodgedPastUnit) return; // 回避してすれ違った相手とは戦わない
     const d = edgeDistance(unit, other);
     if (d > unit.def.detectionRange) return;
@@ -2662,10 +2961,15 @@ function updateUnitAI(unit, dtMs){
   if (unit.dead || unit.debugLock || unit.restrained || unit.launched || unit.charging) return;
   const def = unit.def;
 
+  if (unit.mounted){ // フォートレスの背中に乗っている間は、自分では移動しない
+    if (!unit.dismounting) updateMountedAI(unit);
+    return;
+  }
+
   if (def.noCombat){
     // 非戦闘ユニット(鼓舞兵など)：戦わないが、目の前に敵がいる間は立ち尽くして待つ
     const blocker = battle.units.find(other =>
-      other !== unit && !other.dead && other.side !== unit.side &&
+      other !== unit && !other.dead && !other.mounted && other.side !== unit.side &&
       isEngageable(unit, other) &&
       Math.abs(other.x - unit.x) <= (def.personalSpace || 50)
     );
@@ -2727,7 +3031,7 @@ function updateUnitAI(unit, dtMs){
   const field = document.getElementById("battlefield");
   const fieldWidth = field.clientWidth;
   const forwardDir = unit.side === "player" ? -1 : 1; // 自陣営が進むべき方向。これと逆には進まない
-  let destX = unit.target ? unit.target.x : (unit.side === "player" ? 60 : fieldWidth - 60);
+  let destX = unit.target ? unit.target.x : (unit.side === "player" ? 60 : fieldWidth - 60 - (def.spawnFullyInside ? (def.hitboxWidth || 0) : 0));
   let dx = destX - unit.x;
 
   if (unit.target && dx !== 0 && Math.sign(dx) !== forwardDir){
@@ -2766,7 +3070,7 @@ function updateUnitAI(unit, dtMs){
 
     // 今の交戦相手を追っている最中でも、通り道に未交戦の非戦闘ユニットがいればすり抜けずに足止めする
     const passThroughBlocker = battle.units.find(other =>
-      other !== unit.target && !other.dead && other.side !== unit.side && other.def.noCombat &&
+      other !== unit.target && !other.dead && !other.mounted && other.side !== unit.side && other.def.noCombat &&
       Math.sign(other.x - unit.x) === dir &&
       Math.abs(other.x - unit.x) <= Math.abs(moveAmount)
     );
@@ -2813,6 +3117,8 @@ function battleLoop(now){
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
     if (unit.midCooldown > 0) unit.midCooldown = Math.max(0, unit.midCooldown - dt);
     if (unit.attackArmorMs > 0) unit.attackArmorMs = Math.max(0, unit.attackArmorMs - dt);
+    updateMount(unit, dt);
+    updateFortressCorpse(unit);
     updateBuffAura(unit, dt);
     updateFlagBuff(unit);
     updateInspire(unit, dt);
@@ -2878,6 +3184,10 @@ document.getElementById("cheat-enemy-catapult-btn").addEventListener("click", ()
 document.getElementById("cheat-enemy-chief-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("chief", "enemy");
+});
+document.getElementById("cheat-enemy-fortress-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("fortress", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
