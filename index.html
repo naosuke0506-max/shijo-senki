@@ -1029,6 +1029,7 @@ const CHAR_DEFS = {
     approachSpeed: 24,
     canGuard: false,
     noRevive: true,            // ヒーラーの自動蘇生の対象外
+    superArmorMotions: ["attack", "meteor", "shield"], // 近接攻撃・メテオ詠唱・シールドの最中は怯まない
     attackFlags: {},
     staggerOnLaunch: true,     // 打ち上げ・吹き飛ばしは無効。大きくよろめいて後退する
     staggerSlideSpeed: 25,
@@ -1067,7 +1068,7 @@ const CHAR_DEFS = {
       // シールド：遠距離攻撃を持つ敵が近くにいるとき、前方に紫のバリアを張る。バリア内の味方(4m以下)は遠距離攻撃を受けない
       shield: { range: 420, cooldownMs: 14000, durationMs: 6000, reach: 100, activateFrame: 1 },
       // メテオ：杖を突き刺して詠唱し、斜め前上空の黒い穴からメテオを1発ずつ計2発落とす
-      meteor: { range: 380, cooldownMs: 12000, riftFrame: 1, holeForward: 70, holeHeight: 150, holeSize: 90,
+      meteor: { range: 380, cooldownMs: 12000, riftFrame: 1, holeInFront: 50, holeHeight: 150, holeSize: 90,
                 launchAt: [700, 1500], travelMs: 550, damage: 30, radius: 60 }
     },
     // HPが50%以下になると一度だけ第二形態(queenBeast)へ移行する
@@ -1229,6 +1230,8 @@ const CHAR_DEFS = {
 // ゴブリンの女王・第二形態(四足)。第一形態からの移行後に、定義ごと入れ替えて使う。編成画面には出さない。
 CHAR_DEFS.queenBeast = Object.assign({}, CHAR_DEFS.queen, {
   hiddenFromFormation: true,
+  alwaysSuperArmored: true,  // 第二形態は常にスーパーアーマー
+  superArmorMotions: null,
   imagePrefix: "beast_",     // 画像は beast_ を頭に付けたファイル名
   atk: 24,                   // 近接は爪の2ヒット(1ヒットあたりの威力)
   walkSpeed: 58,             // 四足で駆け抜ける(移動速度アップ)
@@ -2320,7 +2323,10 @@ function openRift(unit){
   const id = unit.castId;
   const field = document.getElementById("battlefield");
   const dir = unit.side === "player" ? -1 : 1;
-  const hx = unitCenterX(unit) + dir * sk.holeForward;
+  // 穴は「狙った敵の少し前(女王に近い側)」の上空に開く。開いたあとは動かない
+  const tx0 = (unit.target && !unit.target.dead) ? unitCenterX(unit.target)
+    : (unit.castTargetX != null ? unit.castTargetX : unitCenterX(unit) + dir * 200);
+  const hx = tx0 - dir * sk.holeInFront;
   const hb = Math.min(74 + sk.holeHeight, field.clientHeight - sk.holeSize / 2 - 6);
   playFxSeq({
     imageBase: unit.def.fx.imageBase, prefix: fx.prefix, count: fx.count, durations: fx.durations,
@@ -2336,8 +2342,10 @@ function openRift(unit){
     sk.launchAt.forEach((at, i) => {
       if (!fired[i] && t >= at){
         fired[i] = true;
-        const tx = (unit.target && !unit.target.dead) ? unitCenterX(unit.target) : (unit.castTargetX != null ? unit.castTargetX : hx + dir * 120);
-        launchMeteor(unit.def.fx, unit.side, { x: hx, b: hb }, tx, { travelMs: sk.travelMs, damage: sk.damage, radius: sk.radius });
+        // 穴の真下へ降り注ぐ。狙った敵が動いていたら、穴の近く(±40px)まで寄せて落とす
+        const tx = (unit.target && !unit.target.dead) ? unitCenterX(unit.target) : hx;
+        const land = Math.max(hx - 40, Math.min(hx + 40, tx));
+        launchMeteor(unit.def.fx, unit.side, { x: hx, b: hb }, land, { travelMs: sk.travelMs, damage: sk.damage, radius: sk.radius });
       }
     });
     return !fired.every(f => f);
@@ -3154,6 +3162,7 @@ function isSuperArmored(unit, attacker){
   if (attacker && attacker.def.attackFlags && attacker.def.attackFlags.ignoresSuperArmor) return false; // スーパーアーマー無効の一撃は貫通する
   if (unit.def && unit.def.alwaysSuperArmored) return true; // 常時スーパーアーマー(ラッシャーなど)
   if (unit.transforming) return true; // 女王の第二形態への移行中は中断されない
+  if (unit.def && unit.def.superArmorMotions && unit.def.superArmorMotions.indexOf(unit.motion) !== -1) return true; // 特定のモーション中だけスーパーアーマー(女王の近接・メテオ詠唱・シールド)
   const attackMotion = (unit.def && unit.def.attackMotionName) || "attack";
   return unit.motion === "flinch" || unit.motion === "guardbreak" ||
          unit.motion === "blowback" || unit.motion === "down" ||
@@ -3629,7 +3638,11 @@ function battleLoop(now){
   updateTraps(dt);
   updateRestraints(dt);
   updateRevive(dt);
-  battle.fxList = battle.fxList.filter(task => task(dt) !== false); // エフェクト・タイマーを進める
+  // エフェクト・タイマーを進める。実行中に新しく登録されたタスク(メテオの発射など)を取りこぼさないよう、いったん退避してから戻す
+  const runningTasks = battle.fxList;
+  battle.fxList = [];
+  const keptTasks = runningTasks.filter(task => task(dt) !== false);
+  battle.fxList = keptTasks.concat(battle.fxList);
 
   requestAnimationFrame(battleLoop);
 }
