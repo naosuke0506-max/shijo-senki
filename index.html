@@ -195,6 +195,9 @@
   .unit-sprite{ position:absolute; bottom:74px; transform-origin:bottom center; }
   .unit-sprite img{ display:block; image-rendering:-webkit-optimize-contrast; filter:drop-shadow(0 4px 4px rgba(0,0,0,.5)); }
   .unit-sprite .uhp{ position:absolute; left:50%; transform:translateX(-50%); top:-10px; width:44px; height:5px; background:#0a0906; border:1px solid #000; }
+  /* HPバーの横に出す、バフ・デバフのアイコン(SVGをコードで描画。あとで画像に差し替えも可能) */
+  .ustatus{ position:absolute; top:-17px; display:flex; gap:2px; pointer-events:none; z-index:6; }
+  .ustatus img{ width:20px; height:20px; display:block; filter:drop-shadow(0 1px 1px rgba(0,0,0,.9)); }
   .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
 
   .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
@@ -542,7 +545,7 @@ const CHAR_DEFS = {
       walk:           [180,180,180,180,180,180],
       discover:       [150,150],
       wallwalk:       [210,210,210,250],
-      attack:         [150,140,140,200,290,160],
+      attack:         [240,224,224,320,464,256], // 攻撃間隔を1.6倍(元は150,140,140,200,290,160)
       guard:          [180,300,220,150],
       shieldbreak:    [170,260,170,600],
       shield_destroy: [480,290,310,195,190],
@@ -1576,6 +1579,7 @@ function buildStageScreen(){
 let battle = null;
 
 function startBattle(stage){
+  warmKeyedFx();
   const field = document.getElementById("battlefield");
   field.querySelectorAll(".unit-sprite").forEach(el => el.remove());
   field.querySelectorAll(".fx-sprite").forEach(el => el.remove());
@@ -1727,6 +1731,9 @@ function spawnUnit(kind, side, xOffset, opts){
   uhp.innerHTML = "<i></i>";
   if (def.hpBarWidth) uhp.style.width = def.hpBarWidth + "px";
   el.appendChild(uhp);
+  const statusBox = document.createElement("div");
+  statusBox.className = "ustatus";
+  el.appendChild(statusBox);
   field.appendChild(el);
 
   const startX = (side === "player" ? fieldWidth - 90 - (def.spawnFullyInside ? (def.hitboxWidth || 0) : 0) : 90) + (xOffset || 0);
@@ -1735,7 +1742,7 @@ function spawnUnit(kind, side, xOffset, opts){
   const facing = def.invertFacing ? -baseFacing : baseFacing;
 
   const unit = {
-    kind, def, side, el, img, uhpFill: uhp.querySelector("i"), uhpEl: uhp,
+    kind, def, side, el, img, uhpFill: uhp.querySelector("i"), uhpEl: uhp, statusEl: statusBox, statusSig: "",
     x: startX,
     hp: def.hp,
     hpMax: def.hp,
@@ -1857,23 +1864,25 @@ function hasLivingTamerAlly(unit){
   if (!battle) return false;
   return battle.units.some(u => !u.dead && u.side === unit.side && u.kind === "tamer");
 }
+// 鼓舞バフの倍率：バフをかけている鼓舞兵(buffSources)ごとの倍率を掛け合わせる(倍率は鼓舞兵の定義に持たせている)
+function getBuffFactor(unit, key){
+  if (!unit.buffSources || !unit.buffSources.size) return 1;
+  let m = 1;
+  unit.buffSources.forEach(src => { const v = src.def[key]; if (v != null) m *= v; });
+  return m;
+}
 function getEffectiveAtk(unit){
-  const stacks = getBuffStacks(unit);
-  let atk = stacks ? unit.def.atk * Math.pow(unit.def.buffAtkMult || 1, stacks) : unit.def.atk;
+  let atk = unit.def.atk * getBuffFactor(unit, "buffAtkMult");
   if (unit.def.tamerBuffEligible && hasLivingTamerAlly(unit)){
     atk *= 1.10; // テイマーが在陣している間、攻撃力+10%(範囲無限、テイマーが死ぬと自動的に外れる)
   }
   return atk;
 }
 function getEffectiveSpeed(unit, baseSpeed){
-  const stacks = getBuffStacks(unit);
-  if (!stacks) return baseSpeed;
-  return baseSpeed * Math.pow(unit.def.buffSpeedMult || 1, stacks);
+  return baseSpeed * getBuffFactor(unit, "buffSpeedMult");
 }
 function getDamageCutMultiplier(unit){
-  const stacks = getBuffStacks(unit);
-  if (!stacks) return 1;
-  return Math.pow(unit.def.buffDamageCutMult != null ? unit.def.buffDamageCutMult : 1, stacks);
+  return getBuffFactor(unit, "buffDamageCutMult");
 }
 
 // このユニットが死亡/消滅した際、そのユニットが与えていたバフを全員から取り除く
@@ -2120,6 +2129,58 @@ function updatePoison(unit, dtMs){
   }
 }
 
+/* ---------- 黒背景の効果画像(毒・出血・回復)を透過に変換する ---------- */
+// 黒背景のままだと、ユニットに重ねたときに黒い四角が見えてしまうため、読み込んだ画像の「黒い部分」を透明にした画像に差し替える。
+// 変換が終わるまでは元の画像を使う。戦闘開始時に、使う画像をあらかじめ変換しておく。
+const keyedFxCache = new Map(); // url -> 変換後のdataURL / "pending" / "fail"
+function keyedFxSrc(url){
+  const c = keyedFxCache.get(url);
+  if (c && c !== "pending" && c !== "fail") return c;
+  if (!c) loadKeyedFx(url);
+  return url;
+}
+function loadKeyedFx(url){
+  keyedFxCache.set(url, "pending");
+  const im = new Image();
+  im.crossOrigin = "anonymous";
+  im.onload = () => {
+    try {
+      const cv = document.createElement("canvas");
+      cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+      const ctx = cv.getContext("2d");
+      ctx.drawImage(im, 0, 0);
+      const data = ctx.getImageData(0, 0, cv.width, cv.height);
+      const d = data.data;
+      for (let i = 0; i < d.length; i += 4){
+        const m = Math.max(d[i], d[i+1], d[i+2]);
+        let a = (m - 6) / 44; // 明るさに応じて不透明にする(真っ黒=透明、明るい=不透明)
+        a = a < 0 ? 0 : (a > 1 ? 1 : a);
+        if (a > 0 && a < 1){
+          d[i]   = Math.min(255, d[i]   / a);
+          d[i+1] = Math.min(255, d[i+1] / a);
+          d[i+2] = Math.min(255, d[i+2] / a);
+        }
+        d[i+3] = Math.round(d[i+3] * a);
+      }
+      ctx.putImageData(data, 0, 0);
+      keyedFxCache.set(url, cv.toDataURL("image/png"));
+    } catch (e) {
+      keyedFxCache.set(url, "fail"); // 変換できなければ元の画像のまま使う
+    }
+  };
+  im.onerror = () => keyedFxCache.set(url, "fail");
+  im.src = url;
+}
+function warmKeyedFx(){
+  Object.keys(CHAR_DEFS).forEach(k => {
+    const d = CHAR_DEFS[k];
+    [d.fxPoisonStatus, d.fxBleed, d.fxHealAura].forEach(fx => {
+      if (!fx) return;
+      for (let i = 0; i < fx.count; i++) keyedFxSrc(fx.imageBase + fx.prefix + (i + 1) + ".png");
+    });
+  });
+}
+
 // 毒状態の紫霧エフェクトをユニットの上に重ねてループ表示する(鼓舞バフのオーラと同じ仕組み)
 function updatePoisonFx(unit, dtMs){
   const active = !unit.dead && unit.poisonRemainingMs > 0 && unit.poisonFxDef;
@@ -2145,7 +2206,9 @@ function updatePoisonFx(unit, dtMs){
     unit.poisonFxTimer -= dur;
     unit.poisonFxFrame = (unit.poisonFxFrame + 1) % fxDef.count;
   }
-  unit.poisonFxEl.src = fxDef.imageBase + fxDef.prefix + (unit.poisonFxFrame + 1) + ".png";
+  unit.poisonFxEl.src = keyedFxSrc(fxDef.imageBase + fxDef.prefix + (unit.poisonFxFrame + 1) + ".png");
+  unit.poisonFxEl.style.mixBlendMode = "normal"; // 黒を透過に変換済みの画像なので、通常合成
+  unit.poisonFxEl.style.height = Math.round((unit._displayHeight || 92) * 0.8) + "px"; // キャラの大きさに合わせる
   unit.poisonFxEl.style.left = "50%";
   unit.poisonFxEl.style.top = "10%";
 }
@@ -2253,7 +2316,16 @@ function updateHealer(unit, dtMs){
       for (let i = 0; i < fx.count; i++){
         setTimeout(() => {
           if (ally.dead) return;
-          spawnFx(fx.imageBase + fx.prefix + (i+1) + ".png", ally.x, { height: 50, bottom: 100, lifespan: fx.durations[i] });
+          // 味方の体の中心に、体の大きさに合わせたサイズで重ねる(黒背景は透過に変換済み)
+          const H = ally._displayHeight || 92;
+          const cx = ally.x + (ally._displayWidth || 0) / 2;
+          const el = spawnFx(keyedFxSrc(fx.imageBase + fx.prefix + (i+1) + ".png"), cx, {
+            height: Math.round(H * 0.6), bottom: Math.round(74 + (ally.rideY || 0) + H * 0.25), lifespan: fx.durations[i]
+          });
+          if (el){
+            el.style.mixBlendMode = "normal";
+            el.style.transform = "translateX(" + cx + "px) translateX(-50%)";
+          }
         }, i * (fx.durations[i] || 200));
       }
     }
@@ -2298,11 +2370,12 @@ function playBleedFx(target, attackerDef){
   if (!fx || !target.el) return;
   const img = document.createElement("img");
   img.className = "fx-sprite bleed-fx";
+  img.style.height = Math.round((target._displayHeight || 92) * 0.6) + "px"; // キャラの大きさに合わせる
   target.el.appendChild(img);
   let i = 0;
   const step = () => {
     if (i >= fx.count || !img.isConnected){ img.remove(); return; }
-    img.src = fx.imageBase + fx.prefix + (i + 1) + ".png";
+    img.src = keyedFxSrc(fx.imageBase + fx.prefix + (i + 1) + ".png");
     const d = fx.durations[i] || 175;
     i++;
     setTimeout(step, d);
@@ -2373,6 +2446,86 @@ function resolveMidrangeHit(unit, hit){
     edgeDistance(unit, o) <= reach
   );
   victims.forEach(o => applyDamageToUnit(o, dmg, unit));
+}
+
+/* ---------- バフ・デバフのアイコン ---------- */
+// 24x24のSVGで、シンプルな絵柄を描く。色は種類ごとに固定(攻撃=オレンジ、速度=水色、防御=青、毒=紫、出血=赤)
+function svgIcon(body){
+  return "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' + body + '</svg>');
+}
+const SWORD_SVG = '<rect x="5.5" y="3" width="3" height="12" fill="#e6e6e6" stroke="#333" stroke-width=".6"/><path d="M5.5 3 L7 0.5 L8.5 3Z" fill="#e6e6e6" stroke="#333" stroke-width=".6"/><rect x="3" y="15" width="8" height="2.4" fill="#d1a52a" stroke="#333" stroke-width=".6"/><rect x="5.8" y="17.4" width="2.4" height="4.6" fill="#7a4a22" stroke="#333" stroke-width=".6"/>';
+const UP_ARROW_SVG = (c) => '<path d="M18.5 1.5 L23.5 9.5 H20 V20.5 H17 V9.5 H13.5 Z" fill="' + c + '" stroke="#3a1c00" stroke-width=".8"/>';
+const STATUS_ICON_DEFS = {
+  // 攻撃力上昇(鼓舞兵)：剣＋オレンジの上向き矢印
+  atkUp:   { title: "攻撃力上昇", svg: SWORD_SVG + UP_ARROW_SVG("#ff8a1f") },
+  // 移動速度上昇(鼓舞兵)：水色のシェブロン＋上向き矢印
+  speedUp: { title: "移動速度上昇", svg: '<path d="M2 6 L8 12 L2 18 L5 18 L11 12 L5 6Z" fill="#4fd3ff" stroke="#08324a" stroke-width=".8"/><path d="M8 6 L14 12 L8 18 L11 18 L17 12 L11 6Z" fill="#4fd3ff" stroke="#08324a" stroke-width=".8"/>' + UP_ARROW_SVG("#6cf08a") },
+  // 被ダメージ軽減(鼓舞兵)：青い盾＋上向き矢印
+  defUp:   { title: "被ダメージ軽減", svg: '<path d="M2.5 3 H14 V12 C14 16.5 8.2 20 8.2 21.5 C8.2 20 2.5 16.5 2.5 12Z" fill="#4a90e2" stroke="#0c2a52" stroke-width=".9"/>' + UP_ARROW_SVG("#6cf08a") },
+  // 魔獣への攻撃力上昇(テイマー)：魔獣の頭＋オレンジの上向き矢印
+  beastAtk:{ title: "魔獣の攻撃力上昇", svg: '<path d="M1.5 17 L3 8 L6 10 L10 7.5 L13 10.5 L15.5 12 L14 15.5 L10 17.5 L5 18Z" fill="#a67c52" stroke="#3b2612" stroke-width=".9"/><circle cx="9" cy="12.2" r="1.1" fill="#ffd45c"/><path d="M12.5 16 l1.6 2 M10.5 16.5 l1 2" stroke="#fff" stroke-width=".9"/>' + UP_ARROW_SVG("#ff8a1f") },
+  // 対城攻撃力上昇(長の旗)：城＋オレンジの上向き矢印
+  castleAtk:{ title: "敵城への攻撃力上昇", svg: '<path d="M1.5 21 V9 H4.5 V11.5 H7.5 V9 H10.5 V11.5 H13.5 V9 H15.5 V21Z" fill="#b39b6a" stroke="#3b3320" stroke-width=".9"/><rect x="6.5" y="15" width="3" height="6" fill="#3b3320"/>' + UP_ARROW_SVG("#ff8a1f") },
+  // 近接攻撃中スーパーアーマー(長の特殊モーション)
+  armor:   { title: "スーパーアーマー", svg: '<path d="M12 1.5 L20.5 5 V12 C20.5 17 15 20.5 12 22.5 C9 20.5 3.5 17 3.5 12 V5Z" fill="#d1a52a" stroke="#4a3608" stroke-width="1"/><path d="M12 7 L13.4 10.4 L17 10.7 L14.2 13 L15.1 16.5 L12 14.6 L8.9 16.5 L9.8 13 L7 10.7 L10.6 10.4Z" fill="#fff3c2"/>' },
+  // 女王のバリアに守られている
+  barrier: { title: "バリア", svg: '<path d="M12 1.5 L21 6.5 V17.5 L12 22.5 L3 17.5 V6.5Z" fill="rgba(173,120,255,.45)" stroke="#c9a6ff" stroke-width="2"/><path d="M12 6 L16.5 8.6 V13.6 L12 16.2 L7.5 13.6 V8.6Z" fill="none" stroke="#e6d5ff" stroke-width="1.2"/>' },
+  // 毒
+  poison:  { title: "毒", svg: '<path d="M12 1.5 C12 1.5 4.5 11 4.5 15.5 A7.5 7.5 0 0 0 19.5 15.5 C19.5 11 12 1.5 12 1.5Z" fill="#9b4dca" stroke="#2c0f42" stroke-width="1"/><circle cx="9.5" cy="15" r="1.4" fill="#e8c8ff"/><circle cx="14.5" cy="17" r="1" fill="#e8c8ff"/><path d="M9.5 9 Q11 12 9 14" stroke="#e8c8ff" stroke-width="1" fill="none"/>' },
+  // 出血
+  bleed:   { title: "出血", svg: '<path d="M12 1.5 C12 1.5 4.5 11 4.5 15.5 A7.5 7.5 0 0 0 19.5 15.5 C19.5 11 12 1.5 12 1.5Z" fill="#d42a2a" stroke="#4a0808" stroke-width="1"/><path d="M8.6 14 Q9 17.5 12.2 18.6" stroke="#ffb0b0" stroke-width="1.3" fill="none"/>' },
+  // 拘束(網)
+  net:     { title: "拘束", svg: '<path d="M2 2 H22 V22 H2Z M2 8.7 H22 M2 15.3 H22 M8.7 2 V22 M15.3 2 V22" fill="rgba(255,255,255,.12)" stroke="#e8e8e8" stroke-width="1.6"/>' },
+  // 無敵(第二形態への移行中など)
+  invuln:  { title: "無敵", svg: '<circle cx="12" cy="12" r="9.5" fill="rgba(255,240,150,.35)" stroke="#ffe066" stroke-width="2"/><path d="M12 5 L13.8 10 L19 10.3 L15 13.5 L16.3 18.7 L12 15.8 L7.7 18.7 L9 13.5 L5 10.3 L10.2 10Z" fill="#ffe066"/>' }
+};
+const STATUS_ICON_URLS = {};
+Object.keys(STATUS_ICON_DEFS).forEach(k => { STATUS_ICON_URLS[k] = svgIcon(STATUS_ICON_DEFS[k].svg); });
+
+// いま掛かっているバフ・デバフの一覧(アイコンのキー)を返す
+function getStatusKeys(unit){
+  const keys = [];
+  const def = unit.def;
+  if (getBuffStacks(unit) > 0){
+    if (getBuffFactor(unit, "buffAtkMult") > 1) keys.push("atkUp");
+    if (getBuffFactor(unit, "buffSpeedMult") > 1) keys.push("speedUp");
+    if (getBuffFactor(unit, "buffDamageCutMult") < 1) keys.push("defUp");
+  }
+  if (def.tamerBuffEligible && hasLivingTamerAlly(unit)) keys.push("beastAtk");
+  if (getFlagSource(unit)) keys.push("castleAtk");
+  if (unit.attackArmorMs > 0) keys.push("armor");
+  if (battle.units.some(q => !q.dead && q.side === unit.side && q.barrierMs > 0) && (def.heightM || 2) <= 4 && isShielded(unit)) keys.push("barrier");
+  if (unit.transforming) keys.push("invuln");
+  if (unit.poisonRemainingMs > 0) keys.push("poison");
+  if (unit.bleedStack > 0) keys.push("bleed");
+  if (unit.restrained) keys.push("net");
+  return keys;
+}
+
+// HPバーの横に、バフ・デバフのアイコンを並べる(内容が変わったときだけ作り直す)
+function updateStatusIcons(unit){
+  const box = unit.statusEl;
+  if (!box) return;
+  if (unit.dead || unit.mounted){
+    if (box.firstChild) box.innerHTML = "";
+    unit.statusSig = "";
+    return;
+  }
+  const keys = getStatusKeys(unit);
+  const facing = unit.facing === -1 ? -1 : 1;
+  const hpw = unit.def.hpBarWidth || 44;
+  const sig = keys.join(",") + "|" + facing + "|" + hpw;
+  if (sig === unit.statusSig) return;
+  unit.statusSig = sig;
+  box.innerHTML = "";
+  box.style.left = "calc(50% + " + (hpw / 2 + 4) + "px)";
+  keys.forEach(k => {
+    const img = document.createElement("img");
+    img.src = STATUS_ICON_URLS[k];
+    img.title = STATUS_ICON_DEFS[k].title;
+    if (facing === -1) img.style.transform = "scaleX(-1)"; // 自軍側は親要素が左右反転しているので、アイコンだけ元に戻す
+    box.appendChild(img);
+  });
 }
 
 /* ---------- ゴブリン・キング ---------- */
@@ -2533,6 +2686,14 @@ function summonFromGate(g){
   const u = spawnUnit(kind, g.side, 0);
   u.x = cx - 15;
   applyFrame(u);
+  // テイマーのように、魔獣がセットになっているキャラは、通常の出撃と同じく魔獣も一緒に召喚する
+  (u.def.summons || []).forEach(sm => {
+    for (let i = 0; i < sm.count; i++){
+      const sub = spawnUnit(sm.kind, g.side, 0);
+      sub.x = cx - 15 + (i - (sm.count - 1) / 2) * 26;
+      applyFrame(sub);
+    }
+  });
   const fx = g.owner && g.owner.def.fx ? g.owner.def.fx : CHAR_DEFS.king.fx;
   const sm = fx.summon;
   playFxSeq({
@@ -3297,10 +3458,12 @@ function fireProjectile(unit){
   const muzzleX = unit.x + dir * (def.muzzleOffsetX || 0);
   const groundMuzzleBottom = def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110;
   // フォートレスの背中から撃つときは、デッキの高さから発射する(矢は地上の相手へ向かって降下する)
+  // 弾の大きさ：背中に乗っているゴブリンは小さく描かれているので、矢もそれに合わせて小さくする
+  const projScale = unit.mounted ? (unit.scaleMult || 1) * 0.7 : 1;
   const muzzleBottom = unit.mounted ? 74 + (unit.rideY || 0) + (groundMuzzleBottom - 74) * (unit.scaleMult || 1) : groundMuzzleBottom;
 
   if (def.fxMuzzleFlash){
-    spawnFx(def.imageBase + def.fxMuzzleFlash, muzzleX, { flip: dir < 0, lifespan: 150, height: 39, bottom: muzzleBottom });
+    spawnFx(def.imageBase + def.fxMuzzleFlash, muzzleX, { flip: dir < 0, lifespan: 150, height: Math.round(39 * projScale), bottom: muzzleBottom });
   }
 
   // 命中先の座標を決める(相手ユニット、いなければ城)
@@ -3313,7 +3476,7 @@ function fireProjectile(unit){
 
   let bullet = null;
   if (def.fxBullet){
-    bullet = spawnFx(def.imageBase + def.fxBullet, muzzleX, { flip: dir < 0, height: def.projectileArc ? 34 : 10, bottom: muzzleBottom });
+    bullet = spawnFx(def.imageBase + def.fxBullet, muzzleX, { flip: dir < 0, height: Math.max(4, Math.round((def.projectileArc ? 34 : 10) * projScale)), bottom: muzzleBottom });
 
     if (def.projectileArc){
       // 放物線：JSで毎フレーム位置を更新(横方向は等速、縦方向はsinカーブで山なりに)
@@ -3517,15 +3680,16 @@ function updateCharge(unit, dtMs){
       unit.frameTimer = 0;
       applyFrame(unit);
     } else if (target){
-      if (unit.frameIndex === finalIndex - 1){
-        // ちょうど最終コマ直前で命中：そのまま本命の一撃をぶつける
+      // 吹き飛ばない敵(巨体など)・怯まない敵(スーパーアーマー)は突っ切れないので、その場で最終段の一撃を当てる。
+      // それ以外の敵は、体当たりでかち上げながら突っ切り、突進を止めない
+      const stopper = target.def.staggerOnLaunch || target.def.alwaysSuperArmored || isSuperArmored(target, unit);
+      if (stopper){
         unit.chargeHit = true;
         unit.chargeHitTarget = target;
         unit.frameIndex = finalIndex;
         unit.frameTimer = 0;
         applyFrame(unit);
       } else {
-        // まだ序盤〜中盤のコマで接触：体当たりでかち上げるだけで、突進自体は止めずに突っ切る
         applyDamageToUnit(target, getEffectiveAtk(unit), unit);
         if (!target.dead) launchUnit(target, unit, { upSpeed: 340 });
         unit.chargePlowedThrough = target; // 同じ相手を同じ突進中に何度も巻き込まないようにする
@@ -3772,11 +3936,8 @@ function applyDamageToUnit(target, amount, attacker){
     }
 
     if (flags.ignoresGuard){
-      // ガード無効攻撃：ダメージは通り、ガードが一時的に剥がされクールタイムが余分にかかる
+      // ガード無効攻撃：ダメージは通らない。ガードが弾かれ、ガードのクールタイムが余分に増えるだけ
       target.guardCooldown = (def.guardCooldownMs || 1000) + (def.guardIgnoredPenaltyMs || 0);
-      target.hp = Math.max(0, target.hp - amount);
-      applyFrame(target);
-      if (target.hp <= 0){ killUnit(target); return; }
       setMotion(target, "shieldbreak", { onEnd: () => afterReaction(target) });
       return;
     }
@@ -4051,6 +4212,7 @@ function battleLoop(now){
     if (unit.meteorCooldown > 0) unit.meteorCooldown = Math.max(0, unit.meteorCooldown - dt);
     if (unit.barrierMs > 0) unit.barrierMs = Math.max(0, unit.barrierMs - dt);
     updateMount(unit, dt);
+    updateStatusIcons(unit);
     updateBearerSync(unit);
     updateKingBody(unit, dt);
     if (unit.gateCooldown > 0) unit.gateCooldown = Math.max(0, unit.gateCooldown - dt);
