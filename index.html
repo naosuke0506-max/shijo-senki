@@ -313,6 +313,7 @@
       <button id="cheat-enemy-chief-btn" style="position:absolute;left:0;top:328px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン長召喚(検証用)</button>
       <button id="cheat-enemy-fortress-btn" style="position:absolute;left:0;top:364px;z-index:6;font-size:.62rem;padding:6px 8px;">敵フォートレス召喚(検証用)</button>
       <button id="cheat-enemy-queen-btn" style="position:absolute;left:0;top:400px;z-index:6;font-size:.62rem;padding:6px 8px;">敵女王召喚(検証用)</button>
+      <button id="cheat-enemy-king-btn" style="position:absolute;left:0;top:436px;z-index:6;font-size:.62rem;padding:6px 8px;">敵キング召喚(検証用)</button>
     </div>
 
     <div id="battle-bottombar">
@@ -385,6 +386,8 @@ const IMG_FORTRESS = REPO_BASE + "images/fortress_repo_upload/";
 const ICON_FORTRESS = REPO_BASE + "icons/fortress_icon.png";
 const IMG_QUEEN = REPO_BASE + "images/queen_repo_upload/";
 const ICON_QUEEN = REPO_BASE + "icons/queen_icon.png";
+const IMG_KING = REPO_BASE + "images/king_repo_upload/";
+const ICON_KING = REPO_BASE + "icons/king_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -1094,6 +1097,138 @@ const CHAR_DEFS = {
     comboMeteor: { delayMs: 20000, durationMs: 10000, intervalMs: 450, damage: 22, radius: 55, minSeparation: 65, travelMs: 800 }
   },
 
+  king: {
+    name: "ゴブリン・キング",
+    rank: null,
+    race: "goblin",
+    cost: 5000,                // ★数値はすべて暫定
+    hp: 300,
+    atk: 0,                    // 自分では攻撃しない(ゲートの召喚が主な能力)
+    weight: 400,
+    walkSpeed: 12,             // 担ぎ手2体で運ぶので移動速度は最低クラス(ほぼ城に辿り着かない)
+    attackRange: -1,           // 近接攻撃なし
+    detectionRange: 520,
+    approachMotion: "walk",
+    approachSpeed: 12,
+    kingLogic: true,
+    noRevive: true,
+    canGuard: false,
+    attackFlags: {},
+    staggerOnLaunch: true,     // 打ち上げ・吹き飛ばしは無効。担ぎ手ごと後ろへよろめく
+    staggerSlideSpeed: 15,
+    hitboxWidth: 100,
+    spawnFullyInside: true,
+    hpBarWidth: 60,
+    icon: ICON_KING,
+    imageBase: IMG_KING,
+    pixelScale: 95 / 903,      // 歩行などのコマ(高さ約903px)を基準に、玉座の表示高さを約95pxにする
+    motionScale: {
+      idle: 903 / 1157         // 待機だけ他のコマの約1.28倍の大きさで作られているので縮小して揃える
+    },
+    frameCounts: {
+      idle:1, walk:4, discover:2, flinch:3, blowback:4, down:2, drop:3, laugh:6, ring:5
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [215,215,215,215],
+      discover: [250,250],
+      flinch:   [215,215,215],
+      blowback: [265,375,300,350],
+      down:     [500,500],
+      drop:     [300,750,400],          // 担ぎ手を失って玉座が落下する
+      laugh:    [325,325,325,325,325,325], // 大笑いして玉座を叩く(ゲート召喚)
+      ring:     [285,285,350,1500,750]
+    },
+    // 担ぎ手：屈強なゴブリンが2体、担ぎ棒の前後の端を肩に担ぐ。担いでいる間は攻撃できない
+    // frameは玉座の後ろ端(0)から前端(1)までの位置
+    bearers: [
+      { kind: "bruteGoblin", frac: 0.13 },
+      { kind: "bruteGoblin", frac: 0.87 }
+    ],
+    carryHeight: 60,           // 担がれている間の玉座の高さ(px)。担ぎ手の肩の高さ
+    // ゲート召喚：大笑いして玉座を叩くと、背後にゲートが出る
+    gate: { kind: "gate", cooldownMs: 45000, breakPenaltyMs: 20000, behind: 95, spawnFrame: 2 },
+    // 指輪コンボ(女王と揃ったとき)：指輪を掲げて割ると、エネルギーが自城の前の地面に消え、巨大ゲートが出る
+    comboRole: "king",
+    ringShatterFrame: 3,       // 指輪が砕けるコマ(0始まり)
+    ringHand: { x: 0.52, y: 0.10 },
+    comboGate: { kind: "bigGate", fromCastle: 150, flightMs: 1100, gateDelayMs: 500 },
+    fx: {
+      imageBase: IMG_KING,
+      ringBreak: { prefix:"ring_fx_", count:4, dur:250, height:110 },
+      energy:    { prefix:"energy_fx_", count:3, dur:250, height:60 },
+      impact:    { prefix:"impact_fx_", count:4, dur:250, height:100 },
+      summon:    { prefix:"summon_fx_", count:5, dur:210, height:90 }
+    }
+  },
+
+  gate: {
+    name: "ゲート",
+    hiddenFromFormation: true,
+    rank: null,
+    race: "object",
+    cost: 0,
+    hp: 150,                   // ★暫定。壊すとキングのゲート召喚クールタイムが+20秒
+    atk: 0,
+    weight: 9999,
+    walkSpeed: 0,
+    attackRange: 0,
+    detectionRange: 0,
+    noCombat: true,            // 敵は近くに来ると足を止めて壊しにくる(味方は素通りできる)
+    immobile: true,
+    gateUnit: true,
+    noRevive: true,
+    hitboxWidth: 80,
+    hpBarWidth: 60,
+    imageBase: IMG_KING,
+    imagePrefix: "gate_",
+    pixelScale: 120 / 1024,    // ゲートの絵(高さ1024px)を約120pxに(6m相当)
+    motionScale: {},
+    frameCounts: { idle:2, appear:6, down:5, vanish:6 },
+    frameDurations: {
+      idle:   [250,250],
+      appear: [250,250,250,250,250,250],
+      down:   [270,265,325,270,270],
+      vanish: [250,250,250,250,250,250]
+    },
+    motionAlias: { vanish: { as: "appear", reverse: true } }, // 時間切れで消えるときは、出現を逆再生する
+    lifeMs: 30000,
+    summonEveryMs: 3500,       // ★暫定
+    firstSummonMs: 1500,       // 出現アニメが終わってから最初の召喚まで(出現1.5秒後)
+    summonList: ["goblin", "archer", "bruteGoblin", "tamer", "catapult", "chief"]
+  },
+
+  bigGate: {
+    name: "巨大ゲート",
+    hiddenFromFormation: true,
+    rank: null,
+    race: "object",
+    cost: 0,
+    hp: 1,
+    atk: 0,
+    weight: 9999,
+    walkSpeed: 0,
+    attackRange: 0,
+    detectionRange: 0,
+    immobile: true,
+    gateUnit: true,
+    invulnerable: true,        // 壊せない。永遠に残る
+    noRevive: true,
+    hitboxWidth: 100,
+    imageBase: IMG_KING,
+    imagePrefix: "biggate_",
+    pixelScale: 160 / 1024,    // 高さ約160px(8m相当)
+    motionScale: {},
+    frameCounts: { idle:2, appear:6 },
+    frameDurations: {
+      idle:   [350,350],
+      appear: [350,350,350,350,350,350]
+    },
+    summonEveryMs: 6000,       // ★暫定
+    firstSummonMs: 2400,
+    summonList: ["goblin", "archer", "bruteGoblin", "tamer", "rusher", "catapult", "chief"]
+  },
+
   goblin: {
     name: "ゴブリン",
     rank: null,
@@ -1298,7 +1433,7 @@ function showScreen(id){
    5. 編成画面
    ========================================================= */
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer", "chief", "fortress", "queen"],
+  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin", "healer", "chief", "fortress", "queen", "king"],
   formationCategory: "all",
   stage: null
 };
@@ -1635,6 +1770,16 @@ function spawnUnit(kind, side, xOffset, opts){
     riders: null,                 // フォートレス専用：背中に乗っているゴブリンの一覧
     downFinished: false,          // フォートレス専用：ダウンモーションを最後まで再生し終えた
     staggerVX: 0,                 // よろめき後退中の速度(px/秒)
+    bearerOf: null,               // キングの担ぎ手として担いでいる相手
+    bearers: null,                // キング専用：担ぎ手の一覧
+    elevated: false,              // キング専用：担がれて宙に浮いている間はtrue(遠距離攻撃しか届かない)
+    grounded: false,              // キング専用：玉座が地面に落ちた
+    dropping: false,              // キング専用：玉座が落下中
+    gateCooldown: 0,              // キング専用：次にゲートを召喚できるまで(ms)
+    discovered: false,            // キング専用：敵を見つけて反応した
+    owner: null,                  // ゲート専用：召喚したキング
+    lifeMs: 0,                    // ゲート専用：残り時間(ms)
+    summonTimer: 0,               // ゲート専用：次の召喚まで(ms)
     shieldCooldown: 0,            // 女王：シールドを次に張れるまで(ms)
     meteorCooldown: 0,            // 女王：メテオを次に唱えられるまで(ms)
     barrierMs: 0,                 // 女王：バリアの残り時間(ms)
@@ -1650,10 +1795,19 @@ function spawnUnit(kind, side, xOffset, opts){
     _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
   img._ownerUnit = unit;
+  if (def.blendScreen) img.style.mixBlendMode = "screen";
+  if (def.invulnerable) uhp.style.display = "none";
   battle.units.push(unit);
   setMotion(unit, "idle");
   if (opts && opts.mount) mountRider(unit, opts.mount, opts.slot);
-  if (!(opts && opts.mount)) checkRingCombo(unit);
+  if (opts && opts.bearerOf){ unit.bearerOf = opts.bearerOf; unit.slot = opts.slot; }
+  if (!(opts && (opts.mount || opts.bearerOf))) checkRingCombo(unit);
+  if (def.bearers){
+    // 玉座を担ぐ屈強なゴブリンを一緒に出す。玉座は担ぎ手の肩の高さに浮かせる
+    unit.elevated = true;
+    unit.rideY = def.carryHeight;
+    unit.bearers = def.bearers.map(slot => spawnUnit(slot.kind, side, 0, { bearerOf: unit, slot }));
+  }
   if (def.riders){
     // 背中に乗るゴブリンたちを一緒に出す
     unit.riders = [];
@@ -1666,7 +1820,13 @@ function spawnUnit(kind, side, xOffset, opts){
 
 function frameUrl(def, motion, frameIndex1based){
   const base = (def.motionImageBase && def.motionImageBase[motion]) || def.imageBase;
-  return base + (def.imagePrefix || "") + motion + "_" + frameIndex1based + ".png";
+  const alias = def.motionAlias && def.motionAlias[motion]; // 別モーションの絵を(逆順で)流用する指定(ゲートの消滅など)
+  let m = motion, i = frameIndex1based;
+  if (alias){
+    m = alias.as;
+    if (alias.reverse) i = (def.frameCounts[motion] || 1) - frameIndex1based + 1;
+  }
+  return base + (def.imagePrefix || "") + m + "_" + i + ".png";
 }
 
 function removeUnit(unit){
@@ -2196,11 +2356,249 @@ function resolveMidrangeHit(unit, hit){
   const reach = hit.reach != null ? hit.reach : (mid.hitReach || 80);
   const dmg = getEffectiveAtk(unit) * (hit.mult != null ? hit.mult : 1);
   const victims = battle.units.filter(o =>
-    !o.dead && !o.mounted && o.side === enemySide &&
+    !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide &&
     (Math.sign(o.x - unit.x) === forwardDir || o.x === unit.x) &&
     edgeDistance(unit, o) <= reach
   );
   victims.forEach(o => applyDamageToUnit(o, dmg, unit));
+}
+
+/* ---------- ゴブリン・キング ---------- */
+
+// 担ぎ手のうち、まだ担いでいる(生きている)数
+function kingBearersAlive(k){
+  return (k.bearers || []).filter(b => !b.dead && b.bearerOf === k).length;
+}
+
+// 担ぎ手の位置・向きを、キングの担ぎ棒の端に合わせる
+function updateBearerSync(b){
+  const k = b.bearerOf;
+  if (!k || b.dead) return;
+  const W = k._displayWidth || 100;
+  const bw = b._displayWidth || 30;
+  const fe = k.facing === 1 ? b.slot.frac : 1 - b.slot.frac;
+  b.x = k.x + fe * W - bw / 2;
+  b.facing = k.facing;
+  applyFrame(b);
+}
+
+// 担ぎ手のAI：攻撃はしない。キングが歩いている間は歩き、止まっている間は立つ
+function updateBearerAI(b){
+  const k = b.bearerOf;
+  if (!k || k.dead){ b.bearerOf = null; return; }
+  if (b.motion === "walk" || b.motion === "idle"){
+    const want = (k.motion === "walk" && !k.grounded) ? "walk" : "idle";
+    if (b.motion !== want) setMotion(b, want, { loop: true });
+  }
+}
+
+// 担ぎ手が倒れた。全員倒れたら玉座が落下する
+function onBearerDied(b){
+  const k = b.bearerOf;
+  b.bearerOf = null;
+  if (!k || k.dead) return;
+  if (kingBearersAlive(k) === 0) startKingDrop(k);
+}
+
+// キングが倒れた：残っている担ぎ手は、普通のユニットに戻る
+function releaseBearers(k){
+  (k.bearers || []).forEach(b => { if (!b.dead && b.bearerOf === k){ b.bearerOf = null; b.target = null; } });
+}
+
+function startKingDrop(k){
+  if (k.dead || k.dropping || k.grounded) return;
+  k.dropping = true;
+  k.elevated = false; // 落ちたら、地上の攻撃も届く
+  k.casting = null;
+  k.castId = (k.castId || 0) + 1; // 大笑い中だったらゲートの召喚は中止
+  setMotion(k, "drop", {
+    onEnd: () => {
+      k.dropping = false;
+      k.grounded = true;
+      k.rideY = 0;
+      if (!k.dead) setMotion(k, "idle", { loop: true });
+    }
+  });
+}
+
+// 玉座の高さ：落下中(と倒れたあと)は、担ぎ手の肩の高さから地面まで下がる
+function updateKingBody(k, dtMs){
+  if (!k.def.kingLogic) return;
+  if ((k.dropping || k.dead) && k.rideY > 0){
+    k.rideY = Math.max(0, k.rideY - (k.def.carryHeight / 0.3) * (dtMs / 1000));
+    applyFrame(k);
+  }
+}
+
+function updateKingAI(k, dtMs){
+  const def = k.def;
+  if (k.grounded && k.motion === "walk"){ setMotion(k, "idle", { loop:true }); return; }
+  if (!k.grounded && k.motion === "idle"){ setMotion(k, "walk", { loop:true }); return; }
+  if (k.motion !== "walk" && k.motion !== "idle") return;
+
+  // ゲート召喚：クールタイムが明けていて、敵が近くにいれば、大笑いして玉座を叩く
+  const seen = findNearestEnemyInRange(k);
+  if (def.gate && k.gateCooldown <= 0 && seen){ startLaugh(k); return; }
+
+  // 敵を初めて見つけたときの反応
+  if (!k.discovered && !k.grounded && seen){
+    k.discovered = true;
+    setMotion(k, "discover", { onEnd: () => setMotion(k, k.grounded ? "idle" : "walk", { loop:true }) });
+    return;
+  }
+  if (k.grounded) return; // 玉座が落ちたら動けない
+
+  // ゆっくり自城を目指す(担ぎ手が減ると遅くなる)
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field.clientWidth;
+  const destX = k.side === "player" ? 60 : fieldWidth - 60 - def.hitboxWidth;
+  const dx = destX - k.x;
+  const alive = kingBearersAlive(k);
+  if (Math.abs(dx) > 2 && alive > 0){
+    const speed = getEffectiveSpeed(k, def.walkSpeed) * (alive >= 2 ? 1 : 0.6);
+    k.x += (dx > 0 ? 1 : -1) * speed * (dtMs / 1000);
+    applyFrame(k);
+  }
+}
+
+function startLaugh(k){
+  k.gateCooldown = k.def.gate.cooldownMs;
+  k.casting = "laugh";
+  k.castId = (k.castId || 0) + 1;
+  setMotion(k, "laugh", { onEnd: () => { k.casting = null; if (!k.dead) setMotion(k, k.grounded ? "idle" : "walk", { loop:true }); } });
+}
+
+function onKingFrame(k){
+  const def = k.def;
+  if (k.motion === "laugh" && k.casting === "laugh" && k.frameIndex === def.gate.spawnFrame) spawnGate(k);
+  if (k.motion === "ring" && k.frameIndex === def.ringShatterFrame) onKingRingShatter(k);
+}
+
+// キングの背後の地面から、ゲートが出てくる
+function spawnGate(k){
+  const dir = k.side === "player" ? -1 : 1;
+  const g = spawnUnit(k.def.gate.kind, k.side, 0);
+  g.owner = k;
+  g.lifeMs = g.def.lifeMs || 0;
+  g.summonTimer = g.def.firstSummonMs || 1500;
+  setMotion(g, "appear", { onEnd: () => setMotion(g, "idle", { loop:true }) });
+  const field = document.getElementById("battlefield");
+  const gw = 687 * g.def.pixelScale;
+  const center = k.x + (k._displayWidth || 100) / 2 - dir * k.def.gate.behind;
+  // 城(端から約85px)に重ならない位置までにとどめる
+  const castleMargin = 85;
+  g.x = Math.max(castleMargin, Math.min(field.clientWidth - castleMargin - gw, center - gw / 2));
+  applyFrame(g);
+}
+
+// ゲートのAI：動かない。時間切れなら出現の逆再生で消え、出ている間は一定間隔でゴブリンを召喚する
+function updateGateAI(g, dtMs){
+  const def = g.def;
+  if (g.motion === "vanish" || g.dead) return;
+  if (def.lifeMs){
+    g.lifeMs -= dtMs;
+    if (g.lifeMs <= 0){
+      g.dead = true; // 敵に狙われないよう、消え始めた時点で撃破扱いにする
+      setMotion(g, "vanish", { onEnd: () => removeUnit(g) });
+      return;
+    }
+  }
+  if (g.motion !== "idle") return; // 出現の最中は召喚しない
+  g.summonTimer -= dtMs;
+  if (g.summonTimer <= 0){
+    g.summonTimer += def.summonEveryMs;
+    summonFromGate(g);
+  }
+}
+
+// ゲートからゴブリンを1体召喚する(ゲートの前に、光の柱とともに現れる)
+function summonFromGate(g){
+  const list = g.def.summonList;
+  const kind = list[Math.floor(Math.random() * list.length)];
+  const gw = g._displayWidth || 80;
+  const dir = g.side === "player" ? -1 : 1;
+  const cx = g.x + gw / 2 + dir * gw * 0.35;
+  const u = spawnUnit(kind, g.side, 0);
+  u.x = cx - 15;
+  applyFrame(u);
+  const fx = g.owner && g.owner.def.fx ? g.owner.def.fx : CHAR_DEFS.king.fx;
+  const sm = fx.summon;
+  playFxSeq({
+    imageBase: fx.imageBase, prefix: sm.prefix, count: sm.count, durations: constDurations(sm.count, sm.dur),
+    height: sm.height, pos: () => ({ x: cx, bottom: 70 })
+  });
+}
+
+/* ---- キングの指輪コンボ ---- */
+
+function startKingRingCombo(k){
+  if (!k || k.dead) return;
+  k.casting = null;
+  k.castId = (k.castId || 0) + 1;
+  setMotion(k, "ring", { onEnd: () => { if (!k.dead) setMotion(k, k.grounded ? "idle" : "walk", { loop:true }); } });
+}
+
+// 指輪が砕けた：割れるエフェクトを出し、エネルギーを自城の前の地面へ飛ばす
+function onKingRingShatter(k){
+  const fx = k.def.fx;
+  const hp = ringHandPos(k);
+  const br = fx.ringBreak;
+  playFxSeq({
+    imageBase: fx.imageBase, prefix: br.prefix, count: br.count, durations: constDurations(br.count, br.dur),
+    height: br.height, pos: () => ({ x: hp.x, bottom: hp.b - br.height / 2 })
+  });
+  const field = document.getElementById("battlefield");
+  const cg = k.def.comboGate;
+  const tx = k.side === "player" ? field.clientWidth - cg.fromCastle : cg.fromCastle; // 自城の目の前
+  const ty = 76;
+  const en = fx.energy;
+  const h = en.height, w = h * 1024 / 339;
+  const el = document.createElement("img");
+  el.className = "fx-sprite";
+  el.style.height = h + "px";
+  el.src = fx.imageBase + en.prefix + "1.png";
+  field.appendChild(el);
+  const dx = tx - hp.x, db = ty - hp.b;
+  const flip = dx < 0;
+  const phi = Math.atan2(-db, Math.abs(dx)) * 180 / Math.PI; // 進行方向の傾き(画面上で下向きが正)
+  const len = Math.hypot(dx, db) || 1;
+  const ux = dx / len, ub = db / len;
+  let t = 0, frame = 0, ft = 0;
+  const side = k.side;
+  addFxTask(dt => {
+    t += dt; ft += dt;
+    while (ft >= en.dur){ ft -= en.dur; frame = (frame + 1) % en.count; el.src = fx.imageBase + en.prefix + (frame + 1) + ".png"; }
+    const p = Math.min(1, t / cg.flightMs);
+    const headX = hp.x + dx * p, headB = hp.b + db * p;
+    // 画像の右3分の1にある光の玉が先頭、左へ尾が伸びる
+    const cx = headX - ux * w * 0.33, cb = headB - ub * w * 0.33;
+    el.style.bottom = (cb - h / 2) + "px";
+    el.style.transform = "translateX(" + cx + "px) translateX(-50%) rotate(" + (flip ? -phi : phi) + "deg)" + (flip ? " scaleX(-1)" : "");
+    if (p >= 1){
+      el.remove();
+      const im = fx.impact;
+      playFxSeq({
+        imageBase: fx.imageBase, prefix: im.prefix, count: im.count, durations: constDurations(im.count, im.dur),
+        height: im.height, pos: () => ({ x: tx, bottom: 74 })
+      });
+      let wait = 0;
+      addFxTask(dt2 => { wait += dt2; if (wait < cg.gateDelayMs) return true; spawnBigGate(k, side, tx); return false; });
+      return false;
+    }
+    return true;
+  });
+}
+
+// 自城の目の前に、永遠に消えない巨大ゲートが出る
+function spawnBigGate(k, side, tx){
+  if (!battle) return;
+  const g = spawnUnit(k.def.comboGate.kind, side, 0);
+  g.owner = k;
+  g.summonTimer = g.def.firstSummonMs || 2400;
+  setMotion(g, "appear", { onEnd: () => setMotion(g, "idle", { loop:true }) });
+  const gw = 687 * g.def.pixelScale;
+  g.x = tx - gw / 2;
+  applyFrame(g);
 }
 
 /* ---------- ゴブリンの女王 ---------- */
@@ -2451,7 +2849,9 @@ function checkRingCombo(unit){
   if (!partner || battle.comboDone[unit.side]) return;
   battle.comboDone[unit.side] = true;
   const queen = unit.def.comboRole === "queen" ? unit : partner;
+  const king = unit.def.comboRole === "king" ? unit : partner;
   startRingCombo(queen);
+  startKingRingCombo(king);
 }
 
 function startRingCombo(queen){
@@ -2482,7 +2882,7 @@ function ringHandPos(unit){
   const W = unit._displayWidth || 110, H = unit._displayHeight || 120;
   const hand = unit.def.ringHand;
   const fe = unit.facing === 1 ? hand.x : 1 - hand.x;
-  return { x: unit.x + fe * W, b: 74 + (1 - hand.y) * H };
+  return { x: unit.x + fe * W, b: 74 + (unit.rideY || 0) + (1 - hand.y) * H };
 }
 
 // 指輪が砕ける瞬間：割れるエフェクトを出し、紫のエネルギーが天へ昇って画面外へ消える
@@ -2715,7 +3115,7 @@ function resolveAreaHit(unit){
   if (def.fxStompDust) spawnStompDust(unit);
   const dmg = getEffectiveAtk(unit);
   battle.units.filter(o =>
-    !o.dead && !o.mounted && o.side === enemySide &&
+    !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide &&
     Math.sign(o.x - centerX) === forwardDir &&
     edgeDistance(unit, o) <= def.areaHitReach
   ).forEach(o => applyDamageToUnit(o, dmg, unit));
@@ -2853,6 +3253,7 @@ function advanceUnit(unit, dtMs){
       });
     }
     if (def.comboRole === "queen") onQueenFrame(unit);
+    if (def.comboRole === "king") onKingFrame(unit);
     applyFrame(unit);
   }
 }
@@ -3090,7 +3491,7 @@ function updateCharge(unit, dtMs){
     const enemySide = unit.side === "player" ? "enemy" : "player";
     const hitRadius = def.rageChargeHitRadius || 55;
     const target = battle.units.find(o =>
-      !o.dead && !o.mounted && o.side === enemySide && o !== unit.chargePlowedThrough &&
+      !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide && o !== unit.chargePlowedThrough &&
       edgeDistance(unit, o) <= hitRadius
     );
     const castleEdgeX = unit.side === "player" ? 90 : fieldWidth - 90; // キャラが出現する位置まで(それより奥=城の中には入れない)
@@ -3212,6 +3613,12 @@ function afterReaction(unit){
 function killUnit(target){
   target.dead = true;
   target.target = null;
+  // ゲートが壊された：キングのゲート召喚クールタイムを延ばす
+  if (target.def.gateUnit && target.owner && target.owner.def.gate){
+    target.owner.gateCooldown += target.owner.def.gate.breakPenaltyMs;
+  }
+  if (target.bearerOf) onBearerDied(target);          // 担ぎ手が倒れた：全員倒れたら玉座が落下する
+  if (target.def.bearers) releaseBearers(target);     // キングが倒れた：残った担ぎ手は普通のユニットに戻る
   clearBuffsFrom(target); // このユニットが死んだので、与えていたバフも消える
 
   // ゴブリン・ヒーラーの自動蘇生判定：味方のゴブリン族が死亡した瞬間、
@@ -3309,6 +3716,9 @@ function updateRevive(dtMs){
 
 function applyDamageToUnit(target, amount, attacker){
   if (target.dead || target.mounted) return; // フォートレスの背中に乗っている間は攻撃を受けない
+  if (target.def.invulnerable) return;       // 巨大ゲートは壊せない
+  // 担がれているキングは、遠距離攻撃(空中に届く攻撃)でしか攻撃できない
+  if (target.elevated && attacker && !(attacker.def.ranged || attacker.def.canHitAir)) return;
   if (target.transforming) return; // 女王の第二形態への移行モーション中は無敵(毒などのダメージも受けない)
   // 女王のバリア：範囲内の味方(4m以下)は、敵の遠距離攻撃を受けない
   if (attacker && attacker.def.ranged && (target.def.heightM || 2) <= 4 && isShielded(target)) return;
@@ -3435,6 +3845,8 @@ function findNearestEnemyInRange(unit){
   battle.units.forEach(other => {
     if (other === unit || other.dead || other.side === unit.side) return;
     if (other.mounted) return; // フォートレスの背中に乗っている間は狙えない
+    if (other.def.invulnerable) return; // 壊せない巨大ゲートは狙わない
+    if (other.elevated && !(unit.def.ranged || unit.def.canHitAir)) return; // 担がれたキングは遠距離攻撃しか届かない
     if (other === unit.dodgedPastUnit) return; // 回避してすれ違った相手とは戦わない
     const d = edgeDistance(unit, other);
     if (d > unit.def.detectionRange) return;
@@ -3465,10 +3877,14 @@ function updateUnitAI(unit, dtMs){
     return;
   }
 
+  if (def.immobile){ updateGateAI(unit, dtMs); return; }        // ゲート：動かず、時間が来たら召喚する
+  if (unit.bearerOf){ updateBearerAI(unit); return; }            // キングの担ぎ手：担いでいる間は攻撃しない
+  if (def.kingLogic){ updateKingAI(unit, dtMs); return; }         // キング：ゆっくり進み、ゲートを召喚する
+
   if (def.noCombat){
     // 非戦闘ユニット(鼓舞兵など)：戦わないが、目の前に敵がいる間は立ち尽くして待つ
     const blocker = battle.units.find(other =>
-      other !== unit && !other.dead && !other.mounted && other.side !== unit.side &&
+      other !== unit && !other.dead && !other.mounted && !other.def.invulnerable && other.side !== unit.side &&
       isEngageable(unit, other) &&
       Math.abs(other.x - unit.x) <= (def.personalSpace || 50)
     );
@@ -3572,7 +3988,7 @@ function updateUnitAI(unit, dtMs){
 
     // 今の交戦相手を追っている最中でも、通り道に未交戦の非戦闘ユニットがいればすり抜けずに足止めする
     const passThroughBlocker = battle.units.find(other =>
-      other !== unit.target && !other.dead && !other.mounted && other.side !== unit.side && other.def.noCombat &&
+      other !== unit.target && !other.dead && !other.mounted && !other.def.invulnerable && other.side !== unit.side && other.def.noCombat &&
       Math.sign(other.x - unit.x) === dir &&
       Math.abs(other.x - unit.x) <= Math.abs(moveAmount)
     );
@@ -3623,6 +4039,9 @@ function battleLoop(now){
     if (unit.meteorCooldown > 0) unit.meteorCooldown = Math.max(0, unit.meteorCooldown - dt);
     if (unit.barrierMs > 0) unit.barrierMs = Math.max(0, unit.barrierMs - dt);
     updateMount(unit, dt);
+    updateBearerSync(unit);
+    updateKingBody(unit, dt);
+    if (unit.gateCooldown > 0) unit.gateCooldown = Math.max(0, unit.gateCooldown - dt);
     updateFortressCorpse(unit);
     updateBuffAura(unit, dt);
     updateFlagBuff(unit);
@@ -3702,6 +4121,10 @@ document.getElementById("cheat-enemy-fortress-btn").addEventListener("click", ()
 document.getElementById("cheat-enemy-queen-btn").addEventListener("click", () => {
   if (!battle) return;
   spawnUnit("queen", "enemy");
+});
+document.getElementById("cheat-enemy-king-btn").addEventListener("click", () => {
+  if (!battle) return;
+  spawnUnit("king", "enemy");
 });
 document.getElementById("cheat-money-btn").addEventListener("click", () => {
   if (!battle) return;
