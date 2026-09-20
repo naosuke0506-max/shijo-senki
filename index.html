@@ -164,9 +164,17 @@
   #top-right-money .money-num{ font-family:monospace; font-size:1.05rem; color:var(--gold); line-height:1.1; }
   #top-right-money .money-cap{ font-size:.6rem; color:var(--text-dim); }
 
-  #battlefield{
+  /* ステージの広さ：戦場(#battlefield)をSTAGE_ZOOM倍の広さで作り、画面に収まるよう縮小して表示する。
+     ユニットの大きさ・射程・移動速度などは、すべて拡大後の「ゲーム内の座標(px)」のまま。数字を大きくするほど広く見渡せて、キャラは小さく見える */
+  :root{ --stage-zoom: 2; }
+  #battlefield-frame{
     position:absolute; left:0; right:0; top:64px; bottom:90px; overflow:hidden;
-    background-color:#221f17;
+  }
+  #battlefield{
+    position:absolute; left:0; top:0;
+    width:calc(100% * var(--stage-zoom)); height:calc(100% * var(--stage-zoom));
+    transform:scale(calc(1 / var(--stage-zoom))); transform-origin:0 0;
+    overflow:hidden; background-color:#221f17;
   }
   #ground-line{ position:absolute; left:0; right:0; bottom:74px; height:2px; background-color:#000000; }
 
@@ -186,7 +194,7 @@
 
   .unit-sprite{ position:absolute; bottom:74px; transform-origin:bottom center; }
   .unit-sprite img{ display:block; image-rendering:-webkit-optimize-contrast; filter:drop-shadow(0 4px 4px rgba(0,0,0,.5)); }
-  .unit-sprite .uhp{ position:absolute; left:50%; transform:translateX(-50%); top:-10px; width:34px; height:4px; background:#0a0906; border:1px solid #000; }
+  .unit-sprite .uhp{ position:absolute; left:50%; transform:translateX(-50%); top:-10px; width:44px; height:5px; background:#0a0906; border:1px solid #000; }
   .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
 
   .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
@@ -296,10 +304,12 @@
       </div>
     </div>
 
+    <div id="battlefield-frame">
     <div id="battlefield">
       <div id="ground-line"></div>
       <div class="castle enemy"><div class="battlements"></div><div class="flag">🏴</div></div>
       <div class="castle player"><div class="battlements"></div><div class="flag">🚩</div></div>
+    </div>
       <button id="debug-tab">動作確認</button>
       <div id="debug-panel"></div>
       <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000円(検証用)</button>
@@ -314,7 +324,7 @@
       <button id="cheat-enemy-fortress-btn" style="position:absolute;left:0;top:364px;z-index:6;font-size:.62rem;padding:6px 8px;">敵フォートレス召喚(検証用)</button>
       <button id="cheat-enemy-queen-btn" style="position:absolute;left:0;top:400px;z-index:6;font-size:.62rem;padding:6px 8px;">敵女王召喚(検証用)</button>
       <button id="cheat-enemy-king-btn" style="position:absolute;left:0;top:436px;z-index:6;font-size:.62rem;padding:6px 8px;">敵キング召喚(検証用)</button>
-    </div>
+    </div><!-- /battlefield-frame -->
 
     <div id="battle-bottombar">
       <div id="wallet-widget">
@@ -609,7 +619,7 @@ const CHAR_DEFS = {
     netRestrainDurationMs: Infinity, // 既定は無限拘束。敵側でnetResistant/netBreakTimeMsにより個別上書き
     icon: ICON_TRAPPER,
     imageBase: IMG_TRAPPER,
-    pixelScale: 92 / 513,       // idle画像の切り抜き高さ(513px)基準
+    pixelScale: 74 / 529,       // 通常ゴブリン(約74px)と同じ大きさに。歩行コマ(529px)基準
     motionScale: {
       down: 0.68
     },
@@ -657,7 +667,7 @@ const CHAR_DEFS = {
     attackFlags: {},
     icon: ICON_ARCHER,
     imageBase: IMG_ARCHER,
-    pixelScale: 92 / 498,        // idle画像の切り抜き高さ(498px)基準
+    pixelScale: 74 / 476,        // 通常ゴブリン(約74px)と同じ大きさに。歩行コマ(476px)基準
     motionScale: {
       down: 0.68
     },
@@ -738,7 +748,7 @@ const CHAR_DEFS = {
     corpseRestoreHpPercent: 0.5, // 蘇生後のHP割合(最大HPの半分)
     icon: ICON_HEALER,
     imageBase: IMG_HEALER,
-    pixelScale: 92 * (130/140) / 513, // 身長130cm(通常ゴブリン140cm比)を反映
+    pixelScale: 74 / 511, // 通常ゴブリン(約74px)と同じ大きさに。歩行コマ(511px)基準
     motionScale: {
       down: 0.68
     },
@@ -811,8 +821,9 @@ const CHAR_DEFS = {
     attackLungeDistance: 30, // 攻撃モーション中、その場で殴らず30px前方へ踏み込みながら攻撃する
     icon: ICON_HOUND,
     imageBase: IMG_HOUND,
-    pixelScale: 92 / 878, // idle画像の切り抜き高さ(878px)基準
+    pixelScale: 74 / 575, // 通常ゴブリン(約74px)と同じ大きさに。歩行コマ(575px)基準
     motionScale: {
+      idle: 575 / 878,  // idleだけ他のコマの約1.5倍の大きさで作られているので縮小して揃える
       down: 0.68
     },
     frameCounts: {
@@ -852,8 +863,9 @@ const CHAR_DEFS = {
     attackFlags: { ignoresGuard: true, launchesUp: true }, // 通常攻撃もガード無効・打ち上げ効果を持つ
     icon: ICON_RUSHER,
     imageBase: IMG_RUSHER,
-    pixelScale: 92 * (220/140) / 921, // 全高2.2m(通常ゴブリン140cm比)、idle画像の切り抜き高さ(921px)基準
+    pixelScale: 124 / 541, // 全高約2.3m(兵士1.7m=92px比で約124px)。歩行コマ(541px)基準
     motionScale: {
+      idle: 541 / 921,  // idleだけ他のコマの約1.7倍の大きさで作られているので縮小して揃える
       down: 0.68
     },
     frameCounts: {
@@ -928,7 +940,7 @@ const CHAR_DEFS = {
     imageBase: IMG_CHIEF,
     // idle以外のコマ(歩行・攻撃など)は、旗を除いた身長がおよそ838pxの縮尺で作られている。
     // 身長175cm(兵士170cm比)に合わせて表示身長を約95pxにする。
-    pixelScale: 92 * (175/170) / 838,
+    pixelScale: 92 * (175/170) / 838 * 1.15, // 一回り大きく(約1.15倍)
     motionScale: {
       idle: 1024 / 1536  // idleだけ他のコマの約1.5倍の大きさで作られているので縮小して揃える
     },
@@ -961,25 +973,25 @@ const CHAR_DEFS = {
     atk: 40,                   // 踏み潰し(範囲攻撃)の威力
     weight: 800,
     walkSpeed: 28,
-    attackRange: 70,           // 箱(hitboxWidth)の前端からの距離
+    attackRange: 145,          // 箱(hitboxWidth)の前端からの距離
     detectionRange: 260,
     approachMotion: "walk",    // 専用の接近モーションは持たず、発見後も同じ足取りで近づく
     approachSpeed: 28,
     canGuard: false,
     alwaysSuperArmored: true,  // 常時スーパーアーマー(怯まない)
     attackFlags: { breaksShield: true }, // 踏み潰しは盾を破壊する
-    areaHitReach: 110,         // 踏み潰し：前方この距離(箱の端から)以内の敵全員にヒット
+    areaHitReach: 230,         // 踏み潰し：前方この距離(箱の端から)以内の敵全員にヒット
     poisonImmune: true,        // 巨体なので毒は効かない
     netResistant: true,        // 巨体なので罠にかからない
     staggerOnLaunch: true,     // 打ち上げ・吹き飛ばしは無効。代わりに大きくよろめいて後退する
-    staggerSlideSpeed: 20,     // よろめき中に後退する速さ(px/秒)
-    hitboxWidth: 240,          // 横幅の大きいユニット(投石器と同じ仕組み)
+    staggerSlideSpeed: 40,     // よろめき中に後退する速さ(px/秒)
+    hitboxWidth: 505,          // 横幅の大きいユニット(投石器と同じ仕組み)
     spawnFullyInside: true,    // 出撃時に体が画面外へはみ出さないよう、箱の幅だけ内側から出す
-    hpBarWidth: 80,
+    hpBarWidth: 130,
     icon: ICON_FORTRESS,
     imageBase: IMG_FORTRESS,
     // 歩行などのコマ(高さ約654px)を基準に、表示上の全高(旗の先まで)を約165pxにする
-    pixelScale: 165 / 654,
+    pixelScale: 348 / 654,  // 拠点を含まない体の高さ約4.5m(画像全体では約6.4m=約348px)
     motionScale: {
       idle: 654 / 980   // 待機だけ他のコマの約1.5倍の大きさで作られているので縮小して揃える
     },
@@ -998,7 +1010,7 @@ const CHAR_DEFS = {
     },
     attackImpactFrame: 4,      // attack_5(踏み下ろしが地面に着いた瞬間)
     // 踏み潰しの砂煙(足元に重ねて再生。黒背景なのでscreen合成)
-    fxStompDust: { count:5, prefix:"dust_fx_", durations:[200,200,200,200,200], imageBase: IMG_FORTRESS, height:110, frontFrac:0.86 },
+    fxStompDust: { count:5, prefix:"dust_fx_", durations:[200,200,200,200,200], imageBase: IMG_FORTRESS, height:230, frontFrac:0.86 },
     // 背中の拠点に乗っているゴブリン(出撃と同時に一緒に出る。乗っている間は攻撃を受けず、狙われない)
     // frac：体の後ろ端(0)から前端(1)までの位置。tower:true は見張り台の上
     riders: [
@@ -1010,7 +1022,7 @@ const CHAR_DEFS = {
       { kind: "goblin",        frac: 0.72 },
       { kind: "archer",        frac: 0.84 }
     ],
-    riderScale: 0.42,          // 乗っているゴブリンの縮尺(通常サイズに対する比)
+    riderScale: 0.75,          // 乗っているゴブリンの縮尺(通常サイズに対する比)
     deckHeightFrac: 0.80,      // デッキの床の高さ(画像の高さに対する比)
     towerHeightFrac: 0.905,    // 見張り台の床の高さ
     ladderFrac: 0.30           // 梯子の位置(後ろ端から)。死亡時、ゴブリンはここから降りる
@@ -1026,7 +1038,7 @@ const CHAR_DEFS = {
     atk: 28,                   // 近接(輝石の叩きつけ)の威力。範囲攻撃
     weight: 300,
     walkSpeed: 24,
-    attackRange: 60,
+    attackRange: 130,
     detectionRange: 320,
     approachMotion: "walk",
     approachSpeed: 24,
@@ -1035,14 +1047,14 @@ const CHAR_DEFS = {
     superArmorMotions: ["attack", "meteor", "shield"], // 近接攻撃・メテオ詠唱・シールドの最中は怯まない
     attackFlags: {},
     staggerOnLaunch: true,     // 打ち上げ・吹き飛ばしは無効。大きくよろめいて後退する
-    staggerSlideSpeed: 25,
-    hitboxWidth: 115,
+    staggerSlideSpeed: 50,
+    hitboxWidth: 255,
     spawnFullyInside: true,
-    hpBarWidth: 70,
+    hpBarWidth: 100,
     icon: ICON_QUEEN,
     imageBase: IMG_QUEEN,
     // 歩行などのコマ(高さ約920px)を基準に、表示上の全高(杖の先まで)を約130pxにする
-    pixelScale: 130 / 921,
+    pixelScale: 288 / 921,  // しゃがんだ状態で本体が約4m(杖の先まで含めた画像全体では約288px)
     motionScale: {
       idle: 919 / 1181   // 待機だけ他のコマの約1.29倍の大きさで作られているので縮小して揃える
     },
@@ -1064,15 +1076,15 @@ const CHAR_DEFS = {
       ring:      [185,185,250,350,185]
     },
     attackImpactFrame: 4,      // attack_5(杖の輝石が地面に着いた瞬間)
-    areaHitReach: 90,          // 叩きつけの欠片が届く範囲(前方この距離の敵全員)
-    fxStompDust: { count:5, prefix:"shard_fx_", durations:[170,170,170,170,170], imageBase: IMG_QUEEN, height:90, frontFrac:0.88 },
+    areaHitReach: 200,         // 叩きつけの欠片が届く範囲(前方この距離の敵全員)
+    fxStompDust: { count:5, prefix:"shard_fx_", durations:[170,170,170,170,170], imageBase: IMG_QUEEN, height:200, frontFrac:0.88 },
     // 第一形態の魔法
     skills: {
       // シールド：遠距離攻撃を持つ敵が近くにいるとき、前方に紫のバリアを張る。バリア内の味方(4m以下)は遠距離攻撃を受けない
-      shield: { range: 420, cooldownMs: 14000, durationMs: 6000, reach: 100, activateFrame: 1 },
+      shield: { range: 420, cooldownMs: 14000, durationMs: 6000, reach: 220, activateFrame: 1 },
       // メテオ：杖を突き刺して詠唱し、斜め前上空の黒い穴からメテオを1発ずつ計2発落とす
-      meteor: { range: 380, cooldownMs: 12000, riftFrame: 1, holeInFront: 50, holeHeight: 150, holeSize: 90,
-                launchAt: [700, 1500], travelMs: 550, damage: 30, radius: 60 }
+      meteor: { range: 380, cooldownMs: 12000, riftFrame: 1, holeInFront: 90, holeHeight: 300, holeSize: 170,
+                launchAt: [700, 1500], travelMs: 700, damage: 30, radius: 110 }
     },
     // HPが50%以下になると一度だけ第二形態(queenBeast)へ移行する
     transformAtHpRatio: 0.5,
@@ -1085,16 +1097,16 @@ const CHAR_DEFS = {
     ringHand: { x: 0.66, y: 0.16 }, // 掲げた手の位置(画像の後ろ端からの横位置・上端からの縦位置の比)
     fx: {
       imageBase: IMG_QUEEN,
-      barrier:      { prefix:"barrier_fx_", count:6, dur:200, height:130 },
+      barrier:      { prefix:"barrier_fx_", count:6, dur:200, height:240 }, // 4m以下を守るので、高さは女王の背丈相当
       rift:         { prefix:"rift_fx_", count:5, durations:[250,250,1750,250,250], size:90 },
-      meteorFly:    { prefix:"meteor_fx_", count:3, dur:245, height:110, aspect:687/1024 },
-      meteorImpact: { prefix:"meteor_impact_fx_", count:4, dur:170, height:100 },
-      circle:       { prefix:"circle_fx_", count:4, dur:195, height:80 },
-      ringBreak:    { prefix:"ring_fx_", count:4, dur:200, height:110 },
-      energy:       { prefix:"energy_fx_", count:3, dur:170, height:200, aspect:339/1024, riseSpeed:300 }
+      meteorFly:    { prefix:"meteor_fx_", count:3, dur:245, height:210, aspect:687/1024 },
+      meteorImpact: { prefix:"meteor_impact_fx_", count:4, dur:170, height:190 },
+      circle:       { prefix:"circle_fx_", count:4, dur:195, height:170 },
+      ringBreak:    { prefix:"ring_fx_", count:4, dur:200, height:210 },
+      energy:       { prefix:"energy_fx_", count:3, dur:170, height:400, aspect:339/1024, riseSpeed:600 }
     },
     // 指輪コンボの隕石(20秒後から降り注ぐ。女王が倒されても降る。永遠には降らない)
-    comboMeteor: { delayMs: 20000, durationMs: 10000, intervalMs: 450, damage: 22, radius: 55, minSeparation: 65, travelMs: 800 }
+    comboMeteor: { delayMs: 20000, durationMs: 10000, intervalMs: 450, damage: 22, radius: 95, minSeparation: 110, travelMs: 1000 }
   },
 
   king: {
@@ -1116,12 +1128,12 @@ const CHAR_DEFS = {
     attackFlags: {},
     staggerOnLaunch: true,     // 打ち上げ・吹き飛ばしは無効。担ぎ手ごと後ろへよろめく
     staggerSlideSpeed: 15,
-    hitboxWidth: 100,
+    hitboxWidth: 135,
     spawnFullyInside: true,
     hpBarWidth: 60,
     icon: ICON_KING,
     imageBase: IMG_KING,
-    pixelScale: 95 / 903,      // 歩行などのコマ(高さ約903px)を基準に、玉座の表示高さを約95pxにする
+    pixelScale: 124 / 903,     // 歩行などのコマ(高さ約903px)を基準に、玉座の表示高さを約124pxにする(以前の約1.3倍)
     motionScale: {
       idle: 903 / 1157         // 待機だけ他のコマの約1.28倍の大きさで作られているので縮小して揃える
     },
@@ -1145,20 +1157,20 @@ const CHAR_DEFS = {
       { kind: "bruteGoblin", frac: 0.13 },
       { kind: "bruteGoblin", frac: 0.87 }
     ],
-    carryHeight: 60,           // 担がれている間の玉座の高さ(px)。担ぎ手の肩の高さ
+    carryHeight: 78,           // 担がれている間の玉座の高さ(px)。担ぎ手(屈強なゴブリン約112px)の肩の高さ
     // ゲート召喚：大笑いして玉座を叩くと、背後にゲートが出る
-    gate: { kind: "gate", cooldownMs: 45000, breakPenaltyMs: 20000, behind: 95, spawnFrame: 2 },
+    gate: { kind: "gate", cooldownMs: 45000, breakPenaltyMs: 20000, behind: 150, spawnFrame: 2 },
     // 指輪コンボ(女王と揃ったとき)：指輪を掲げて割ると、エネルギーが自城の前の地面に消え、巨大ゲートが出る
     comboRole: "king",
     ringShatterFrame: 3,       // 指輪が砕けるコマ(0始まり)
     ringHand: { x: 0.52, y: 0.10 },
-    comboGate: { kind: "bigGate", fromCastle: 150, flightMs: 1100, gateDelayMs: 500 },
+    comboGate: { kind: "bigGate", fromCastle: 235, flightMs: 1100, gateDelayMs: 500 },
     fx: {
       imageBase: IMG_KING,
-      ringBreak: { prefix:"ring_fx_", count:4, dur:250, height:110 },
-      energy:    { prefix:"energy_fx_", count:3, dur:250, height:60 },
-      impact:    { prefix:"impact_fx_", count:4, dur:250, height:100 },
-      summon:    { prefix:"summon_fx_", count:5, dur:210, height:90 }
+      ringBreak: { prefix:"ring_fx_", count:4, dur:250, height:150 },
+      energy:    { prefix:"energy_fx_", count:3, dur:250, height:90 },
+      impact:    { prefix:"impact_fx_", count:4, dur:250, height:170 },
+      summon:    { prefix:"summon_fx_", count:5, dur:210, height:150 }
     }
   },
 
@@ -1178,11 +1190,11 @@ const CHAR_DEFS = {
     immobile: true,
     gateUnit: true,
     noRevive: true,
-    hitboxWidth: 80,
-    hpBarWidth: 60,
+    hitboxWidth: 150,
+    hpBarWidth: 100,
     imageBase: IMG_KING,
     imagePrefix: "gate_",
-    pixelScale: 120 / 1024,    // ゲートの絵(高さ1024px)を約120pxに(6m相当)
+    pixelScale: 292 / 1024,    // ゲートの絵(高さ1024px)を約292pxに(通常6m。巨大ゲート8mとの比は3:4)
     motionScale: {},
     frameCounts: { idle:2, appear:6, down:5, vanish:6 },
     frameDurations: {
@@ -1214,10 +1226,10 @@ const CHAR_DEFS = {
     gateUnit: true,
     invulnerable: true,        // 壊せない。永遠に残る
     noRevive: true,
-    hitboxWidth: 100,
+    hitboxWidth: 200,
     imageBase: IMG_KING,
     imagePrefix: "biggate_",
-    pixelScale: 160 / 1024,    // 高さ約160px(8m相当)
+    pixelScale: 390 / 1024,    // 高さ約390px(8m相当)
     motionScale: {},
     frameCounts: { idle:2, appear:6 },
     frameDurations: {
@@ -1371,7 +1383,7 @@ CHAR_DEFS.queenBeast = Object.assign({}, CHAR_DEFS.queen, {
   atk: 24,                   // 近接は爪の2ヒット(1ヒットあたりの威力)
   walkSpeed: 58,             // 四足で駆け抜ける(移動速度アップ)
   approachSpeed: 58,
-  attackRange: 55,
+  attackRange: 120,
   skills: null,              // バリア・メテオなどの魔法は使えなくなる(コンボの隕石は例外)
   transformAtHpRatio: null,
   areaHitReach: null,        // 第二形態は範囲攻撃ではなく、爪で目の前の相手を2回攻撃する
@@ -2833,7 +2845,7 @@ function summonQueenHealers(unit){
   const center = unitCenterX(unit);
   for (let i = 0; i < n; i++){
     const h = spawnUnit("healer", unit.side, 0);
-    const off = (i % 2 === 0 ? 1 : -1) * (55 + Math.floor(i / 2) * 30);
+    const off = (i % 2 === 0 ? 1 : -1) * (120 + Math.floor(i / 2) * 60);
     h.x = center + off - (h._displayWidth || 30) / 2;
     applyFrame(h);
   }
@@ -3062,14 +3074,14 @@ function updateDismount(r, dtMs){
     const dx = ladderX() - r.x;
     if (Math.abs(dx) <= 2){ r.dismountPhase = "climb"; return; }
     const dir = dx > 0 ? 1 : -1;
-    r.x += dir * 60 * (dtMs / 1000);
+    r.x += dir * 100 * (dtMs / 1000);
     r.facing = dir;
     applyFrame(r);
     return;
   }
 
   // climb
-  r.rideY = Math.max(0, r.rideY - 80 * (dtMs / 1000));
+  r.rideY = Math.max(0, r.rideY - 160 * (dtMs / 1000));
   const p = 1 - r.rideY / (r.startRideY || 1);
   const base = m.def.riderScale || 0.42;
   r.scaleMult = base + (1 - base) * p;
