@@ -436,6 +436,16 @@ function attachImgFallback(imgEl, label){
    ユニット(戦車など)に適用していく前提の「倍率1.0」基準点。
    ランク名は後日決定(仮に rank:null としておく)。
    ========================================================= */
+// ゲートの召喚予定を作る。「残り何秒のときに召喚するか」を、キャラごとに並べて指定する(ゲートが出現してからの経過秒に直して並べ替える)
+function buildSummonSchedule(remainingByKind, totalSec){
+  const list = [];
+  Object.keys(remainingByKind).forEach(kind => {
+    remainingByKind[kind].forEach(r => list.push({ at: totalSec - r, kind }));
+  });
+  list.sort((a, b) => a.at - b.at);
+  return list;
+}
+
 const CHAR_DEFS = {
   soldier: {
     name: "兵士",
@@ -489,6 +499,7 @@ const CHAR_DEFS = {
   },
 
   spearman: {
+    bonusVsRace: { beast: 1.2 }, // 魔獣・獣(種族beast)への攻撃力が20%上がる
     name: "槍兵",
     rank: null, // 後日決定
     race: "human",
@@ -624,6 +635,7 @@ const CHAR_DEFS = {
   },
 
   trapper: {
+    trapCells: [18, 10],        // 罠を置くマス(左から数えた列)。以前は3つだったが、2つに
     name: "ゴブリン罠兵",
     rank: null,
     race: "goblin",
@@ -1236,9 +1248,17 @@ const CHAR_DEFS = {
     },
     motionAlias: { vanish: { as: "appear", reverse: true } }, // 時間切れで消えるときは、出現を逆再生する
     lifeMs: 30000,
-    summonEveryMs: 3500,       // ★暫定
-    firstSummonMs: 1500,       // 出現アニメが終わってから最初の召喚まで(出現1.5秒後)
-    summonList: ["goblin", "archer", "bruteGoblin", "tamer", "catapult", "chief"]
+    // 召喚の予定：ゲートが出現してから残り何秒のときに召喚するか(30秒から数える)。
+    // 召喚のたびに、ゲートの2レーンに同時に出る(2レーン分の大きさのキャラは、2レーンをまたいで1体)
+    summonSchedule: buildSummonSchedule({
+      goblin:      [25, 22, 18, 14, 10, 6, 5, 4, 3, 2],
+      archer:      [19, 18, 17, 16, 15, 14],
+      bruteGoblin: [20, 13],
+      tamer:       [27, 13, 5],
+      rusher:      [3],
+      catapult:    [28],
+      chief:       [5]
+    }, 30)
   },
 
   bigGate: {
@@ -1269,9 +1289,19 @@ const CHAR_DEFS = {
       idle:   [350,350],
       appear: [350,350,350,350,350,350]
     },
-    summonEveryMs: 6000,       // ★暫定
-    firstSummonMs: 2400,
-    summonList: ["goblin", "archer", "bruteGoblin", "tamer", "rusher", "catapult", "chief"]
+    // 召喚の予定：30秒のサイクルを繰り返す。残り何秒のときに召喚するか(30秒から数える)。
+    // 召喚のたびに、ゲートの3レーンに同時に出る(2レーン分は、3レーンのうち隣り合う2レーンのどちらかに1体。3レーン分は3レーンをまたいで1体)
+    cycleSec: 30,
+    summonSchedule: buildSummonSchedule({
+      goblin:      [26, 27, 26, 25, 24, 18, 17, 16, 15],
+      archer:      [22, 21, 20, 19],
+      bruteGoblin: [27, 23],
+      tamer:       [26, 25, 24],
+      rusher:      [10, 8],
+      catapult:    [18, 14],
+      chief:       [28],
+      fortress:    [5]
+    }, 30)
   },
 
   goblin: {
@@ -1839,7 +1869,7 @@ function spawnUnit(kind, side, xOffset, opts){
     dodgedPastUnit: null, // 回避してすれ違った相手(この相手とは戦わない)
     buffSources: new Set(), // このユニットを鼓舞したドラマー(死ぬとバフが消える)
     inspireCooldown: 0,     // 鼓舞兵専用：次に発動判定できるまでの残り時間
-    trapCheckpointIndex: 0,        // 罠兵専用：自軍城前→中間→敵城前のうち、次に設置すべき地点の番号(0〜3、3で設置完了)
+    trapCheckpointIndex: 0,        // 罠兵専用：18マス目→10マス目のうち、次に設置すべき地点の番号(0〜2、2で設置完了)
     restrained: false,            // 罠に拘束されている間はtrue(AI停止・ガード/回避不可)
     restrainRemainingMs: 0,       // 拘束の残り時間(Infinityなら自力脱出しない)
     launched: false,              // 打ち上げ/吹き飛ばし中はtrue(AI停止・見た目が浮く)
@@ -2061,16 +2091,17 @@ function updateInspire(unit, dtMs){
 
 // 罠兵が設置できる3地点(自軍城前・ステージ中間・敵城前)のx座標を返す
 function getTrapCheckpoints(unit){
-  const field = document.getElementById("battlefield");
-  const fieldWidth = field ? field.clientWidth : 800;
-  const ownFront = unit.side === "player" ? fieldWidth - 90 : 90;
-  const midPoint = fieldWidth / 2;
-  const enemyFront = unit.side === "player" ? 60 : fieldWidth - 60;
-  return [ownFront, midPoint, enemyFront];
+  // 罠を置くマス(自軍が右にいる場合の、左から数えた列番号)。敵側の罠兵は、左右を反転したマスに置く
+  const cols = Math.floor(STAGE_W / GRID_CELL);
+  const cells = unit.def.trapCells || [18, 10];
+  return cells.map(c => {
+    const col = unit.side === "player" ? c : cols + 1 - c;
+    return (col - 0.5) * GRID_CELL; // マスの中心
+  });
 }
 
 // 罠兵の罠設置判定：自軍城前→ステージ中間→敵城前の順に、その地点へ辿り着いた時だけ1つ設置する。
-// 各地点は一度設置したら二度と使わない(合計で最大3個)。
+// 各地点は一度設置したら二度と使わない(合計で最大2個: 18マス目と10マス目)。
 function updateTrapper(unit, dtMs){
   const def = unit.def;
   if (!def.canTrap || unit.dead || unit.restrained) return;
@@ -2078,7 +2109,7 @@ function updateTrapper(unit, dtMs){
 
   const checkpoints = getTrapCheckpoints(unit);
   const idx = unit.trapCheckpointIndex || 0;
-  if (idx >= checkpoints.length) return; // 3地点とも設置済み
+  if (idx >= checkpoints.length) return; // 全地点とも設置済み
 
   const targetX = checkpoints[idx];
   const forwardDir = unit.side === "player" ? -1 : 1;
@@ -2612,7 +2643,7 @@ const STATUS_ICON_DEFS = {
   // 被ダメージ軽減(鼓舞兵)：青い盾＋上向き矢印
   defUp:   { title: "被ダメージ軽減", svg: '<path d="M2.5 3 H14 V12 C14 16.5 8.2 20 8.2 21.5 C8.2 20 2.5 16.5 2.5 12Z" fill="#4a90e2" stroke="#0c2a52" stroke-width=".9"/>' + UP_ARROW_SVG("#6cf08a") },
   // 魔獣への攻撃力上昇(テイマー)：魔獣の頭＋オレンジの上向き矢印
-  beastAtk:{ title: "魔獣の攻撃力上昇", svg: '<path d="M1.5 17 L3 8 L6 10 L10 7.5 L13 10.5 L15.5 12 L14 15.5 L10 17.5 L5 18Z" fill="#a67c52" stroke="#3b2612" stroke-width=".9"/><circle cx="9" cy="12.2" r="1.1" fill="#ffd45c"/><path d="M12.5 16 l1.6 2 M10.5 16.5 l1 2" stroke="#fff" stroke-width=".9"/>' + UP_ARROW_SVG("#ff8a1f") },
+  beastAtk:{ title: "魔獣・獣への攻撃力上昇", svg: '<path d="M1.5 17 L3 8 L6 10 L10 7.5 L13 10.5 L15.5 12 L14 15.5 L10 17.5 L5 18Z" fill="#a67c52" stroke="#3b2612" stroke-width=".9"/><circle cx="9" cy="12.2" r="1.1" fill="#ffd45c"/><path d="M12.5 16 l1.6 2 M10.5 16.5 l1 2" stroke="#fff" stroke-width=".9"/>' + UP_ARROW_SVG("#ff8a1f") },
   // 対城攻撃力上昇(長の旗)：城＋オレンジの上向き矢印
   castleAtk:{ title: "敵城への攻撃力上昇", svg: '<path d="M1.5 21 V9 H4.5 V11.5 H7.5 V9 H10.5 V11.5 H13.5 V9 H15.5 V21Z" fill="#b39b6a" stroke="#3b3320" stroke-width=".9"/><rect x="6.5" y="15" width="3" height="6" fill="#3b3320"/>' + UP_ARROW_SVG("#ff8a1f") },
   // 近接攻撃中スーパーアーマー(長の特殊モーション)
@@ -2640,7 +2671,8 @@ function getStatusKeys(unit){
     if (getBuffFactor(unit, "buffSpeedMult") > 1) keys.push("speedUp");
     if (getBuffFactor(unit, "buffDamageCutMult") < 1) keys.push("defUp");
   }
-  if (def.tamerBuffEligible && hasLivingTamerAlly(unit)) keys.push("beastAtk");
+  if (def.tamerBuffEligible && hasLivingTamerAlly(unit) && keys.indexOf("atkUp") === -1) keys.push("atkUp"); // テイマーがいる間の魔獣の攻撃力+10%
+  if (def.bonusVsRace && def.bonusVsRace.beast) keys.push("beastAtk");                                           // 魔獣・獣に対して攻撃力が上がる(槍兵)
   if (getFlagSource(unit)) keys.push("castleAtk");
   if (unit.attackArmorMs > 0) keys.push("armor");
   if (battle.units.some(q => !q.dead && q.side === unit.side && q.barrierMs > 0) && (def.heightM || 2) <= 4 && isShielded(unit)) keys.push("barrier");
@@ -2811,6 +2843,7 @@ function spawnGate(k){
 function updateGateAI(g, dtMs){
   const def = g.def;
   if (g.motion === "vanish" || g.dead) return;
+  g.age = (g.age || 0) + dtMs; // ゲートが出現してからの経過時間(ms)
   if (def.lifeMs){
     g.lifeMs -= dtMs;
     if (g.lifeMs <= 0){
@@ -2819,39 +2852,75 @@ function updateGateAI(g, dtMs){
       return;
     }
   }
-  if (g.motion !== "idle") return; // 出現の最中は召喚しない
-  g.summonTimer -= dtMs;
-  if (g.summonTimer <= 0){
-    g.summonTimer += def.summonEveryMs;
-    summonFromGate(g);
+  if (g.motion !== "idle") return; // 出現の最中は召喚しない(終わったら、予定の時刻を過ぎた分をまとめて召喚する)
+  const sched = def.summonSchedule;
+  if (sched && sched.length){
+    let t = g.age;
+    if (def.cycleSec){
+      // サイクルを繰り返す(巨大ゲート)：1周したら、予定を最初から数え直す
+      const cycleMs = def.cycleSec * 1000;
+      t = g.age - (g.cycleCount || 0) * cycleMs;
+      while (t >= cycleMs){ g.cycleCount = (g.cycleCount || 0) + 1; g.nextEvent = 0; t -= cycleMs; }
+    }
+    let i = g.nextEvent || 0;
+    while (i < sched.length && sched[i].at * 1000 <= t){
+      summonFromGate(g, sched[i].kind);
+      i++;
+    }
+    g.nextEvent = i;
   }
 }
 
-// ゲートからゴブリンを1体召喚する(ゲートの前に、光の柱とともに現れる)
-function summonFromGate(g){
-  const list = g.def.summonList;
-  const kind = list[Math.floor(Math.random() * list.length)];
+// ゲートからキャラを召喚する(ゲートの前に、光の柱とともに現れる)。ゲートの全レーンに同時に出る
+function summonFromGate(g, kindArg){
+  let kind = kindArg;
+  if (!kind){
+    // 予定を使わないとき(検証用など)：summonPlanの順、なければsummonListからランダム
+    const plan = g.def.summonPlan;
+    if (plan && plan.length){
+      kind = plan[(g.planIndex || 0) % plan.length];
+      g.planIndex = (g.planIndex || 0) + 1;
+    } else {
+      const list = g.def.summonList || ["goblin"];
+      kind = list[Math.floor(Math.random() * list.length)];
+    }
+  }
+  const cdef = CHAR_DEFS[kind];
+  const span = cdef.laneSpan || 1;
+  const nLanes = g.laneHi - g.laneLo + 1;
+  // 出るレーン：1レーンのキャラは、ゲートの全レーンに1体ずつ。
+  // 複数レーンを占めるキャラは、収まる位置(隣り合うレーン)のどれかに1体だけ(ゲートと同じ幅なら、またいで1体)
+  const ownLanes = [];
+  if (span === 1){
+    for (let l = g.laneLo; l <= g.laneHi; l++) ownLanes.push(l);
+  } else {
+    const starts = Math.max(1, nLanes - span + 1);
+    const start = g.laneLo + Math.floor(Math.random() * starts);
+    ownLanes.push(span >= 3 ? start + 1 : start);
+  }
   const gw = g._displayWidth || 80;
   const dir = g.side === "player" ? -1 : 1;
-  const cx = g.x + gw / 2 + dir * gw * 0.35;
-  const summonLane = g.laneLo + Math.floor(Math.random() * (g.laneHi - g.laneLo + 1)); // ゲートの占有レーンのどこかに出る
-  const u = spawnUnit(kind, g.side, 0, { lane: summonLane });
-  u.x = cx - 15;
-  applyFrame(u);
-  // テイマーのように、魔獣がセットになっているキャラは、通常の出撃と同じく魔獣も一緒に召喚する
-  (u.def.summons || []).forEach(sm => {
-    const subLanes = summonLanes(u.lane, sm.count); // 魔獣は、両隣のレーンに1匹ずつ(壁ならテイマーと同じレーン)
-    for (let i = 0; i < sm.count; i++){
-      const sub = spawnUnit(sm.kind, g.side, 0, { lane: subLanes[i] });
-      sub.x = cx - 15 + (i - (sm.count - 1) / 2) * 26;
-      applyFrame(sub);
-    }
-  });
-  const fx = g.owner && g.owner.def.fx ? g.owner.def.fx : CHAR_DEFS.king.fx;
-  const sm = fx.summon;
-  playFxSeq({
-    imageBase: fx.imageBase, prefix: sm.prefix, count: sm.count, durations: constDurations(sm.count, sm.dur),
-    height: sm.height, pos: () => ({ x: cx, bottom: (u.baseB || 74) - 4 })
+  const baseCx = g.x + gw / 2 + dir * gw * 0.35;
+  const fxDef = g.owner && g.owner.def.fx ? g.owner.def.fx : CHAR_DEFS.king.fx;
+  const smfx = fxDef.summon;
+  ownLanes.forEach(lane => {
+    const cx = baseCx + (Math.random() * 30 - 15); // 同じ時刻・同じレーンに続けて出るときに、重なりすぎないようにずらす
+    const u = spawnUnit(kind, g.side, 0, { lane });
+    u.x = cx - 15;
+    applyFrame(u);
+    // テイマーのように、魔獣がセットになっているキャラは、通常の出撃と同じく魔獣も一緒に召喚する
+    (u.def.summons || []).forEach(sm => {
+      const subLanes = summonLanes(u.lane, sm.count); // 魔獣は、両隣のレーンに1匹ずつ(壁ならテイマーと同じレーン)
+      for (let i = 0; i < sm.count; i++){
+        const sub = spawnUnit(sm.kind, g.side, 0, { lane: subLanes[i] });
+        sub.x = cx - 15 + (i - (sm.count - 1) / 2) * 26;
+        applyFrame(sub);
+      }
+    });
+    playFxSeq({
+      imageBase: fxDef.imageBase, prefix: smfx.prefix, count: smfx.count, durations: constDurations(smfx.count, smfx.dur),
+      height: Math.max(smfx.height, Math.round((cdef.laneStdHeight || 0) * 0.6)), pos: () => ({ x: cx, bottom: (u.baseB || 74) - 4 })
+    });
   });
 }
 
@@ -3933,7 +4002,9 @@ function resolveAttackImpact(unit){
     resolveAreaHit(unit);
     if (unit.attackHadTarget) return;
   } else if (unit.target && !unit.target.dead){
-    applyDamageToUnit(unit.target, getEffectiveAtk(unit), unit);
+    // 種族ごとの攻撃力ボーナス(槍兵は魔獣・獣に強い)
+    const raceBonus = (unit.def.bonusVsRace && unit.def.bonusVsRace[unit.target.def.race]) || 1;
+    applyDamageToUnit(unit.target, getEffectiveAtk(unit) * raceBonus, unit);
     return;
   }
   if (unit.side === "player"){
