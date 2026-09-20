@@ -820,6 +820,8 @@ const CHAR_DEFS = {
   },
 
   hound: {
+    laneReach: 1,              // 隣のレーンの敵も見つけられる
+    laneStep: true,            // 近接攻撃のとき、隣のレーンへ移動して攻撃できる
     name: "魔獣",
     rank: null,
     race: "beast",       // ゴブリン族ではない(鼓舞兵のバフ対象外・ヒーラーの蘇生対象外)
@@ -861,7 +863,6 @@ const CHAR_DEFS = {
   },
 
   rusher: {
-    laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)。攻撃は自分のレーンだけ
     name: "ゴブリン・ラッシャー",
     rank: null,
     race: "beast",
@@ -982,6 +983,7 @@ const CHAR_DEFS = {
   },
 
   fortress: {
+    laneStdHeight: 348,
     laneSpan: 3,               // 3レーン分の大きさ(基準は真ん中のレーン)。近接は自分のレーンだけ
     name: "ゴブリン・ビースト・フォートレス",
     rank: null,
@@ -1048,6 +1050,7 @@ const CHAR_DEFS = {
   },
 
   queen: {
+    laneStdHeight: 288,
     laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)。攻撃は自分のレーンだけ
     name: "ゴブリンの女王",
     rank: null,
@@ -1196,6 +1199,7 @@ const CHAR_DEFS = {
   },
 
   gate: {
+    laneStdHeight: 292,
     laneSpan: 2,               // 2レーン分
     name: "ゲート",
     hiddenFromFormation: true,
@@ -1233,6 +1237,7 @@ const CHAR_DEFS = {
   },
 
   bigGate: {
+    laneStdHeight: 390,
     laneSpan: 3,               // 3レーン分(中央のレーンが基準)
     name: "巨大ゲート",
     hiddenFromFormation: true,
@@ -1351,6 +1356,7 @@ const CHAR_DEFS = {
   },
 
   catapult: {
+    laneStdHeight: 152,        // 立っているときの高さ(px)。複数レーンを占めるキャラは、占有するレーンの中心にこの高さの中心を合わせる
     laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)
     splashLaneSpan: 2,         // 着弾の範囲は2レーン分(自分のレーンの敵を狙い、隣にもダメージ)
     name: "ゴブリン投石器",
@@ -2309,7 +2315,9 @@ function launchUnit(target, attacker, opts){
   if (opts.knockback){
     // 攻撃者から見て奥(=対象から見て後方)へ弾き飛ばす
     const awayDir = attacker ? Math.sign(target.x - attacker.x) || (target.side === "player" ? 1 : -1) : 1;
-    target.launchVX = awayDir * (opts.backSpeed || 250);
+    // 吹き飛びは、レーンをまたがず、後ろへ2マス分だけ飛ぶ(滞空時間で割って速度を決める)
+    const airtime = 2 * target.launchVY / LAUNCH_GRAVITY;
+    target.launchVX = awayDir * (opts.knockbackDist || 2 * GRID_CELL) / airtime;
   } else {
     target.launchVX = 0;
   }
@@ -2484,10 +2492,31 @@ function updateFlagBuff(unit){
 
 /* ---------- ゴブリン長：中距離技(突進×字斬り→後退→5連斬り) ---------- */
 
+// 中距離技の相手：自分と上下1つずつのレーンの敵のうち、間合いに入っている最も近い相手(同じレーンを優先)
+function findMidrangeTarget(unit, mid){
+  const lo = Math.max(0, unit.lane - 1), hi = Math.min(GRID_LANES - 1, unit.lane + 1);
+  let best = null, bestScore = Infinity;
+  battle.units.forEach(o => {
+    if (o.dead || o.side === unit.side || o.mounted || o.elevated || o.def.invulnerable) return;
+    if (!lanesOverlap(lo, hi, o.laneLo, o.laneHi)) return;
+    if (o === unit.dodgedPastUnit || !isEngageable(unit, o)) return;
+    const d = edgeDistance(unit, o);
+    if (d <= unit.def.attackRange || d < mid.minRange || d > mid.maxRange) return;
+    const score = d + (lanesOverlap(unit.lane, unit.lane, o.laneLo, o.laneHi) ? 0 : 40);
+    if (score < bestScore){ best = o; bestScore = score; }
+  });
+  return best;
+}
+
 function startMidrange(unit){
   const mid = unit.def.midrange;
   unit.midCooldown = mid.cooldownMs || 6000;
   unit.attackHadTarget = !!unit.target;
+  if (unit.target && !lanesOverlap(unit.lane, unit.lane, unit.target.laneLo, unit.target.laneHi)){
+    // 突進(最初の4コマ)のあいだに、相手のレーンへ移る
+    const durs = unit.def.frameDurations[mid.motion || "midrange"];
+    startLaneStep(unit, laneTowards(unit, unit.target), (durs[0] + durs[1] + durs[2] + durs[3]) * 0.9);
+  }
   setMotion(unit, mid.motion || "midrange", { onEnd: onAttackEnd });
 }
 
@@ -2809,7 +2838,8 @@ function onKingRingShatter(k){
   const field = document.getElementById("battlefield");
   const cg = k.def.comboGate;
   const tx = k.side === "player" ? field.clientWidth - cg.fromCastle : cg.fromCastle; // 自城の目の前
-  const ty = laneFloor(1) + 2; // 巨大ゲートは3レーン分で、中央のレーン基準(下から2番目のレーンの床に立つ)
+  const bigBase = laneGeom(CHAR_DEFS[k.def.comboGate.kind], 2).baseB; // 巨大ゲートは3レーン分で、中央のレーン基準
+  const ty = bigBase + 2;
   const en = fx.energy;
   const h = en.height, w = h * 1024 / 339;
   const el = document.createElement("img");
@@ -2838,7 +2868,7 @@ function onKingRingShatter(k){
       const im = fx.impact;
       playFxSeq({
         imageBase: fx.imageBase, prefix: im.prefix, count: im.count, durations: constDurations(im.count, im.dur),
-        height: im.height, pos: () => ({ x: tx, bottom: laneFloor(1) })
+        height: im.height, pos: () => ({ x: tx, bottom: bigBase })
       });
       let wait = 0;
       addFxTask(dt2 => { wait += dt2; if (wait < cg.gateDelayMs) return true; spawnBigGate(k, side, tx); return false; });
@@ -2870,13 +2900,26 @@ function clampLaneForSpan(lane, span){
   if (span === 2) return Math.max(0, Math.min(GRID_LANES - 2, lane));
   return Math.max(0, Math.min(GRID_LANES - 1, lane));
 }
-function setUnitLane(unit, lane){
-  const span = unit.def.laneSpan || 1;
+// レーンの位置関係を計算する。複数レーンを占めるキャラは、占有するレーン全体の中心に、立っているときの高さの中心を合わせる
+// (2レーンなら2レーンの真ん中、3レーンなら真ん中のレーンが中心。どのレーンを占有しているか分かりやすい)
+function laneGeom(def, lane){
+  const span = def.laneSpan || 1;
   const l = clampLaneForSpan(lane, span);
-  unit.lane = l;
-  unit.laneLo = span >= 3 ? l - 1 : l;
-  unit.laneHi = unit.laneLo + span - 1;
-  unit.baseB = laneFloor(unit.laneLo);
+  const lo = span >= 3 ? l - 1 : l;
+  const hi = lo + span - 1;
+  let baseB = laneFloor(lo);
+  if (span >= 2){
+    const centerY = (laneFloor(lo) + laneFloor(hi) + GRID_CELL) / 2;
+    baseB = centerY - (def.laneStdHeight || GRID_CELL * span) / 2;
+  }
+  return { lane: l, lo, hi, baseB };
+}
+function setUnitLane(unit, lane){
+  const g = laneGeom(unit.def, lane);
+  unit.lane = g.lane;
+  unit.laneLo = g.lo;
+  unit.laneHi = g.hi;
+  unit.baseB = g.baseB;
   unit.el.style.bottom = unit.baseB + "px";
   unit.el.style.zIndex = String(laneZ(unit));
 }
@@ -2940,9 +2983,33 @@ function laneDodgeMove(unit, toLane, first){
   const durs = unit.def.frameDurations.dodge || [185,185,185,185,185,185];
   const dur = durs.reduce((a, b) => a + b, 0);
   unit.laneMoving = true;
-  unit.laneTween = { fromB: unit.baseB, toB: laneFloor(toLane), toLane, t: 0, dur, first };
+  unit.laneTween = { fromB: unit.baseB, toB: laneGeom(unit.def, toLane).baseB, toLane, t: 0, dur, first };
   unit.el.style.zIndex = String(Math.max(laneZ(unit), 10 + (GRID_LANES - toLane) * 10));
   setMotion(unit, "dodge", { onEnd: () => afterReaction(unit) });
+}
+
+// 攻撃のためにレーンを移動する(魔獣の近接、ゴブリン長の中距離技)。移動中も無敵にはならない
+function startLaneStep(unit, toLane, durMs){
+  if (unit.laneTween || unit.launched || unit.restrained) return;
+  const g = laneGeom(unit.def, toLane);
+  if (g.lane === unit.lane) return;
+  unit.laneTween = { fromB: unit.baseB, toB: g.baseB, toLane: g.lane, t: 0, dur: Math.max(60, durMs), first: false };
+  unit.el.style.zIndex = String(Math.max(laneZ(unit), 10 + (GRID_LANES - g.lo) * 10));
+}
+// 相手の占有レーンのうち、自分にいちばん近いレーン(すでに重なっていれば今のレーン)
+function laneTowards(unit, target){
+  return Math.max(target.laneLo, Math.min(target.laneHi, unit.lane));
+}
+// レーンを上下にずらす(ラッシャーの突進の最終段など)。壁があれば動かない。動けたらtrue
+function shiftUnitLane(unit, delta){
+  if (!unit || unit.dead || unit.def.immobile || unit.laneTween || unit.mounted || unit.bearerOf) return false;
+  const span = unit.def.laneSpan || 1;
+  const newLo = unit.laneLo + delta;
+  if (newLo < 0 || newLo + span - 1 > GRID_LANES - 1) return false;
+  const g = laneGeom(unit.def, unit.lane + delta);
+  unit.laneTween = { fromB: unit.baseB, toB: g.baseB, toLane: g.lane, t: 0, dur: 350, first: false };
+  unit.el.style.zIndex = String(Math.max(laneZ(unit), 10 + (GRID_LANES - g.lo) * 10));
+  return true;
 }
 
 // 回避：上下どちらかの隣のレーンへランダムに(壁ならもう一方へ。両方が壁なら回避できない)
@@ -3920,7 +3987,10 @@ function updateCharge(unit, dtMs){
   if (target){
     if (!target.dead){
       applyDamageToUnit(target, dmg, unit);
-      if (!target.dead) launchUnit(target, unit, { upSpeed: 340, knockback: true, backSpeed: 260 });
+      if (!target.dead){
+        launchUnit(target, unit, { upSpeed: 340, knockback: true });
+        shiftUnitLane(target, 1); // 最終段だけ、相手を一段上のレーンへ押し上げる(壁なら動かない)
+      }
     }
   } else {
     if (unit.side === "player"){
@@ -4343,11 +4413,15 @@ function updateUnitAI(unit, dtMs){
   const minRange = unit.def.minAttackRange || 0;
 
   // 中距離技(ゴブリン長)：近接の間合いの外で、中距離の間合いに入っていてクールタイムが明けていれば発動
+  // 中距離技は、隣のレーンの敵に対しても使える(その場合、突進しながら隣のレーンへ移る)
   const mid = def.midrange;
-  if (mid && unit.target && !unit.shieldBroken && unit.midCooldown <= 0 &&
-      rangeDist > def.attackRange && rangeDist >= mid.minRange && rangeDist <= mid.maxRange){
-    startMidrange(unit);
-    return;
+  if (mid && !unit.shieldBroken && unit.midCooldown <= 0 && !(unit.target && rangeDist <= def.attackRange)){
+    const cand = findMidrangeTarget(unit, mid);
+    if (cand){
+      unit.target = cand;
+      startMidrange(unit);
+      return;
+    }
   }
 
   // 女王の魔法(シールド・メテオ)
@@ -4359,6 +4433,10 @@ function updateUnitAI(unit, dtMs){
       if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
     } else {
       unit.attackHadTarget = !!unit.target;
+      // 魔獣：隣のレーンの敵を攻撃するときは、攻撃の動きに合わせてそのレーンへ移動する
+      if (def.laneStep && unit.target && !lanesOverlap(unit.lane, unit.lane, unit.target.laneLo, unit.target.laneHi)){
+        startLaneStep(unit, laneTowards(unit, unit.target), 250);
+      }
       setMotion(unit, attackMotionName, { onEnd: onAttackEnd });
     }
   } else if (rangeDist < minRange){
