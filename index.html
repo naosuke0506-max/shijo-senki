@@ -503,10 +503,10 @@ const CHAR_DEFS = {
     name: "槍兵",
     rank: null, // 後日決定
     race: "human",
-    cost: 550,
-    hp: 36,
-    atk: 10,
-    weight: 65,
+    cost: 450,
+    hp: 38,
+    atk: 11,
+    weight: 68,
     walkSpeed: 42,
     attackRange: 95,       // 兵士よりリーチが長い
     detectionRange: 250,
@@ -545,10 +545,10 @@ const CHAR_DEFS = {
     name: "盾兵",
     rank: null,
     race: "human",
-    cost: 600,
-    hp: 60,
-    atk: 5,
-    weight: 90,
+    cost: 500,
+    hp: 66,
+    atk: 7,
+    weight: 85,
     walkSpeed: 35,
     attackRange: 40,
     detectionRange: 235,
@@ -591,10 +591,10 @@ const CHAR_DEFS = {
     name: "火縄銃兵",
     rank: null,
     race: "human",
-    cost: 750,
-    hp: 28,
-    atk: 30,
-    weight: 60,
+    cost: 650,
+    hp: 32,
+    atk: 34,
+    weight: 70,
     walkSpeed: 42,
     attackRange: 325,        // 遠距離
     detectionRange: 450,     // 遠距離ユニットなので索敵範囲は広め
@@ -640,9 +640,9 @@ const CHAR_DEFS = {
     rank: null,
     race: "goblin",
     cost: 480,        // 鼓舞兵(320)より高め。拘束は戦況を壊しかねないため割高に設定
-    hp: 12,            // 鼓舞兵(14)よりやや低め、非戦闘なので発見されたら一方的にやられる前提
+    hp: 26,            // 鼓舞兵(14)よりやや低め、非戦闘なので発見されたら一方的にやられる前提
     atk: 0,
-    weight: 25,
+    weight: 30,
     walkSpeed: 35,
     noCombat: true,             // 鼓舞兵と同じく索敵・攻撃・追走をしない
     canTrap: true,
@@ -675,10 +675,10 @@ const CHAR_DEFS = {
     name: "ゴブリン弓兵",
     rank: null,
     race: "goblin",
-    cost: 420,          // 火縄銃兵(750)より安いが通常ゴブリン(250)より高い、毒の継続ダメージ込みで評価
-    hp: 14,
+    cost: 350,          // 火縄銃兵(750)より安いが通常ゴブリン(250)より高い、毒の継続ダメージ込みで評価
+    hp: 27,
     atk: 8,              // 直撃ダメージは控えめ、毒の継続ダメージで火力を補う設計
-    weight: 26,
+    weight: 32,
     walkSpeed: 52,
     attackRange: 225,
     detectionRange: 275,
@@ -727,9 +727,9 @@ const CHAR_DEFS = {
     rank: null,
     race: "goblin",
     cost: 750,
-    hp: 80,
+    hp: 76,
     atk: 20,
-    weight: 110,          // ゴブリン種族最重量
+    weight: 130,          // ゴブリン種族最重量
     walkSpeed: 35,
     attackRange: 62,
     detectionRange: 200,
@@ -767,9 +767,9 @@ const CHAR_DEFS = {
     rank: null,
     race: "goblin",
     cost: 500,
-    hp: 12,
+    hp: 25,
     atk: 0,
-    weight: 22,
+    weight: 28,
     walkSpeed: 30,
     noCombat: true,           // 鼓舞兵と同じく索敵・攻撃・追走をしない
     canHeal: true,
@@ -810,9 +810,9 @@ const CHAR_DEFS = {
     rank: null,
     race: "goblin",
     cost: 300,          // 本体は指示役。コストの大半は犬2匹側に乗せる想定(暫定)
-    hp: 20,
+    hp: 26,
     atk: 0,
-    weight: 24,
+    weight: 30,
     walkSpeed: 32,
     noCombat: true,      // 自身は戦わず、魔獣に指示するだけ
     summons: [{ kind: "hound", count: 2 }], // 召喚すると双子の魔獣も同時に出撃する
@@ -845,10 +845,10 @@ const CHAR_DEFS = {
     buffEligible: true,  // 例外的に鼓舞兵のバフを受けられる
     tamerBuffEligible: true, // テイマーが生きている間、攻撃力+10%
     hiddenFromFormation: true, // テイマーに付随して出るため、単体では編成一覧に出さない
-    cost: 350,
-    hp: 30,
+    cost: 300,
+    hp: 34,
     atk: 10,
-    weight: 32,
+    weight: 45,
     walkSpeed: 60,
     approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく(runモーション画像は無い)
     approachSpeed: 60,
@@ -885,10 +885,10 @@ const CHAR_DEFS = {
     race: "beast",
     buffEligible: true, // 例外的に鼓舞兵のバフを受けられる
     tamerBuffEligible: true, // テイマーが生きている間、攻撃力+10%
-    cost: 900,
-    hp: 90,
-    atk: 24,
-    weight: 130,
+    cost: 2200,
+    hp: 185,
+    atk: 30,
+    weight: 1500,
     walkSpeed: 30,
     approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく(runモーション画像は無い)
     approachSpeed: 30,
@@ -929,10 +929,10 @@ const CHAR_DEFS = {
     name: "ゴブリン長",
     rank: null,
     race: "goblin",
-    cost: 1800,           // 屈強なゴブリン(750)・ラッシャー(900)より上、投石器(2800)より下の中堅上位(暫定)
-    hp: 150,
-    atk: 8,               // 近接は「1ヒットあたり」の威力(4ヒットでフルヒット32)。中距離技は下のmultで倍率をかける(暫定)
-    weight: 120,
+    cost: 2200,           // 屈強なゴブリン(750)・ラッシャー(900)より上、投石器(2800)より下の中堅上位(暫定)
+    hp: 110,
+    atk: 9,               // 近接は「1ヒットあたり」の威力(4ヒットでフルヒット32)。中距離技は下のmultで倍率をかける(暫定)
+    weight: 110,
     walkSpeed: 34,
     attackRange: 63,
     detectionRange: 350,
@@ -1006,10 +1006,10 @@ const CHAR_DEFS = {
     rank: null,
     race: "beast",
     buffEligible: true,        // 背中の鼓舞兵のバフを本体も受けられる
-    cost: 5000,                // ★数値はすべて暫定。背中のゴブリン7体(鼓舞兵1・ゴブリン2・弓兵4)込みの価格
-    hp: 700,
-    atk: 40,                   // 踏み潰し(範囲攻撃)の威力
-    weight: 800,
+    cost: 9000,                // (数値は現実の体格を目安に決めたもの。バランスは調整中)。背中のゴブリン7体(鼓舞兵1・ゴブリン2・弓兵4)込みの価格
+    hp: 550,
+    atk: 42,                   // 踏み潰し(範囲攻撃)の威力
+    weight: 6000,
     walkSpeed: 25,
     attackRange: 85,          // 箱(hitboxWidth)の前端からの距離
     detectionRange: 450,
@@ -1073,10 +1073,10 @@ const CHAR_DEFS = {
     rank: null,
     race: "goblin",
     heightM: 4,                // シールドが守れるのは4m以下(フォートレスは6mなので対象外)
-    cost: 4500,                // ★数値はすべて暫定
-    hp: 600,
-    atk: 28,                   // 近接(輝石の叩きつけ)の威力。範囲攻撃
-    weight: 300,
+    cost: 6500,                // (数値は現実の体格を目安に決めたもの。バランスは調整中)
+    hp: 320,
+    atk: 30,                   // 近接(輝石の叩きつけ)の威力。範囲攻撃
+    weight: 500,
     walkSpeed: 32,
     attackRange: 120,
     detectionRange: 385,
@@ -1154,10 +1154,10 @@ const CHAR_DEFS = {
     name: "ゴブリン・キング",
     rank: null,
     race: "goblin",
-    cost: 5000,                // ★数値はすべて暫定
-    hp: 300,
+    cost: 8000,                // (数値は現実の体格を目安に決めたもの。バランスは調整中)
+    hp: 120,
     atk: 0,                    // 自分では攻撃しない(ゲートの召喚が主な能力)
-    weight: 400,
+    weight: 55,
     walkSpeed: 12,             // 担ぎ手2体で運ぶので移動速度は最低クラス(ほぼ城に辿り着かない)
     attackRange: -1,           // 近接攻撃なし
     detectionRange: 520,
@@ -1200,7 +1200,7 @@ const CHAR_DEFS = {
     ],
     carryHeight: 78,           // 担がれている間の玉座の高さ(px)。担ぎ手(屈強なゴブリン約112px)の肩の高さ
     // ゲート召喚：大笑いして玉座を叩くと、背後にゲートが出る
-    gate: { kind: "gate", cooldownMs: 45000, breakPenaltyMs: 20000, behind: 150, spawnFrame: 2 },
+    gate: { kind: "gate", cooldownMs: 45000, breakPenaltyMs: 30000, behind: 150, spawnFrame: 2 },
     // 指輪コンボ(女王と揃ったとき)：指輪を掲げて割ると、エネルギーが自城の前の地面に消え、巨大ゲートが出る
     comboRole: "king",
     ringShatterFrame: 3,       // 指輪が砕けるコマ(0始まり)
@@ -1223,7 +1223,7 @@ const CHAR_DEFS = {
     rank: null,
     race: "object",
     cost: 0,
-    hp: 150,                   // ★暫定。壊すとキングのゲート召喚クールタイムが+20秒
+    hp: 100,                   // 壊しやすくした(以前は150)。壊すとキングのゲート召喚クールタイムが+30秒
     atk: 0,
     weight: 9999,
     walkSpeed: 0,
@@ -1310,9 +1310,9 @@ const CHAR_DEFS = {
     rank: null,
     race: "goblin", // 鼓舞兵のバフ対象判定に使用
     cost: 250,
-    hp: 18,
-    atk: 6,
-    weight: 30,
+    hp: 28,
+    atk: 7,
+    weight: 35,
     walkSpeed: 55,
     runSpeed: 80,
     attackRange: 40,
@@ -1356,9 +1356,9 @@ const CHAR_DEFS = {
     rank: null,
     race: "goblin",
     cost: 320,
-    hp: 14,
+    hp: 28,
     atk: 0,
-    weight: 28,
+    weight: 34,
     walkSpeed: 35,
     noCombat: true,     // 一切戦闘しない(索敵・攻撃・追走をしない、ただ前進するだけ)
     canInspire: true,   // 太鼓による鼓舞バフを持つ
@@ -1398,10 +1398,10 @@ const CHAR_DEFS = {
     name: "ゴブリン投石器",
     rank: null,
     race: "goblin",
-    cost: 2800,
-    hp: 220,
+    cost: 2400,
+    hp: 160,
     atk: 55,
-    weight: 400,
+    weight: 900,
     walkSpeed: 12,
     attackRange: 650,
     minAttackRange: 400, // これより近いと近すぎて撃てない(範囲外は立ち尽くすだけ)
@@ -1450,7 +1450,7 @@ CHAR_DEFS.queenBeast = Object.assign({}, CHAR_DEFS.queen, {
   alwaysSuperArmored: true,  // 第二形態は常にスーパーアーマー
   superArmorMotions: null,
   imagePrefix: "beast_",     // 画像は beast_ を頭に付けたファイル名
-  atk: 24,                   // 近接は爪の2ヒット(1ヒットあたりの威力)
+  atk: 26,                   // 近接は爪の2ヒット(1ヒットあたりの威力)
   walkSpeed: 85,             // 四足で駆け抜ける(移動速度アップ)
   approachSpeed: 85,
   attackRange: 95,
@@ -1488,7 +1488,7 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    ========================================================= */
 const STAGES = [
   // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔の平原", enemyCastleHp:150, playerCastleHp:150, enemyWaves: [] }
+  { id:"plain", name:"魔の平原", enemyCastleHp:3000, playerCastleHp:2000, enemyWaves: [] }
 ];
 
 /* =========================================================
