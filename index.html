@@ -184,6 +184,10 @@
   #lane-buttons.flash button{ animation:lanepulse .35s 3; }
   @keyframes lanepulse{ 0%,100%{ box-shadow:0 0 0 rgba(240,207,106,0); } 50%{ box-shadow:0 0 10px 3px rgba(240,207,106,.95); } }
   #battlefield-frame > button[id^="cheat-"]{ left:60px !important; } /* 検証用ボタンは、レーンボタンの右にずらす */
+  #lane-hint{ position:absolute; left:50%; top:6px; transform:translateX(-50%); z-index:9; pointer-events:none;
+    background:rgba(0,0,0,.82); color:#f0cf6a; border:1px solid #8a6a1e; padding:6px 14px; border-radius:4px; font-size:.75rem;
+    opacity:0; transition:opacity .25s; white-space:nowrap; }
+  .lane-tag{ position:absolute; left:2px; top:2px; font-size:.5rem; background:rgba(138,106,30,.92); color:#fff; padding:1px 3px; border-radius:2px; }
   #grid-toggle{ position:absolute; right:92px; top:8px; z-index:6; font-size:.62rem; padding:8px 10px; color:var(--text-dim); }
   #ground-line{ position:absolute; left:0; right:0; bottom:74px; height:2px; background-color:#000000; }
 
@@ -338,6 +342,7 @@
       <button id="cheat-enemy-queen-btn" style="position:absolute;left:0;top:400px;z-index:6;font-size:.62rem;padding:6px 8px;">敵女王召喚(検証用)</button>
       <button id="cheat-enemy-king-btn" style="position:absolute;left:0;top:436px;z-index:6;font-size:.62rem;padding:6px 8px;">敵キング召喚(検証用)</button>
     <div id="lane-buttons"></div>
+    <div id="lane-hint"></div>
     </div><!-- /battlefield-frame -->
 
     <div id="battle-bottombar">
@@ -1669,7 +1674,8 @@ function buildDeployRow(){
     const def = CHAR_DEFS[kind];
     const btn = document.createElement("button");
     btn.className = "deploy-btn";
-    btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag">${getDeployCost(def)}</span>`;
+    btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag">${getDeployCost(def)}</span>` +
+      ((def.laneSpan || 1) > 1 ? `<span class="lane-tag">${def.laneSpan}レーン</span>` : "");
     attachImgFallback(btn.querySelector("img"), def.name);
     btn.addEventListener("click", () => tryDeploy(kind));
     row.appendChild(btn);
@@ -1716,13 +1722,28 @@ function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
   const cost = getDeployCost(def);
   const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
-  if (!lanes.length){ flashLaneButtons(); return; } // 先にレーンを選ばないと召喚できない
-  const total = cost * lanes.length; // 選んだレーンの数だけ、1体(1セット)ずつ出る。値段もその分かかる
+  if (!lanes.length){ flashLaneButtons(); showLaneHint("先にレーンを選んでください"); return; } // 先にレーンを選ばないと召喚できない
+  const span = def.laneSpan || 1;
+  if (span >= 2){
+    // 複数レーンを占めるキャラは、必要な数のレーンを連続で選んだときだけ、1体だけ出せる(複数同時には出せない)。
+    // 選んだレーンが、またぐ位置になる(2レーンなら2つの真ん中、3レーンなら真ん中のレーンが中心)
+    const contiguous = lanes.every((l, i) => i === 0 || l === lanes[i - 1] + 1);
+    if (lanes.length !== span || !contiguous){
+      flashLaneButtons();
+      showLaneHint(def.name + "は、隣り合う" + span + "レーンを選んでください(1体だけ出ます)");
+      return;
+    }
+    if (battle.money < cost) return;
+    battle.money -= cost;
+    updateWalletUI();
+    spawnUnit(kind, "player", 0, { lane: span >= 3 ? lanes[1] : lanes[0] });
+    return;
+  }
+  const total = cost * lanes.length; // 1レーンのキャラは、選んだレーンの数だけ、1体(1セット)ずつ出る。値段もその分かかる
   if (battle.money < total) return;
   battle.money -= total;
   updateWalletUI();
   lanes.forEach(lane => {
-    // 複数レーンを占めるキャラは、選んだレーンを基準にまたぐ位置が決まる(選んだレーンの数だけ、それぞれに出る)
     const main = spawnUnit(kind, "player", 0, { lane });
     (def.summons || []).forEach(s => {
       // 魔獣などは、両隣のレーンに1匹ずつ(壁があれば、その側の1匹は本体と同じレーン)
@@ -1734,6 +1755,17 @@ function tryDeploy(kind){
       }
     });
   });
+}
+
+// 召喚できなかった理由などを、画面の上に短く表示する
+let laneHintTimer = null;
+function showLaneHint(text){
+  const el = document.getElementById("lane-hint");
+  if (!el) return;
+  el.textContent = text;
+  el.style.opacity = "1";
+  clearTimeout(laneHintTimer);
+  laneHintTimer = setTimeout(() => { el.style.opacity = "0"; }, 2200);
 }
 
 /* ---------- ユニット生成・アニメーション ---------- */
