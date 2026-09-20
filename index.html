@@ -1251,13 +1251,13 @@ const CHAR_DEFS = {
     // 召喚の予定：ゲートが出現してから残り何秒のときに召喚するか(30秒から数える)。
     // 召喚のたびに、ゲートの2レーンに同時に出る(2レーン分の大きさのキャラは、2レーンをまたいで1体)
     summonSchedule: buildSummonSchedule({
-      goblin:      [25, 22, 18, 14, 10, 6, 5, 4, 3, 2],
-      archer:      [19, 18, 17, 16, 15, 14],
-      bruteGoblin: [20, 13],
-      tamer:       [27, 13, 5],
-      rusher:      [3],
-      catapult:    [28],
-      chief:       [5]
+      goblin:      [25, 24],
+      archer:      [24],
+      bruteGoblin: [20],
+      tamer:       [26],
+      rusher:      [10],
+      catapult:    [6],
+      chief:       [8]
     }, 30)
   },
 
@@ -1293,14 +1293,14 @@ const CHAR_DEFS = {
     // 召喚のたびに、ゲートの3レーンに同時に出る(2レーン分は、3レーンのうち隣り合う2レーンのどちらかに1体。3レーン分は3レーンをまたいで1体)
     cycleSec: 30,
     summonSchedule: buildSummonSchedule({
-      goblin:      [26, 27, 26, 25, 24, 18, 17, 16, 15],
-      archer:      [22, 21, 20, 19],
-      bruteGoblin: [27, 23],
-      tamer:       [26, 25, 24],
-      rusher:      [10, 8],
-      catapult:    [18, 14],
-      chief:       [28],
-      fortress:    [5]
+      goblin:      [25, 23, 21],
+      archer:      [24],
+      bruteGoblin: [22],
+      tamer:       [20],
+      rusher:      [19],
+      catapult:    [18],
+      chief:       [26],
+      fortress:    [8]
     }, 30)
   },
 
