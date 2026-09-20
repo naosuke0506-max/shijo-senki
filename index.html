@@ -1367,7 +1367,7 @@ const CHAR_DEFS = {
     inspireCooldownMs: 4000,    // 発動後、次に発動判定するまでの間隔
     buffAtkMult: 1.10,          // 1スタックごとに攻撃力を掛け算(3スタックで約1.10^3倍)
     buffSpeedMult: 1.15,        // 1スタックごとに移動速度を掛け算
-    buffDamageCutMult: 0.70,    // 1スタックごとに被ダメージを掛け算(軽減)
+    buffDamageCutMult: 0.90,    // 1スタックごとに被ダメージを掛け算(軽減)。3スタックで約0.73倍(以前は0.70で、3スタックだと約0.34倍で強すぎた)
     buffMaxStacks: 3,
     icon: ICON_DRUMMER,
     imageBase: IMG_DRUMMER,
