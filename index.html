@@ -176,6 +176,14 @@
     overflow:hidden; background-color:#221f17;
   }
   #grid-overlay{ position:absolute; left:0; top:0; width:2000px; height:600px; pointer-events:none; z-index:1; }
+  /* レーン選択ボタン(左端に縦に5つ。各レーンの行に合わせて fitStage() が位置を決める) */
+  #lane-buttons{ position:absolute; left:0; top:0; bottom:0; width:58px; z-index:7; pointer-events:none; }
+  #lane-buttons button{ position:absolute; left:2px; width:54px; pointer-events:auto; font-size:.58rem; padding:0; line-height:1.1;
+    background-color:rgba(20,18,12,.78); border:1px solid #6b6248; color:#d8ccaa; border-radius:3px; }
+  #lane-buttons button.selected{ background-color:#8a6a1e; border-color:#f0cf6a; color:#fff; font-weight:bold; }
+  #lane-buttons.flash button{ animation:lanepulse .35s 3; }
+  @keyframes lanepulse{ 0%,100%{ box-shadow:0 0 0 rgba(240,207,106,0); } 50%{ box-shadow:0 0 10px 3px rgba(240,207,106,.95); } }
+  #battlefield-frame > button[id^="cheat-"]{ left:60px !important; } /* 検証用ボタンは、レーンボタンの右にずらす */
   #grid-toggle{ position:absolute; right:92px; top:8px; z-index:6; font-size:.62rem; padding:8px 10px; color:var(--text-dim); }
   #ground-line{ position:absolute; left:0; right:0; bottom:74px; height:2px; background-color:#000000; }
 
@@ -201,7 +209,7 @@
   .ustatus img{ width:20px; height:20px; display:block; filter:drop-shadow(0 1px 1px rgba(0,0,0,.9)); }
   .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
 
-  .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:4; mix-blend-mode:screen; }
+  .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:200; mix-blend-mode:screen; }
   .buff-aura{ bottom:auto; height:34px; transform:translate(-50%,-75%); z-index:5; }
   .trap-sprite{ mix-blend-mode:normal; bottom:66px; left:0; z-index:2; } /* 写実素材なのでscreen合成を解除、ユニットより奥に表示 */
   .bleed-fx{ bottom:auto; left:50%; top:45%; height:56px; transform:translate(-50%,-50%); z-index:5; mix-blend-mode:normal; }
@@ -329,6 +337,7 @@
       <button id="cheat-enemy-fortress-btn" style="position:absolute;left:0;top:364px;z-index:6;font-size:.62rem;padding:6px 8px;">敵フォートレス召喚(検証用)</button>
       <button id="cheat-enemy-queen-btn" style="position:absolute;left:0;top:400px;z-index:6;font-size:.62rem;padding:6px 8px;">敵女王召喚(検証用)</button>
       <button id="cheat-enemy-king-btn" style="position:absolute;left:0;top:436px;z-index:6;font-size:.62rem;padding:6px 8px;">敵キング召喚(検証用)</button>
+    <div id="lane-buttons"></div>
     </div><!-- /battlefield-frame -->
 
     <div id="battle-bottombar">
@@ -432,9 +441,9 @@ const CHAR_DEFS = {
     atk: 12,
     weight: 70,
     walkSpeed: 42,
-    runSpeed: 95,
-    attackRange: 46,
-    detectionRange: 220,
+    runSpeed: 90,
+    attackRange: 50,
+    detectionRange: 250,
     parryable: true,
     guardable: false,
     bleedOnHit: false,
@@ -482,9 +491,9 @@ const CHAR_DEFS = {
     hp: 36,
     atk: 10,
     weight: 65,
-    walkSpeed: 38,
-    attackRange: 70,       // 兵士よりリーチが長い
-    detectionRange: 240,
+    walkSpeed: 42,
+    attackRange: 95,       // 兵士よりリーチが長い
+    detectionRange: 250,
     approachMotion: "sneak", // 発見後は走らず、槍を構えて忍び寄る
     approachSpeed: 26,       // 忍び足の速度(歩行よりゆっくり)
     parryable: false,        // 未検証のため暫定
@@ -524,9 +533,9 @@ const CHAR_DEFS = {
     hp: 60,
     atk: 5,
     weight: 90,
-    walkSpeed: 34,
-    attackRange: 46,
-    detectionRange: 220,
+    walkSpeed: 35,
+    attackRange: 40,
+    detectionRange: 235,
     approachMotion: "wallwalk", // 発見後は盾を地面すれすれまで下げて壁のように接近
     approachSpeed: 22,
     canGuard: true,          // 前方からの攻撃をガードできる(盾兵専用)
@@ -562,6 +571,7 @@ const CHAR_DEFS = {
   },
 
   arquebusier: {
+    laneReach: 1,              // 自分のレーンと、隣のレーンまで攻撃できる
     name: "火縄銃兵",
     rank: null,
     race: "human",
@@ -569,9 +579,9 @@ const CHAR_DEFS = {
     hp: 28,
     atk: 30,
     weight: 60,
-    walkSpeed: 40,
-    attackRange: 320,        // 遠距離
-    detectionRange: 420,     // 遠距離ユニットなので索敵範囲は広め
+    walkSpeed: 42,
+    attackRange: 325,        // 遠距離
+    detectionRange: 450,     // 遠距離ユニットなので索敵範囲は広め
     approachMotion: "aimwalk", // 発見後は銃を構えたまま警戒歩き
     approachSpeed: 30,
     attackMotionName: "shoot", // このキャラの攻撃モーションは"attack"ではなく"shoot"
@@ -616,7 +626,7 @@ const CHAR_DEFS = {
     hp: 12,            // 鼓舞兵(14)よりやや低め、非戦闘なので発見されたら一方的にやられる前提
     atk: 0,
     weight: 25,
-    walkSpeed: 46,
+    walkSpeed: 35,
     noCombat: true,             // 鼓舞兵と同じく索敵・攻撃・追走をしない
     canTrap: true,
     trapArmDelayMs: 1500,       // 設置後、起動可能になるまでの時間(この間は隠蔽状態)
@@ -644,6 +654,7 @@ const CHAR_DEFS = {
   },
 
   archer: {
+    laneReach: 1,              // 自分のレーンと、隣のレーンまで攻撃できる
     name: "ゴブリン弓兵",
     rank: null,
     race: "goblin",
@@ -652,10 +663,10 @@ const CHAR_DEFS = {
     atk: 8,              // 直撃ダメージは控えめ、毒の継続ダメージで火力を補う設計
     weight: 26,
     walkSpeed: 52,
-    attackRange: 230,
-    detectionRange: 300,
+    attackRange: 225,
+    detectionRange: 275,
     approachMotion: "sneak_walk", // 発見後は身を低くして忍び寄る
-    approachSpeed: 40,
+    approachSpeed: 30,
     attackMotionName: "attack",
     ranged: true,
     projectileSpeed: 900,
@@ -702,11 +713,11 @@ const CHAR_DEFS = {
     hp: 80,
     atk: 20,
     weight: 110,          // ゴブリン種族最重量
-    walkSpeed: 30,
-    attackRange: 55,
-    detectionRange: 230,
+    walkSpeed: 35,
+    attackRange: 62,
+    detectionRange: 200,
     approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく
-    approachSpeed: 30,      // walkSpeedと同じ値(接近時も速度は変わらない)
+    approachSpeed: 35,      // walkSpeedと同じ値(接近時も速度は変わらない)
     canGuard: false,
     superArmorDuringAttack: true,       // 攻撃モーション中は怯まず振り切る
     attackFlags: { ignoresGuard: true }, // ガードされてもダメージが通る一撃
@@ -734,6 +745,7 @@ const CHAR_DEFS = {
   },
 
   healer: {
+    laneReach: 1,              // 自分のレーンと、隣のレーンまで回復できる
     name: "ゴブリン・ヒーラー",
     rank: null,
     race: "goblin",
@@ -741,10 +753,10 @@ const CHAR_DEFS = {
     hp: 12,
     atk: 0,
     weight: 22,
-    walkSpeed: 40,
+    walkSpeed: 30,
     noCombat: true,           // 鼓舞兵と同じく索敵・攻撃・追走をしない
     canHeal: true,
-    healRadius: 140,          // オーラの効果範囲
+    healRadius: 330,          // オーラの効果範囲
     healTickIntervalMs: 1500, // 回復判定の間隔
     healAmountPerTick: 4,     // 1回あたりの回復量
     canRevive: true,
@@ -784,7 +796,7 @@ const CHAR_DEFS = {
     hp: 20,
     atk: 0,
     weight: 24,
-    walkSpeed: 42,
+    walkSpeed: 32,
     noCombat: true,      // 自身は戦わず、魔獣に指示するだけ
     summons: [{ kind: "hound", count: 2 }], // 召喚すると双子の魔獣も同時に出撃する
     icon: ICON_TAMER,
@@ -818,11 +830,11 @@ const CHAR_DEFS = {
     hp: 30,
     atk: 10,
     weight: 32,
-    walkSpeed: 58,
+    walkSpeed: 60,
     approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく(runモーション画像は無い)
-    approachSpeed: 58,
-    attackRange: 60,
-    detectionRange: 220,
+    approachSpeed: 60,
+    attackRange: 65,
+    detectionRange: 500,
     attackLungeDistance: 30, // 攻撃モーション中、その場で殴らず30px前方へ踏み込みながら攻撃する
     icon: ICON_HOUND,
     imageBase: IMG_HOUND,
@@ -849,6 +861,7 @@ const CHAR_DEFS = {
   },
 
   rusher: {
+    laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)。攻撃は自分のレーンだけ
     name: "ゴブリン・ラッシャー",
     rank: null,
     race: "beast",
@@ -858,11 +871,11 @@ const CHAR_DEFS = {
     hp: 90,
     atk: 24,
     weight: 130,
-    walkSpeed: 34,
+    walkSpeed: 30,
     approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく(runモーション画像は無い)
-    approachSpeed: 34,
-    attackRange: 60,
-    detectionRange: 240,
+    approachSpeed: 30,
+    attackRange: 65,
+    detectionRange: 280,
     canGuard: false,
     alwaysSuperArmored: true, // 常時スーパーアーマー(スーパーアーマー無効の攻撃以外では怯まない)
     attackFlags: { ignoresGuard: true, launchesUp: true }, // 通常攻撃もガード無効・打ち上げ効果を持つ
@@ -889,8 +902,8 @@ const CHAR_DEFS = {
     },
     attackImpactFrame: 10, // attack_11(かち上げ命中の瞬間)
     // 鼓舞バフを受けた瞬間に発動する特殊技「猛突進」の設定
-    rageChargeSpeed: 34 * 2.5,      // 突進中の移動速度(通常歩行の2.5倍)
-    rageChargeHitRadius: 55,        // この距離まで近づいたら命中とみなす
+    rageChargeSpeed: 105,      // 突進中の移動速度(通常歩行の2.5倍)
+    rageChargeHitRadius: 45,        // この距離まで近づいたら命中とみなす
     rageChargeFinalMult: 2.5        // 命中時のダメージ倍率(通常攻撃力に対して)
   },
 
@@ -903,8 +916,8 @@ const CHAR_DEFS = {
     atk: 8,               // 近接は「1ヒットあたり」の威力(4ヒットでフルヒット32)。中距離技は下のmultで倍率をかける(暫定)
     weight: 120,
     walkSpeed: 34,
-    attackRange: 58,
-    detectionRange: 260,
+    attackRange: 63,
+    detectionRange: 350,
     approachMotion: "walk", // 専用の接近モーションは持たず、発見後も同じ足取りで近づく
     approachSpeed: 34,
     canGuard: false,
@@ -969,6 +982,7 @@ const CHAR_DEFS = {
   },
 
   fortress: {
+    laneSpan: 3,               // 3レーン分の大きさ(基準は真ん中のレーン)。近接は自分のレーンだけ
     name: "ゴブリン・ビースト・フォートレス",
     rank: null,
     race: "beast",
@@ -977,11 +991,11 @@ const CHAR_DEFS = {
     hp: 700,
     atk: 40,                   // 踏み潰し(範囲攻撃)の威力
     weight: 800,
-    walkSpeed: 28,
-    attackRange: 145,          // 箱(hitboxWidth)の前端からの距離
-    detectionRange: 260,
+    walkSpeed: 25,
+    attackRange: 85,          // 箱(hitboxWidth)の前端からの距離
+    detectionRange: 450,
     approachMotion: "walk",    // 専用の接近モーションは持たず、発見後も同じ足取りで近づく
-    approachSpeed: 28,
+    approachSpeed: 25,
     canGuard: false,
     alwaysSuperArmored: true,  // 常時スーパーアーマー(怯まない)
     attackFlags: { breaksShield: true }, // 踏み潰しは盾を破壊する
@@ -1034,6 +1048,7 @@ const CHAR_DEFS = {
   },
 
   queen: {
+    laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)。攻撃は自分のレーンだけ
     name: "ゴブリンの女王",
     rank: null,
     race: "goblin",
@@ -1042,11 +1057,11 @@ const CHAR_DEFS = {
     hp: 600,
     atk: 28,                   // 近接(輝石の叩きつけ)の威力。範囲攻撃
     weight: 300,
-    walkSpeed: 24,
-    attackRange: 130,
-    detectionRange: 320,
+    walkSpeed: 32,
+    attackRange: 120,
+    detectionRange: 385,
     approachMotion: "walk",
-    approachSpeed: 24,
+    approachSpeed: 32,
     canGuard: false,
     noRevive: true,            // ヒーラーの自動蘇生の対象外
     superArmorMotions: ["attack", "meteor", "shield"], // 近接攻撃・メテオ詠唱・シールドの最中は怯まない
@@ -1115,6 +1130,7 @@ const CHAR_DEFS = {
   },
 
   king: {
+    laneReach: 4,              // ゲート召喚のきっかけになる敵は、どのレーンにいても見つけられる(自分は攻撃しない)
     name: "ゴブリン・キング",
     rank: null,
     race: "goblin",
@@ -1180,6 +1196,7 @@ const CHAR_DEFS = {
   },
 
   gate: {
+    laneSpan: 2,               // 2レーン分
     name: "ゲート",
     hiddenFromFormation: true,
     rank: null,
@@ -1216,6 +1233,7 @@ const CHAR_DEFS = {
   },
 
   bigGate: {
+    laneSpan: 3,               // 3レーン分(中央のレーンが基準)
     name: "巨大ゲート",
     hiddenFromFormation: true,
     rank: null,
@@ -1255,9 +1273,9 @@ const CHAR_DEFS = {
     atk: 6,
     weight: 30,
     walkSpeed: 55,
-    runSpeed: 95,
+    runSpeed: 80,
     attackRange: 40,
-    detectionRange: 200,
+    detectionRange: 275,
     approachMotion: "run", // 兵士と同じく発見後は走って接敵
     canDodge: true,        // 前方攻撃を一度だけ確定回避できる(側面判定持ちの攻撃には無効)
     attackFlags: {},
@@ -1292,6 +1310,7 @@ const CHAR_DEFS = {
   },
 
   drummerGoblin: {
+    laneReach: 1,              // 自分のレーンと、隣のレーンまでバフをかけられる
     name: "ゴブリン鼓舞兵",
     rank: null,
     race: "goblin",
@@ -1299,10 +1318,10 @@ const CHAR_DEFS = {
     hp: 14,
     atk: 0,
     weight: 28,
-    walkSpeed: 50,
+    walkSpeed: 35,
     noCombat: true,     // 一切戦闘しない(索敵・攻撃・追走をしない、ただ前進するだけ)
     canInspire: true,   // 太鼓による鼓舞バフを持つ
-    inspireRange: 200,          // この範囲内の味方ゴブリンを鼓舞
+    inspireRange: 220,          // この範囲内の味方ゴブリンを鼓舞
     inspireRequiredAllies: 2,   // 範囲内に(自分以外)これだけ味方ゴブリンがいると発動
     inspireCooldownMs: 4000,    // 発動後、次に発動判定するまでの間隔
     buffAtkMult: 1.10,          // 1スタックごとに攻撃力を掛け算(3スタックで約1.10^3倍)
@@ -1332,6 +1351,8 @@ const CHAR_DEFS = {
   },
 
   catapult: {
+    laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)
+    splashLaneSpan: 2,         // 着弾の範囲は2レーン分(自分のレーンの敵を狙い、隣にもダメージ)
     name: "ゴブリン投石器",
     rank: null,
     race: "goblin",
@@ -1339,12 +1360,12 @@ const CHAR_DEFS = {
     hp: 220,
     atk: 55,
     weight: 400,
-    walkSpeed: 14,
+    walkSpeed: 12,
     attackRange: 650,
     minAttackRange: 400, // これより近いと近すぎて撃てない(範囲外は立ち尽くすだけ)
-    detectionRange: 700,
+    detectionRange: 730,
     approachMotion: "roll", // 発見後もそのまま同じ足取りで接近(専用の警戒モーションなし)
-    approachSpeed: 14,
+    approachSpeed: 12,
     attackMotionName: "throw",
     invertFacing: true, // 敵側で反転させるための調整(この素材は通常と前後が逆)
     ranged: true,
@@ -1388,9 +1409,10 @@ CHAR_DEFS.queenBeast = Object.assign({}, CHAR_DEFS.queen, {
   superArmorMotions: null,
   imagePrefix: "beast_",     // 画像は beast_ を頭に付けたファイル名
   atk: 24,                   // 近接は爪の2ヒット(1ヒットあたりの威力)
-  walkSpeed: 58,             // 四足で駆け抜ける(移動速度アップ)
-  approachSpeed: 58,
-  attackRange: 120,
+  walkSpeed: 85,             // 四足で駆け抜ける(移動速度アップ)
+  approachSpeed: 85,
+  attackRange: 95,
+  detectionRange: 750,
   skills: null,              // バリア・メテオなどの魔法は使えなくなる(コンボの隕石は例外)
   transformAtHpRatio: null,
   areaHitReach: null,        // 第二形態は範囲攻撃ではなく、爪で目の前の相手を2回攻撃する
@@ -1423,7 +1445,8 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    2. ステージ定義
    ========================================================= */
 const STAGES = [
-  { id:"plain", name:"魔の平原", enemyCastleHp:150, playerCastleHp:150 }
+  // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
+  { id:"plain", name:"魔の平原", enemyCastleHp:150, playerCastleHp:150, enemyWaves: [] }
 ];
 
 /* =========================================================
@@ -1604,15 +1627,20 @@ function startBattle(stage){
     ended: false,
     paused: false,
     fxList: [],                    // 毎フレーム進めるエフェクト・タイマー(一時停止に連動する)
-    comboDone: { player: false, enemy: false } // 指輪コンボは陣営ごとに1回だけ
+    comboDone: { player: false, enemy: false }, // 指輪コンボは陣営ごとに1回だけ
+    selectedLane: null,            // 召喚するレーン(下から0〜4)。選ぶまで召喚できない
+    time: 0,                       // 戦闘の経過時間(秒)
+    nextWave: 0                    // 次に出す敵ウェーブの番号
   };
 
   updateCastleBars();
   buildDeployRow();
   buildDebugPanel();
+  updateLaneButtons();
   showScreen("screen-battle");
   fitStage();
-  requestAnimationFrame(fitStage);
+  layoutLaneButtons();
+  requestAnimationFrame(() => { fitStage(); layoutLaneButtons(); });
 
   requestAnimationFrame(battleLoop);
 }
@@ -1681,15 +1709,19 @@ function updateWalletUI(){
 function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
   const cost = getDeployCost(def);
+  if (battle.selectedLane == null){ flashLaneButtons(); return; } // 先にレーンを選ばないと召喚できない
   if (battle.money < cost) return;
   battle.money -= cost;
   updateWalletUI();
-  spawnUnit(kind, "player");
+  const lane = battle.selectedLane;
+  const main = spawnUnit(kind, "player", 0, { lane });
   (def.summons || []).forEach(s => {
+    // 魔獣などは、両隣のレーンに1匹ずつ(壁があれば、その側の1匹は本体と同じレーン)
+    const lanes = summonLanes(main.lane, s.count);
     for (let i = 0; i < s.count; i++){
-      // 複数体まとめて出る場合は少しずつ横にずらして重なりすぎないようにする
+      // 同じレーンに重なる場合は、少しずつ横にずらして重なりすぎないようにする
       const offset = (i - (s.count - 1) / 2) * 26;
-      spawnUnit(s.kind, "player", offset);
+      spawnUnit(s.kind, "player", offset, { lane: lanes[i] });
     }
   });
 }
@@ -1795,6 +1827,9 @@ function spawnUnit(kind, side, xOffset, opts){
     riders: null,                 // フォートレス専用：背中に乗っているゴブリンの一覧
     downFinished: false,          // フォートレス専用：ダウンモーションを最後まで再生し終えた
     staggerVX: 0,                 // よろめき後退中の速度(px/秒)
+    lane: 0, laneLo: 0, laneHi: 0, // いるレーン(下から0〜4)。laneLo〜laneHiが占有レーン
+    baseB: 74,                    // 足元の高さ(画面の下からのpx)
+    laneTween: null, laneMoving: false, laneReturnMs: 0, laneReturnPending: false, dodgeHomeLane: 0, // レーン移動(回避)
     bearerOf: null,               // キングの担ぎ手として担いでいる相手
     bearers: null,                // キング専用：担ぎ手の一覧
     elevated: false,              // キング専用：担がれて宙に浮いている間はtrue(遠距離攻撃しか届かない)
@@ -1823,9 +1858,10 @@ function spawnUnit(kind, side, xOffset, opts){
   if (def.blendScreen) img.style.mixBlendMode = "screen";
   if (def.invulnerable) uhp.style.display = "none";
   battle.units.push(unit);
+  setUnitLane(unit, (opts && opts.lane != null) ? opts.lane : (battle.selectedLane != null ? battle.selectedLane : 0));
   setMotion(unit, "idle");
   if (opts && opts.mount) mountRider(unit, opts.mount, opts.slot);
-  if (opts && opts.bearerOf){ unit.bearerOf = opts.bearerOf; unit.slot = opts.slot; }
+  if (opts && opts.bearerOf){ unit.bearerOf = opts.bearerOf; unit.slot = opts.slot; copyLane(unit, opts.bearerOf, 1); }
   if (!(opts && (opts.mount || opts.bearerOf))) checkRingCombo(unit);
   if (def.bearers){
     // 玉座を担ぐ屈強なゴブリンを一緒に出す。玉座は担ぎ手の肩の高さに浮かせる
@@ -1911,7 +1947,7 @@ function updateInspire(unit, dtMs){
 
   const nearbyGoblinAllies = battle.units.filter(other =>
     other !== unit && !other.dead && other.side === unit.side &&
-    (other.def.race === "goblin" || other.def.buffEligible) &&
+    (other.def.race === "goblin" || other.def.buffEligible) && canReachLane(unit, other) &&
     Math.abs(other.x - unit.x) <= def.inspireRange
   );
 
@@ -1936,7 +1972,7 @@ function updateInspire(unit, dtMs){
     const fx = def.fxDrumWave;
     for (let i = 0; i < fx.count; i++){
       setTimeout(() => {
-        spawnFx(fx.imageBase + fx.prefix + (i+1) + ".png", unit.x, { height: 60, bottom: 74, lifespan: fx.durations[i] });
+        spawnFx(fx.imageBase + fx.prefix + (i+1) + ".png", unit.x, { height: 60, bottom: unit.baseB || 74, lifespan: fx.durations[i] });
       }, i * (fx.durations[i] || 130));
     }
   }
@@ -1969,7 +2005,7 @@ function updateInspire(unit, dtMs){
         for (let i = 0; i < rfx.count; i++){
           setTimeout(() => {
             if (ally.dead) return;
-            spawnFx(rfx.imageBase + rfx.prefix + (i+1) + ".png", ally.x, { height: 50, bottom: 100, lifespan: rfx.durations[i], flip });
+            spawnFx(rfx.imageBase + rfx.prefix + (i+1) + ".png", ally.x, { height: 50, bottom: (ally.baseB || 74) + 26, lifespan: rfx.durations[i], flip });
           }, i * (rfx.durations[i] || 175));
         }
       }
@@ -2025,12 +2061,13 @@ function spawnTrap(owner, trapX){
   const el = document.createElement("img");
   el.className = "fx-sprite trap-sprite";
   el.style.height = "36px";
+  el.style.bottom = ((owner.baseB || 74) - 8) + "px"; // 設置した罠兵のレーンの足元
   el.style.transform = "translateX(" + trapX + "px)";
   el.src = def.imageBase + "trap_fx_1.png";
   field.appendChild(el);
 
   battle.traps.push({
-    owner, side: owner.side, x: trapX, el,
+    owner, side: owner.side, x: trapX, el, lane: owner.lane,
     state: "arming",     // arming → armed → triggering → holding
     armTimer: def.trapArmDelayMs || 1000,
     frameIndex: 0,
@@ -2057,12 +2094,37 @@ function updateTraps(dtMs){
 
     if (trap.state === "armed"){
       const enemySide = trap.side === "player" ? "enemy" : "player";
+      const trigR = def.trapTriggerRadius || 50;
+      // 罠と同じレーンにいる敵だけが踏む
       const nearby = battle.units.filter(u =>
         u.side === enemySide && !u.dead && !u.restrained && !u.mounted &&
-        Math.abs(u.x - trap.x) <= (def.trapTriggerRadius || 50)
+        lanesOverlap(trap.lane, trap.lane, u.laneLo, u.laneHi) &&
+        Math.abs(u.x - trap.x) <= trigR
       );
-      const catchable = nearby.filter(u => !u.def.netResistant); // 耐性持ちは罠にかからない
-      if (catchable.length === 0) return; // 誰もいない、または耐性持ちしかいない間は起動しない
+      const stepping = nearby.filter(u => !u.def.netResistant); // 耐性持ちは罠にかからない
+      if (stepping.length === 0) return; // 誰もいない、または耐性持ちしかいない間は起動しない
+
+      // 複数レーンを占める敵は、占有レーンの数だけ罠が必要。足りないと、踏まれた瞬間に罠が壊れるだけで捕まらない
+      const armedTraps = battle.traps.filter(t => !t.removed && t.state === "armed" && t.side === trap.side);
+      const coverTraps = u => {
+        const list = [];
+        for (let L = u.laneLo; L <= u.laneHi; L++){
+          const t = armedTraps.find(x => x.lane === L && Math.abs(u.x - x.x) <= trigR);
+          if (!t) return null;
+          list.push(t);
+        }
+        return list;
+      };
+      const catchable = stepping.filter(u => coverTraps(u) !== null);
+      if (catchable.length === 0){
+        trap.removed = true; // 罠が足りず、壊されただけ
+        trap.el.remove();
+        return;
+      }
+      // 捕まえる敵を覆っている他のレーンの罠は、ここで使い切る(見た目は、この罠の網1つ)
+      catchable.forEach(u => {
+        coverTraps(u).forEach(t => { if (t !== trap){ t.removed = true; t.el.remove(); } });
+      });
 
       trap.state = "triggering";
       trap.frameIndex = 1; // trap_fx_2(起動の瞬間)から再生開始
@@ -2317,7 +2379,7 @@ function updateHealer(unit, dtMs){
 
   const nearbyAllies = battle.units.filter(other =>
     other !== unit && !other.dead && other.side === unit.side &&
-    other.hp < other.hpMax &&
+    other.hp < other.hpMax && canReachLane(unit, other) &&
     edgeDistance(unit, other) <= (def.healRadius || 0)
   );
   if (!nearbyAllies.length) return; // 回復が必要な味方がいなければ詠唱しない
@@ -2340,7 +2402,7 @@ function updateHealer(unit, dtMs){
           const H = ally._displayHeight || 92;
           const cx = ally.x + (ally._displayWidth || 0) / 2;
           const el = spawnFx(keyedFxSrc(fx.imageBase + fx.prefix + (i+1) + ".png", FX_KEY_HEAL), cx, {
-            height: Math.round(H * 0.6), bottom: Math.round(74 + (ally.rideY || 0) + H * 0.25), lifespan: fx.durations[i]
+            height: Math.round(H * 0.6), bottom: Math.round((ally.baseB || 74) + (ally.rideY || 0) + H * 0.25), lifespan: fx.durations[i]
           });
           if (el){
             el.style.mixBlendMode = "normal";
@@ -2461,7 +2523,7 @@ function resolveMidrangeHit(unit, hit){
   const reach = hit.reach != null ? hit.reach : (mid.hitReach || 80);
   const dmg = getEffectiveAtk(unit) * (hit.mult != null ? hit.mult : 1);
   const victims = battle.units.filter(o =>
-    !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide &&
+    !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide && canReachLane(unit, o) &&
     (Math.sign(o.x - unit.x) === forwardDir || o.x === unit.x) &&
     edgeDistance(unit, o) <= reach
   );
@@ -2662,7 +2724,9 @@ function onKingFrame(k){
 // キングの背後の地面から、ゲートが出てくる
 function spawnGate(k){
   const dir = k.side === "player" ? -1 : 1;
-  const g = spawnUnit(k.def.gate.kind, k.side, 0);
+  // 通常ゲートは2レーン分。キングのレーンと、その上か下のレーンの2つに、左右(上下)ランダムに出る(壁ならもう一方)
+  const gateOpts = [k.lane, k.lane - 1].filter(b => b >= 0 && b <= GRID_LANES - 2);
+  const g = spawnUnit(k.def.gate.kind, k.side, 0, { lane: gateOpts[Math.floor(Math.random() * gateOpts.length)] });
   g.owner = k;
   g.lifeMs = g.def.lifeMs || 0;
   g.summonTimer = g.def.firstSummonMs || 1500;
@@ -2703,13 +2767,15 @@ function summonFromGate(g){
   const gw = g._displayWidth || 80;
   const dir = g.side === "player" ? -1 : 1;
   const cx = g.x + gw / 2 + dir * gw * 0.35;
-  const u = spawnUnit(kind, g.side, 0);
+  const summonLane = g.laneLo + Math.floor(Math.random() * (g.laneHi - g.laneLo + 1)); // ゲートの占有レーンのどこかに出る
+  const u = spawnUnit(kind, g.side, 0, { lane: summonLane });
   u.x = cx - 15;
   applyFrame(u);
   // テイマーのように、魔獣がセットになっているキャラは、通常の出撃と同じく魔獣も一緒に召喚する
   (u.def.summons || []).forEach(sm => {
+    const subLanes = summonLanes(u.lane, sm.count); // 魔獣は、両隣のレーンに1匹ずつ(壁ならテイマーと同じレーン)
     for (let i = 0; i < sm.count; i++){
-      const sub = spawnUnit(sm.kind, g.side, 0);
+      const sub = spawnUnit(sm.kind, g.side, 0, { lane: subLanes[i] });
       sub.x = cx - 15 + (i - (sm.count - 1) / 2) * 26;
       applyFrame(sub);
     }
@@ -2718,7 +2784,7 @@ function summonFromGate(g){
   const sm = fx.summon;
   playFxSeq({
     imageBase: fx.imageBase, prefix: sm.prefix, count: sm.count, durations: constDurations(sm.count, sm.dur),
-    height: sm.height, pos: () => ({ x: cx, bottom: 70 })
+    height: sm.height, pos: () => ({ x: cx, bottom: (u.baseB || 74) - 4 })
   });
 }
 
@@ -2743,7 +2809,7 @@ function onKingRingShatter(k){
   const field = document.getElementById("battlefield");
   const cg = k.def.comboGate;
   const tx = k.side === "player" ? field.clientWidth - cg.fromCastle : cg.fromCastle; // 自城の目の前
-  const ty = 76;
+  const ty = laneFloor(1) + 2; // 巨大ゲートは3レーン分で、中央のレーン基準(下から2番目のレーンの床に立つ)
   const en = fx.energy;
   const h = en.height, w = h * 1024 / 339;
   const el = document.createElement("img");
@@ -2772,7 +2838,7 @@ function onKingRingShatter(k){
       const im = fx.impact;
       playFxSeq({
         imageBase: fx.imageBase, prefix: im.prefix, count: im.count, durations: constDurations(im.count, im.dur),
-        height: im.height, pos: () => ({ x: tx, bottom: 74 })
+        height: im.height, pos: () => ({ x: tx, bottom: laneFloor(1) })
       });
       let wait = 0;
       addFxTask(dt2 => { wait += dt2; if (wait < cg.gateDelayMs) return true; spawnBigGate(k, side, tx); return false; });
@@ -2785,13 +2851,109 @@ function onKingRingShatter(k){
 // 自城の目の前に、永遠に消えない巨大ゲートが出る
 function spawnBigGate(k, side, tx){
   if (!battle) return;
-  const g = spawnUnit(k.def.comboGate.kind, side, 0);
+  const g = spawnUnit(k.def.comboGate.kind, side, 0, { lane: 2 }); // 中央のレーン基準
   g.owner = k;
   g.summonTimer = g.def.firstSummonMs || 2400;
   setMotion(g, "appear", { onEnd: () => setMotion(g, "idle", { loop:true }) });
   const gw = 687 * g.def.pixelScale;
   g.x = tx - gw / 2;
   applyFrame(g);
+}
+
+/* ---------- レーン ---------- */
+// 縦は5レーン(下から 0=最左翼 〜 4=最右翼)。各ユニットは、足元が「いちばん下の占有レーン」の床に立つ。
+// laneSpan(1〜3)は縦に何レーン分の大きさか。2レーンは下のレーン、3レーンは真ん中のレーンを「自分のレーン」とする。
+function laneFloor(l){ return GRID_GROUND + l * GRID_CELL; }
+function laneZ(u){ return 10 + (GRID_LANES - u.laneLo) * 10; } // 手前(下)のレーンほど前に描く
+function clampLaneForSpan(lane, span){
+  if (span >= 3) return Math.max(1, Math.min(GRID_LANES - 2, lane));
+  if (span === 2) return Math.max(0, Math.min(GRID_LANES - 2, lane));
+  return Math.max(0, Math.min(GRID_LANES - 1, lane));
+}
+function setUnitLane(unit, lane){
+  const span = unit.def.laneSpan || 1;
+  const l = clampLaneForSpan(lane, span);
+  unit.lane = l;
+  unit.laneLo = span >= 3 ? l - 1 : l;
+  unit.laneHi = unit.laneLo + span - 1;
+  unit.baseB = laneFloor(unit.laneLo);
+  unit.el.style.bottom = unit.baseB + "px";
+  unit.el.style.zIndex = String(laneZ(unit));
+}
+// 乗っている相手(フォートレス・キング)と同じレーンにそろえる
+function copyLane(unit, src, zDelta){
+  unit.lane = src.lane; unit.laneLo = src.laneLo; unit.laneHi = src.laneHi; unit.baseB = src.baseB;
+  unit.el.style.bottom = unit.baseB + "px";
+  unit.el.style.zIndex = String(laneZ(unit) + (zDelta || 0));
+}
+function lanesOverlap(aLo, aHi, bLo, bHi){ return aLo <= bHi && bLo <= aHi; }
+// このユニットが攻撃・効果を届かせられるレーンの範囲。通常は自分のレーンだけ。laneReachがあれば占有レーンの上下にその分広がる
+function getReachLanes(unit){
+  const r = unit.def.laneReach || 0;
+  if (r === 0) return [unit.lane, unit.lane];
+  return [Math.max(0, unit.laneLo - r), Math.min(GRID_LANES - 1, unit.laneHi + r)];
+}
+function canReachLane(unit, target){
+  const rl = getReachLanes(unit);
+  return lanesOverlap(rl[0], rl[1], target.laneLo, target.laneHi);
+}
+// 2体以上を同時に出すとき(魔獣2匹など)の、レーンの振り分け：基準レーンの両隣。壁なら基準レーンと同じ位置
+function summonLanes(baseLane, count){
+  const out = [];
+  for (let i = 0; i < count; i++){
+    const l = baseLane + (i % 2 === 0 ? -1 : 1) * (Math.floor(i / 2) + 1);
+    out.push(l < 0 || l >= GRID_LANES ? baseLane : l);
+  }
+  return out;
+}
+
+// レーン移動のアニメ(ゴブリンの回避など)。移動中は無敵
+function updateLaneTween(unit, dtMs){
+  if (unit.laneReturnMs > 0){
+    unit.laneReturnMs -= dtMs;
+    if (unit.laneReturnMs <= 0){
+      unit.laneReturnMs = 0;
+      unit.laneReturnPending = true;
+    }
+  }
+  if (unit.laneReturnPending && !unit.dead && !unit.laneTween && !unit.launched && !unit.restrained &&
+      (unit.motion === "walk" || unit.motion === "idle" || unit.motion === (unit.def.approachMotion || "run"))){
+    unit.laneReturnPending = false;
+    laneDodgeMove(unit, unit.dodgeHomeLane, false);
+  }
+  const tw = unit.laneTween;
+  if (!tw) return;
+  tw.t += dtMs;
+  const p = Math.min(1, tw.t / tw.dur);
+  unit.baseB = tw.fromB + (tw.toB - tw.fromB) * p;
+  unit.el.style.bottom = unit.baseB + "px";
+  if (p >= 1){
+    unit.laneTween = null;
+    unit.laneMoving = false;
+    setUnitLane(unit, tw.toLane);
+    if (tw.first) unit.laneReturnMs = 2000; // 隣のレーンに着いてから2秒間は通常どおり(ダメージも受ける・戦える)。そのあと元のレーンへ戻る
+  }
+}
+
+// 回避モーションで、隣のレーンへ(または元のレーンへ)移動する。モーション中は無敵
+function laneDodgeMove(unit, toLane, first){
+  const durs = unit.def.frameDurations.dodge || [185,185,185,185,185,185];
+  const dur = durs.reduce((a, b) => a + b, 0);
+  unit.laneMoving = true;
+  unit.laneTween = { fromB: unit.baseB, toB: laneFloor(toLane), toLane, t: 0, dur, first };
+  unit.el.style.zIndex = String(Math.max(laneZ(unit), 10 + (GRID_LANES - toLane) * 10));
+  setMotion(unit, "dodge", { onEnd: () => afterReaction(unit) });
+}
+
+// 回避：上下どちらかの隣のレーンへランダムに(壁ならもう一方へ。両方が壁なら回避できない)
+function startLaneDodge(unit){
+  const opts = [unit.lane + 1, unit.lane - 1].filter(l => l >= 0 && l < GRID_LANES);
+  if (!opts.length) return false;
+  const to = opts[Math.floor(Math.random() * opts.length)];
+  unit.dodgeUsed = true;
+  unit.dodgeHomeLane = unit.lane;
+  laneDodgeMove(unit, to, true);
+  return true;
 }
 
 /* ---------- ゴブリンの女王 ---------- */
@@ -2844,6 +3006,7 @@ function isShielded(target){
   const tx = unitCenterX(target);
   return battle.units.some(q => {
     if (q.dead || q.side !== target.side || !(q.barrierMs > 0) || !q.def.skills || !q.def.skills.shield) return false;
+    if (!lanesOverlap(q.laneLo, q.laneHi, target.laneLo, target.laneHi)) return false; // バリアは女王のいるレーン分
     const W = q._displayWidth || 110;
     const reach = q.def.skills.shield.reach;
     const lo = q.facing === -1 ? q.x - reach : q.x;
@@ -2892,7 +3055,7 @@ function activateBarrier(unit){
     pos: () => {
       const W = unit._displayWidth || 110;
       const front = unit.facing === 1 ? unit.x + W + width * 0.45 : unit.x - width * 0.45;
-      return { x: front, bottom: 74, flip: unit.facing === -1 };
+      return { x: front, bottom: unit.baseB || 74, flip: unit.facing === -1 };
     }
   });
 }
@@ -2903,6 +3066,7 @@ function startMeteorCast(unit){
   unit.casting = "meteor";
   unit.castId = (unit.castId || 0) + 1;
   unit.castTargetX = unit.target ? unitCenterX(unit.target) : null;
+  unit.castTargetLane = unit.target ? unit.target.lane : unit.lane; // メテオは、狙った相手のレーンに落ちる
   unit.attackHadTarget = !!unit.target;
   setMotion(unit, "meteor", { onEnd: () => { unit.casting = null; onAttackEnd(unit); } });
 }
@@ -2918,7 +3082,8 @@ function openRift(unit){
   const tx0 = (unit.target && !unit.target.dead) ? unitCenterX(unit.target)
     : (unit.castTargetX != null ? unit.castTargetX : unitCenterX(unit) + dir * 200);
   const hx = tx0 - dir * sk.holeInFront;
-  const hb = Math.min(74 + sk.holeHeight, field.clientHeight - sk.holeSize / 2 - 6);
+  const tl0 = (unit.target && !unit.target.dead) ? unit.target.lane : (unit.castTargetLane != null ? unit.castTargetLane : unit.lane);
+  const hb = Math.min(laneFloor(tl0) + sk.holeHeight, field.clientHeight - sk.holeSize / 2 - 6);
   playFxSeq({
     imageBase: unit.def.fx.imageBase, prefix: fx.prefix, count: fx.count, durations: fx.durations,
     height: sk.holeSize, blend: "normal", // 穴は透過PNGなので通常合成
@@ -2936,7 +3101,7 @@ function openRift(unit){
         // 穴の真下へ降り注ぐ。狙った敵が動いていたら、穴の近く(±40px)まで寄せて落とす
         const tx = (unit.target && !unit.target.dead) ? unitCenterX(unit.target) : hx;
         const land = Math.max(hx - 40, Math.min(hx + 40, tx));
-        launchMeteor(unit.def.fx, unit.side, { x: hx, b: hb }, land, { travelMs: sk.travelMs, damage: sk.damage, radius: sk.radius });
+        launchMeteor(unit.def.fx, unit.side, { x: hx, b: hb }, land, { travelMs: sk.travelMs, damage: sk.damage, radius: sk.radius, lane: (unit.target && !unit.target.dead) ? unit.target.lane : tl0 });
       }
     });
     return !fired.every(f => f);
@@ -2953,7 +3118,7 @@ function launchMeteor(fx, side, from, toX, o){
   el.className = "fx-sprite";
   el.style.height = h + "px";
   field.appendChild(el);
-  const gb = 74; // 地面の高さ
+  const gb = laneFloor(o.lane != null ? o.lane : 0); // 着弾するレーンの地面の高さ
   const dx = toX - from.x, db = gb - from.b;
   const len = Math.hypot(dx, db) || 1;
   const ux = dx / len, ub = db / len;
@@ -2982,10 +3147,11 @@ function meteorImpact(fx, side, ix, o){
   const im = fx.meteorImpact;
   playFxSeq({
     imageBase: fx.imageBase, prefix: im.prefix, count: im.count, durations: constDurations(im.count, im.dur),
-    height: im.height, pos: () => ({ x: ix, bottom: 74 })
+    height: im.height, pos: () => ({ x: ix, bottom: laneFloor(o.lane != null ? o.lane : 0) })
   });
   const enemySide = side === "player" ? "enemy" : "player";
-  battle.units.filter(u => !u.dead && !u.mounted && u.side === enemySide && Math.abs(unitCenterX(u) - ix) <= o.radius)
+  const impLane = o.lane != null ? o.lane : 0; // 着弾は1レーン、1マスぶん
+  battle.units.filter(u => !u.dead && !u.mounted && u.side === enemySide && lanesOverlap(impLane, impLane, u.laneLo, u.laneHi) && Math.abs(unitCenterX(u) - ix) <= o.radius)
     .forEach(u => applyDamageToUnit(u, o.damage, null));
 }
 
@@ -3007,7 +3173,7 @@ function startTransform(unit){
     imageBase: def.fx.imageBase, prefix: fx.prefix, count: fx.count, durations: constDurations(fx.count, fx.dur),
     height: fx.height,
     loop: { from: 1, to: 2, keep: () => unit.transforming && !unit.dead },
-    pos: () => ({ x: unitCenterX(unit), bottom: 70 })
+    pos: () => ({ x: unitCenterX(unit), bottom: (unit.baseB || 74) - 4 })
   });
 }
 
@@ -3025,7 +3191,7 @@ function summonQueenHealers(unit){
   const n = unit.def.transformHealers || 0;
   const center = unitCenterX(unit);
   for (let i = 0; i < n; i++){
-    const h = spawnUnit("healer", unit.side, 0);
+    const h = spawnUnit("healer", unit.side, 0, { lane: unit.lane });
     const off = (i % 2 === 0 ? 1 : -1) * (120 + Math.floor(i / 2) * 60);
     h.x = center + off - (h._displayWidth || 30) / 2;
     applyFrame(h);
@@ -3075,7 +3241,7 @@ function ringHandPos(unit){
   const W = unit._displayWidth || 110, H = unit._displayHeight || 120;
   const hand = unit.def.ringHand;
   const fe = unit.facing === 1 ? hand.x : 1 - hand.x;
-  return { x: unit.x + fe * W, b: 74 + (unit.rideY || 0) + (1 - hand.y) * H };
+  return { x: unit.x + fe * W, b: (unit.baseB || 74) + (unit.rideY || 0) + (1 - hand.y) * H };
 }
 
 // 指輪が砕ける瞬間：割れるエフェクトを出し、紫のエネルギーが天へ昇って画面外へ消える
@@ -3109,11 +3275,12 @@ function onRingShatter(unit){
   });
 }
 
-// 隕石の雨：ランダムな位置に、同じ場所には落ちないように降らせる
+// 隕石の雨：ステージのどのレーン・どのマスに落ちるかは分からない(女王の位置や、レーンには関係なし)。同じマスには落ちない
 function startMeteorRain(fx, side, cfg){
   const field = document.getElementById("battlefield");
-  const fw = field.clientWidth, fh = field.clientHeight;
-  const used = [];
+  const fh = field.clientHeight;
+  const cols = Math.floor(STAGE_W / GRID_CELL);
+  const used = new Set();
   let elapsed = 0, next = 0;
   addFxTask(dt => {
     elapsed += dt;
@@ -3121,16 +3288,18 @@ function startMeteorRain(fx, side, cfg){
     next -= dt;
     while (next <= 0){
       next += cfg.intervalMs;
-      let best = null, bestD = -1;
-      for (let k = 0; k < 40; k++){
-        const x = 40 + Math.random() * (fw - 80);
-        const d = used.length ? Math.min.apply(null, used.map(u => Math.abs(u - x))) : Infinity;
-        if (d >= cfg.minSeparation){ best = x; break; }
-        if (d > bestD){ bestD = d; best = x; }
-      }
-      used.push(best);
+      if (used.size >= cols * GRID_LANES) used.clear(); // 全マスに落としたら、最初から数え直す
+      let col, lane, key, tries = 0;
+      do {
+        col = Math.floor(Math.random() * cols);
+        lane = Math.floor(Math.random() * GRID_LANES);
+        key = col + "," + lane;
+        tries++;
+      } while (used.has(key) && tries < 200);
+      used.add(key);
+      const best = col * GRID_CELL + GRID_CELL / 2 + (Math.random() * 50 - 25);
       const startX = best + (Math.random() * 120 - 60);
-      launchMeteor(fx, side, { x: startX, b: fh + 60 }, best, { travelMs: cfg.travelMs, damage: cfg.damage, radius: cfg.radius });
+      launchMeteor(fx, side, { x: startX, b: fh + 60 }, best, { travelMs: cfg.travelMs, damage: cfg.damage, radius: cfg.radius, lane });
     }
     return true;
   });
@@ -3169,6 +3338,7 @@ function mountRider(r, mount, slot){
   r.mounted = true;
   r.mount = mount;
   r.slot = slot;
+  copyLane(r, mount, -1); // フォートレスと同じレーン(画像の奥側に描く)
   r.scaleMult = mount.def.riderScale || 0.42;
   r.uhpEl.style.display = "none";
   r.el.parentNode.insertBefore(r.el, mount.el);
@@ -3245,6 +3415,7 @@ function updateDismount(r, dtMs){
   if (r.dismountPhase === "wait"){
     r.dismountPhase = "walk";
     r.el.parentNode.appendChild(r.el); // フォートレスの体より手前に出す(梯子は手前側の側面にある)
+    r.el.style.zIndex = String(laneZ(r) + 2);
     if (r.def.frameCounts.walk) setMotion(r, "walk", { loop:true });
   }
   const W = m._displayWidth || 240;
@@ -3308,7 +3479,7 @@ function resolveAreaHit(unit){
   if (def.fxStompDust) spawnStompDust(unit);
   const dmg = getEffectiveAtk(unit);
   battle.units.filter(o =>
-    !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide &&
+    !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide && canReachLane(unit, o) &&
     Math.sign(o.x - centerX) === forwardDir &&
     edgeDistance(unit, o) <= def.areaHitReach
   ).forEach(o => applyDamageToUnit(o, dmg, unit));
@@ -3325,7 +3496,7 @@ function spawnStompDust(unit){
     const dur = fx.durations[i] || 200;
     setTimeout(() => {
       if (!battle) return;
-      const el = spawnFx(fx.imageBase + fx.prefix + (i + 1) + ".png", cx, { height: fx.height, bottom: 74, lifespan: dur });
+      const el = spawnFx(fx.imageBase + fx.prefix + (i + 1) + ".png", cx, { height: fx.height, bottom: unit.baseB || 74, lifespan: dur });
       if (el) el.style.transform = "translateX(" + cx + "px) translateX(-50%)";
     }, delay);
     delay += dur;
@@ -3354,7 +3525,7 @@ function setMotion(unit, motion, opts){
 function showAlertMark(unit){
   const fx = FX_ALERT_MARK;
   if (!fx) return;
-  const headBottom = 74 + (unit.img.offsetHeight || 90) + 6; // ユニットの頭の少し上
+  const headBottom = (unit.baseB || 74) + (unit.img.offsetHeight || 90) + 6; // ユニットの頭の少し上
   for (let i = 0; i < fx.count; i++){
     setTimeout(() => {
       if (unit.dead) return;
@@ -3476,11 +3647,15 @@ function fireProjectile(unit){
 
   // 銃口(発射位置)の位置(体の中心から前方・やや高めにオフセット)
   const muzzleX = unit.x + dir * (def.muzzleOffsetX || 0);
-  const groundMuzzleBottom = def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110;
+  // 発射位置・着弾位置の高さは、撃つ側と狙う側それぞれのレーンの足元を基準にする
+  const muzzleOff = (def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110) - 74;
+  const shooterBase = unit.baseB || 74;
+  const targetBase = capturedTarget ? (capturedTarget.baseB || 74) : shooterBase;
+  const groundMuzzleBottom = targetBase + muzzleOff;
   // フォートレスの背中から撃つときは、デッキの高さから発射する(矢は地上の相手へ向かって降下する)
   // 弾の大きさ：背中に乗っているゴブリンは小さく描かれているので、矢もそれに合わせて小さくする
   const projScale = (unit.mounted ? (unit.scaleMult || 1) * 0.7 : 1) * (def.projectileScale || 1);
-  const muzzleBottom = unit.mounted ? 74 + (unit.rideY || 0) + (groundMuzzleBottom - 74) * (unit.scaleMult || 1) : groundMuzzleBottom;
+  const muzzleBottom = unit.mounted ? shooterBase + (unit.rideY || 0) + muzzleOff * (unit.scaleMult || 1) : shooterBase + muzzleOff;
 
   if (def.fxMuzzleFlash){
     spawnFx(def.imageBase + def.fxMuzzleFlash, muzzleX, { flip: dir < 0, lifespan: 150, height: Math.round(39 * projScale), bottom: muzzleBottom });
@@ -3508,7 +3683,7 @@ function fireProjectile(unit){
         const x = muzzleX + (targetX - muzzleX) * t;
         const y = Math.sin(t * Math.PI) * arcHeight; // 0→最大→0の山なり
         bullet.style.transform = "translateX(" + x + "px)" + (dir < 0 ? " scaleX(-1)" : "") + " rotate(" + (t*360*2) + "deg)";
-        bullet.style.bottom = (muzzleBottom + y) + "px";
+        bullet.style.bottom = (muzzleBottom + (groundMuzzleBottom - muzzleBottom) * t + y) + "px";
         if (t < 1) requestAnimationFrame(step);
       };
       requestAnimationFrame(step);
@@ -3529,7 +3704,7 @@ function fireProjectile(unit){
     if (def.fxImpact){
       // 着弾エフェクト。背景が暗い灰色の画像(投石器の岩)は、背景を透過に変換して重ねる
       const impactUrl = def.imageBase + def.fxImpact;
-      const impactEl = spawnFx(def.fxImpactKey ? keyedFxSrc(impactUrl, FX_KEY_IMPACT) : impactUrl, targetX, { lifespan: 350, height: def.splashRadius ? 90 : 45, bottom: def.fxImpactKey ? 68 : groundMuzzleBottom });
+      const impactEl = spawnFx(def.fxImpactKey ? keyedFxSrc(impactUrl, FX_KEY_IMPACT) : impactUrl, targetX, { lifespan: 350, height: def.splashRadius ? 90 : 45, bottom: def.fxImpactKey ? targetBase - 6 : groundMuzzleBottom });
       if (def.fxImpactKey && impactEl){
         impactEl.style.mixBlendMode = "normal";
         // 着弾した相手の体の中心の、地面の位置に合わせる
@@ -3542,8 +3717,14 @@ function fireProjectile(unit){
       // 範囲ダメージ：着弾地点周辺の敵ユニットすべてに当たる
       const enemySide = unit.side === "player" ? "enemy" : "player";
       let hitAnyUnit = false;
+      // 着弾の範囲は、狙った相手のレーンから splashLaneSpan レーン分(投石器は2レーン)
+      const impLane = capturedTarget ? capturedTarget.lane : unit.lane;
+      const splashSpan = def.splashLaneSpan || 1;
+      const splashLo = Math.min(impLane, GRID_LANES - splashSpan);
+      const splashHi = splashLo + splashSpan - 1;
       battle.units.forEach(other => {
         if (other.dead || other.mounted || other.side !== enemySide) return;
+        if (!lanesOverlap(splashLo, splashHi, other.laneLo, other.laneHi)) return;
         if (Math.abs(other.x - targetX) <= def.splashRadius){
           hitAnyUnit = true;
           applyDamageToUnit(other, getEffectiveAtk(unit), unit);
@@ -3696,7 +3877,7 @@ function updateCharge(unit, dtMs){
     const enemySide = unit.side === "player" ? "enemy" : "player";
     const hitRadius = def.rageChargeHitRadius || 55;
     const target = battle.units.find(o =>
-      !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide && o !== unit.chargePlowedThrough &&
+      !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide && canReachLane(unit, o) && o !== unit.chargePlowedThrough &&
       edgeDistance(unit, o) <= hitRadius
     );
     const castleEdgeX = unit.side === "player" ? 90 : fieldWidth - 90; // キャラが出現する位置まで(それより奥=城の中には入れない)
@@ -3926,6 +4107,7 @@ function applyDamageToUnit(target, amount, attacker){
   // 担がれているキングは、遠距離攻撃(空中に届く攻撃)でしか攻撃できない
   if (target.elevated && attacker && !(attacker.def.ranged || attacker.def.canHitAir)) return;
   if (target.transforming) return; // 女王の第二形態への移行モーション中は無敵(毒などのダメージも受けない)
+  if (target.laneMoving) return;   // レーン移動(回避)のモーション中は無敵
   // 女王のバリア：範囲内の味方(4m以下)は、敵の遠距離攻撃を受けない
   if (attacker && attacker.def.ranged && (target.def.heightM || 2) <= 4 && isShielded(target)) return;
   const def = target.def;
@@ -3938,19 +4120,15 @@ function applyDamageToUnit(target, amount, attacker){
   const dodgeReady = def.canDodge && !target.dodgeUsed && !isSuperArmored(target, attacker) && !target.restrained &&
     meleeRangeCheck && isAttackFromFront(target, attacker) && !attackerFlags.sideHitbox;
 
-  if (dodgeReady){
-    target.dodgeUsed = true;
-    // 攻撃者の"背後"(攻撃者が向いている方向と逆側)へ大きく回り込む
-    const behindOffset = (target.def.attackRange || 40) + 70;
-    target.x = attacker.x - attacker.facing * behindOffset;
-    target.dodgedPastUnit = attacker; // この相手とはもう戦わず素通りする
-    setMotion(target, "dodge", { onEnd: () => afterReaction(target) });
+  if (dodgeReady && startLaneDodge(target)){
+    // 回避：上下どちらかの隣のレーンへ移動する(モーション中は無敵、着いて2秒後にまた回避モーションで元のレーンへ戻る)
     return; // ダメージなし
   }
 
   const guardReady = def.canGuard && !target.shieldBroken &&
     target.guardCooldown <= 0 && !isSuperArmored(target, attacker) && !target.restrained &&
-    isAttackFromFront(target, attacker);
+    isAttackFromFront(target, attacker) &&
+    (!attacker || lanesOverlap(target.lane, target.lane, attacker.laneLo, attacker.laneHi)); // 自分のレーンからの正面の攻撃だけガードできる(横のレーンからの攻撃は不可)
 
   if (guardReady){
     const flags = attackerFlags;
@@ -4049,6 +4227,7 @@ function findNearestEnemyInRange(unit){
   battle.units.forEach(other => {
     if (other === unit || other.dead || other.side === unit.side) return;
     if (other.mounted) return; // フォートレスの背中に乗っている間は狙えない
+    if (!canReachLane(unit, other)) return; // 自分のレーン(遠距離はさらに隣のレーン)にいない敵は、見つけられない・狙えない
     if (other.def.invulnerable) return; // 壊せない巨大ゲートは狙わない
     if (other.elevated && !(unit.def.ranged || unit.def.canHitAir)) return; // 担がれたキングは遠距離攻撃しか届かない
     if (other === unit.dodgedPastUnit) return; // 回避してすれ違った相手とは戦わない
@@ -4235,6 +4414,14 @@ function battleLoop(now){
   battle.money = Math.min(lv.cap, battle.money + lv.rate * (dt/1000));
   updateWalletUI();
 
+  // 敵ウェーブ：ステージの enemyWaves に、出す時間(秒)・種類・レーンを並べておく
+  battle.time += dt / 1000;
+  const waves = battle.stage.enemyWaves || [];
+  while (battle.nextWave < waves.length && waves[battle.nextWave].t <= battle.time){
+    const w = waves[battle.nextWave++];
+    spawnUnit(w.kind, "enemy", w.xOffset || 0, { lane: w.lane });
+  }
+
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
     if (unit.midCooldown > 0) unit.midCooldown = Math.max(0, unit.midCooldown - dt);
@@ -4242,6 +4429,7 @@ function battleLoop(now){
     if (unit.shieldCooldown > 0) unit.shieldCooldown = Math.max(0, unit.shieldCooldown - dt);
     if (unit.meteorCooldown > 0) unit.meteorCooldown = Math.max(0, unit.meteorCooldown - dt);
     if (unit.barrierMs > 0) unit.barrierMs = Math.max(0, unit.barrierMs - dt);
+    updateLaneTween(unit, dt);
     updateMount(unit, dt);
     updateStatusIcons(unit);
     updateBearerSync(unit);
@@ -4472,9 +4660,57 @@ document.getElementById("grid-toggle").addEventListener("click", e => {
   if (ov) ov.style.display = gridVisible ? "" : "none";
   e.target.textContent = "マス表示: " + (gridVisible ? "ON" : "OFF");
 });
-window.addEventListener("resize", fitStage);
+window.addEventListener("resize", () => { fitStage(); layoutLaneButtons(); });
 buildGrid();
+buildLaneButtons();
 fitStage();
+layoutLaneButtons();
+/* ---------- レーン選択ボタン ---------- */
+// 左端に縦に5つ(下から 最左翼 〜 最右翼)。ここでレーンを選んでから、キャラを召喚する
+function buildLaneButtons(){
+  const box = document.getElementById("lane-buttons");
+  box.innerHTML = "";
+  for (let k = 0; k < GRID_LANES; k++){
+    const b = document.createElement("button");
+    b.textContent = LANE_LABELS[k];
+    b.dataset.lane = k;
+    b.addEventListener("click", () => {
+      if (!battle) return;
+      battle.selectedLane = k;
+      updateLaneButtons();
+    });
+    box.appendChild(b);
+  }
+  layoutLaneButtons();
+}
+function layoutLaneButtons(){
+  const frame = document.getElementById("battlefield-frame");
+  const box = document.getElementById("lane-buttons");
+  if (!frame || !box || !frame.clientHeight) return;
+  const scale = Math.min(frame.clientWidth / STAGE_W, frame.clientHeight / STAGE_H);
+  const offy = frame.clientHeight - STAGE_H * scale;
+  Array.from(box.children).forEach(b => {
+    const k = Number(b.dataset.lane);
+    const top = offy + (STAGE_H - GRID_GROUND - GRID_CELL * (k + 1)) * scale;
+    b.style.top = (top + 1) + "px";
+    b.style.height = Math.max(20, GRID_CELL * scale - 3) + "px";
+  });
+}
+function updateLaneButtons(){
+  const box = document.getElementById("lane-buttons");
+  if (!box) return;
+  Array.from(box.children).forEach(b => {
+    b.classList.toggle("selected", !!battle && battle.selectedLane === Number(b.dataset.lane));
+  });
+}
+function flashLaneButtons(){
+  const box = document.getElementById("lane-buttons");
+  box.classList.remove("flash");
+  void box.offsetWidth;
+  box.classList.add("flash");
+  setTimeout(() => box.classList.remove("flash"), 1200);
+}
+
 })();
 </script>
 </body>
