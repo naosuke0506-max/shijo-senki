@@ -1352,8 +1352,9 @@ const CHAR_DEFS = {
     projectileArcHeight: 160,  // 弧の高さ(px)
     fxBullet: "fx_rock_fly_1.png",
     fxImpact: "fx_rock_impact_1.png",
+    fxImpactKey: true, // 着弾画像の暗い背景を透過に変換して使う
     // 移動の見た目：車輪の回転は再現できなかったため、移動中に砂埃を纏わせて誤魔化す
-    fxDustMove: { count: 1, prefix: "fx_dust_", durations: [600], imageBase: IMG_CATAPULT },
+    fxDustMove: null, // 歩行中の砂煙は出さない
     canGuard: false,
     attackFlags: { breaksShield: true }, // 岩の直撃は盾を破壊する
     poisonImmune: true, // 図体が大きく毒が効かない
@@ -2137,6 +2138,7 @@ const keyedFxCache = new Map(); // url -> 変換後のdataURL / "pending" / "fai
 // 背景が真っ黒でなく暗い灰色のグラデーションになっている画像(回復エフェクト)は、bp/wpを大きめにして sub:true で使う
 const FX_KEY_DEFAULT = { bp: 6, wp: 50, sub: false };
 const FX_KEY_HEAL = { bp: 52, wp: 175, sub: true };
+const FX_KEY_IMPACT = { bp: 24, wp: 120, sub: true }; // 岩の着弾(暗い灰色の背景)
 function keyedFxSrc(url, opts){
   const c = keyedFxCache.get(url);
   if (c && c !== "pending" && c !== "fail") return c;
@@ -2184,6 +2186,7 @@ function loadKeyedFx(url, opts){
 function warmKeyedFx(){
   Object.keys(CHAR_DEFS).forEach(k => {
     const d = CHAR_DEFS[k];
+    if (d.fxImpact && d.fxImpactKey) keyedFxSrc(d.imageBase + d.fxImpact, FX_KEY_IMPACT);
     [[d.fxPoisonStatus, FX_KEY_DEFAULT], [d.fxBleed, FX_KEY_DEFAULT], [d.fxHealAura, FX_KEY_HEAL]].forEach(pair => {
       const fx = pair[0];
       if (!fx) return;
@@ -3518,7 +3521,17 @@ function fireProjectile(unit){
     if (bullet) bullet.remove();
     if (!battle || battle.ended || unit.dead) return;
 
-    if (def.fxImpact) spawnFx(def.imageBase + def.fxImpact, targetX, { lifespan: 350, height: def.splashRadius ? 90 : 45, bottom: groundMuzzleBottom });
+    if (def.fxImpact){
+      // 着弾エフェクト。背景が暗い灰色の画像(投石器の岩)は、背景を透過に変換して重ねる
+      const impactUrl = def.imageBase + def.fxImpact;
+      const impactEl = spawnFx(def.fxImpactKey ? keyedFxSrc(impactUrl, FX_KEY_IMPACT) : impactUrl, targetX, { lifespan: 350, height: def.splashRadius ? 90 : 45, bottom: def.fxImpactKey ? 68 : groundMuzzleBottom });
+      if (def.fxImpactKey && impactEl){
+        impactEl.style.mixBlendMode = "normal";
+        // 着弾した相手の体の中心の、地面の位置に合わせる
+        const cx = capturedTarget ? capturedTarget.x + (capturedTarget._displayWidth || 0) / 2 : targetX;
+        impactEl.style.transform = "translateX(" + cx + "px) translateX(-50%)";
+      }
+    }
 
     if (def.splashRadius){
       // 範囲ダメージ：着弾地点周辺の敵ユニットすべてに当たる
