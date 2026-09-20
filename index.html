@@ -1360,8 +1360,9 @@ const CHAR_DEFS = {
     poisonImmune: true, // 図体が大きく毒が効かない
     icon: ICON_CATAPULT,
     imageBase: IMG_CATAPULT,
-    pixelScale: 120 / 426, // 画面表示上妥当なサイズにさらに縮小(高さ約120px)
-    hitboxWidth: 220, // 横幅の大きいユニット用。攻撃側はこの幅の近い方の端を狙う
+    pixelScale: 152 / 426, // 高さ2.8m(兵士1.7m=92px比で約152px)
+    hitboxWidth: 278, // 横幅の大きいユニット用。攻撃側はこの幅の近い方の端を狙う(大きさに合わせて拡大)
+    projectileScale: 1.26, // 岩の大きさも、本体の拡大に合わせる
     frameCounts: {
       idle:1, roll:2, throw:16, discover:3, flinch:3, blowback:2, down:5
     },
@@ -3474,7 +3475,7 @@ function fireProjectile(unit){
   const groundMuzzleBottom = def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110;
   // フォートレスの背中から撃つときは、デッキの高さから発射する(矢は地上の相手へ向かって降下する)
   // 弾の大きさ：背中に乗っているゴブリンは小さく描かれているので、矢もそれに合わせて小さくする
-  const projScale = unit.mounted ? (unit.scaleMult || 1) * 0.7 : 1;
+  const projScale = (unit.mounted ? (unit.scaleMult || 1) * 0.7 : 1) * (def.projectileScale || 1);
   const muzzleBottom = unit.mounted ? 74 + (unit.rideY || 0) + (groundMuzzleBottom - 74) * (unit.scaleMult || 1) : groundMuzzleBottom;
 
   if (def.fxMuzzleFlash){
