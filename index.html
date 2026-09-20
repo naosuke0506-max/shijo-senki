@@ -164,18 +164,19 @@
   #top-right-money .money-num{ font-family:monospace; font-size:1.05rem; color:var(--gold); line-height:1.1; }
   #top-right-money .money-cap{ font-size:.6rem; color:var(--text-dim); }
 
-  /* ステージの広さ：戦場(#battlefield)をSTAGE_ZOOM倍の広さで作り、画面に収まるよう縮小して表示する。
-     ユニットの大きさ・射程・移動速度などは、すべて拡大後の「ゲーム内の座標(px)」のまま。数字を大きくするほど広く見渡せて、キャラは小さく見える */
-  :root{ --stage-zoom: 2; }
+  /* ステージ：ゲーム内の広さは固定(STAGE_W x STAGE_H = 2000 x 600)で、画面の大きさに合わせて縮小して表示する。
+     縮小率は fitStage() が計算する。これにより、端末が違っても、射程・速度・マスの大きさ(ゲーム内の座標)は同じになる */
+  :root{ --stage-scale: .4; --stage-offx: 0px; --stage-offy: 0px; }
   #battlefield-frame{
-    position:absolute; left:0; right:0; top:64px; bottom:90px; overflow:hidden;
+    position:absolute; left:0; right:0; top:64px; bottom:90px; overflow:hidden; background-color:#221f17;
   }
   #battlefield{
-    position:absolute; left:0; top:0;
-    width:calc(100% * var(--stage-zoom)); height:calc(100% * var(--stage-zoom));
-    transform:scale(calc(1 / var(--stage-zoom))); transform-origin:0 0;
+    position:absolute; left:0; top:0; width:2000px; height:600px;
+    transform-origin:0 0; transform:translate(var(--stage-offx), var(--stage-offy)) scale(var(--stage-scale));
     overflow:hidden; background-color:#221f17;
   }
+  #grid-overlay{ position:absolute; left:0; top:0; width:2000px; height:600px; pointer-events:none; z-index:1; }
+  #grid-toggle{ position:absolute; right:92px; top:8px; z-index:6; font-size:.62rem; padding:8px 10px; color:var(--text-dim); }
   #ground-line{ position:absolute; left:0; right:0; bottom:74px; height:2px; background-color:#000000; }
 
   .castle{
@@ -313,6 +314,7 @@
       <div class="castle enemy"><div class="battlements"></div><div class="flag">🏴</div></div>
       <div class="castle player"><div class="battlements"></div><div class="flag">🚩</div></div>
     </div>
+      <button id="grid-toggle">マス表示: ON</button>
       <button id="debug-tab">動作確認</button>
       <div id="debug-panel"></div>
       <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000円(検証用)</button>
@@ -1609,6 +1611,8 @@ function startBattle(stage){
   buildDeployRow();
   buildDebugPanel();
   showScreen("screen-battle");
+  fitStage();
+  requestAnimationFrame(fitStage);
 
   requestAnimationFrame(battleLoop);
 }
@@ -4399,6 +4403,78 @@ document.getElementById("btn-result-continue").addEventListener("click", () => {
   showScreen("screen-stage");
 });
 
+
+/* ---------- マス(グリッド)の表示 ---------- */
+// ゲーム内の広さ：横2000 x 縦600。1マスは正方形(GRID_CELL)で、横に20マス・縦に5レーン。
+// 縦は、いまの地面(下から74px)を最下段のレーンの足元とし、その上に4レーンを重ねる。兵士(高さ約92px)がほぼ1マスの大きさ。
+const STAGE_W = 2000, STAGE_H = 600;
+const GRID_CELL = 100, GRID_LANES = 5, GRID_GROUND = 74;
+const LANE_LABELS = ["最左翼", "左翼", "中央", "右翼", "最右翼"]; // 下から上の順(仮)
+let gridVisible = true;
+
+// 画面(枠)の大きさに合わせて、ステージ全体を縮小して表示する
+function fitStage(){
+  const frame = document.getElementById("battlefield-frame");
+  if (!frame || !frame.clientWidth || !frame.clientHeight) return;
+  const scale = Math.min(frame.clientWidth / STAGE_W, frame.clientHeight / STAGE_H);
+  const root = document.documentElement.style;
+  root.setProperty("--stage-scale", scale);
+  root.setProperty("--stage-offx", ((frame.clientWidth - STAGE_W * scale) / 2) + "px");
+  root.setProperty("--stage-offy", (frame.clientHeight - STAGE_H * scale) + "px"); // 下に揃える
+}
+
+function buildGrid(){
+  const field = document.getElementById("battlefield");
+  let overlay = document.getElementById("grid-overlay");
+  if (overlay) overlay.remove();
+  const cols = Math.floor(STAGE_W / GRID_CELL);
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.id = "grid-overlay";
+  svg.setAttribute("viewBox", "0 0 " + STAGE_W + " " + STAGE_H);
+  const add = (tag, attrs, text) => {
+    const e = document.createElementNS(NS, tag);
+    Object.keys(attrs).forEach(k => e.setAttribute(k, attrs[k]));
+    if (text != null) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  };
+  const yTop = k => STAGE_H - (GRID_GROUND + GRID_CELL * (k + 1)); // レーンkの上端(画面の上からの位置)
+  // レーンの色分け(1つおきに薄く塗る)
+  for (let k = 0; k < GRID_LANES; k++){
+    add("rect", { x: 0, y: yTop(k), width: cols * GRID_CELL, height: GRID_CELL, fill: k % 2 === 0 ? "rgba(255,255,255,0.045)" : "rgba(255,255,255,0.0)" });
+  }
+  // 縦線(マスの境目)と横線(レーンの足元)
+  for (let c = 0; c <= cols; c++){
+    add("line", { x1: c * GRID_CELL, y1: yTop(GRID_LANES - 1), x2: c * GRID_CELL, y2: STAGE_H - GRID_GROUND, stroke: "rgba(255,255,255,0.16)", "stroke-width": 2 });
+  }
+  for (let k = 0; k <= GRID_LANES; k++){
+    const y = STAGE_H - (GRID_GROUND + GRID_CELL * k);
+    add("line", { x1: 0, y1: y, x2: cols * GRID_CELL, y2: y, stroke: k === 0 ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.16)", "stroke-width": 2 });
+  }
+  // レーン名(左端)と、列の番号(下)
+  for (let k = 0; k < GRID_LANES; k++){
+    add("text", { x: 60, y: yTop(k) + GRID_CELL / 2 + 8, fill: "rgba(255,255,255,0.55)", "font-size": 24, "font-family": "sans-serif" }, LANE_LABELS[k]);
+    add("text", { x: STAGE_W - 60, y: yTop(k) + GRID_CELL / 2 + 8, fill: "rgba(255,255,255,0.55)", "font-size": 24, "font-family": "sans-serif", "text-anchor": "end" }, LANE_LABELS[k]);
+  }
+  for (let c = 0; c < cols; c++){
+    add("text", { x: c * GRID_CELL + GRID_CELL / 2, y: STAGE_H - GRID_GROUND + 30, fill: "rgba(255,255,255,0.5)", "font-size": 22, "font-family": "sans-serif", "text-anchor": "middle" }, String(c + 1));
+  }
+  add("text", { x: STAGE_W / 2, y: 30, fill: "rgba(255,255,255,0.6)", "font-size": 24, "font-family": "sans-serif", "text-anchor": "middle" },
+      "1マス = " + GRID_CELL + "px (兵士1体ぶん) / 横" + cols + "マス × " + GRID_LANES + "レーン");
+  svg.style.display = gridVisible ? "" : "none";
+  field.insertBefore(svg, field.firstChild);
+}
+
+document.getElementById("grid-toggle").addEventListener("click", e => {
+  gridVisible = !gridVisible;
+  const ov = document.getElementById("grid-overlay");
+  if (ov) ov.style.display = gridVisible ? "" : "none";
+  e.target.textContent = "マス表示: " + (gridVisible ? "ON" : "OFF");
+});
+window.addEventListener("resize", fitStage);
+buildGrid();
+fitStage();
 })();
 </script>
 </body>
