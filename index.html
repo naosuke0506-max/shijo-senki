@@ -1154,7 +1154,7 @@ const CHAR_DEFS = {
     name: "ゴブリン・キング",
     rank: null,
     race: "goblin",
-    cost: 8000,                // (数値は現実の体格を目安に決めたもの。バランスは調整中)
+    cost: 30000,                // (数値は現実の体格を目安に決めたもの。バランスは調整中)
     hp: 120,
     atk: 0,                    // 自分では攻撃しない(ゲートの召喚が主な能力)
     weight: 55,
@@ -1821,6 +1821,7 @@ function spawnUnit(kind, side, xOffset, opts){
     if (img._ownerUnit){
       img._ownerUnit._displayWidth = dw;
       img._ownerUnit._displayHeight = dh;
+      if (!img._ownerUnit._bodyW) img._ownerUnit._bodyW = Math.max(20, Math.min(80, Math.round(dw * 0.55))); // ぶつかり判定に使う体の幅(武器などを除いた目安)
     }
     img._retryCount = 0; // 読み込みに成功したらリトライ回数をリセット
   });
@@ -1878,7 +1879,7 @@ function spawnUnit(kind, side, xOffset, opts){
     launchVX: 0,
     launchY: 0,
     poisonRemainingMs: 0,         // 毒状態の残り時間
-    poisonStack: 0,               // 毒の蓄積値(%)。閾値に達すると発動
+    gauges: {},                   // 状態異常のゲージ(毒・出血など。種類ごとに1つで、誰が攻撃しても共有)。閾値に達すると発動
     poisonTickTimer: 0,
     poisonTickIntervalMs: 0,
     poisonDamagePerTick: 0,
@@ -1890,7 +1891,6 @@ function spawnUnit(kind, side, xOffset, opts){
     attackHadTarget: false,       // 攻撃開始時に対象ユニットがいたか(多段攻撃の途中で対象が倒れたら残りの段を城へ流さない)
     flagFxEl: null,               // 旗バフのアイコン
     attackArmorMs: 0,             // 近接攻撃中スーパーアーマーの残り時間(ms)。ゴブリン長の特殊モーションで付与
-    bleedStack: 0,                // 出血の蓄積値(%)
     mounted: false,               // 拠点(フォートレス)の背中に乗っている間はtrue(攻撃されず、狙われない)
     mount: null,                  // 乗っている相手(フォートレス)
     slot: null,                   // 背中での立ち位置
@@ -2609,7 +2609,7 @@ function applyMidrangeMove(unit, dtMs){
   }
   const field = document.getElementById("battlefield");
   const fieldWidth = field ? field.clientWidth : 800;
-  unit.x = Math.max(60, Math.min(fieldWidth - 60, unit.x + forwardDir * step));
+  unit.x = Math.max(60, Math.min(fieldWidth - 60, unit.x + moveWithCollision(unit, forwardDir * step)));
   applyFrame(unit);
 }
 
@@ -2679,7 +2679,7 @@ function getStatusKeys(unit){
   if (battle.units.some(q => !q.dead && q.side === unit.side && q.barrierMs > 0) && (def.heightM || 2) <= 4 && isShielded(unit)) keys.push("barrier");
   if (unit.transforming) keys.push("invuln");
   if (unit.poisonRemainingMs > 0) keys.push("poison");
-  if (unit.bleedStack > 0) keys.push("bleed");
+  if (unit.gauges && unit.gauges.bleed > 0) keys.push("bleed");
   if (unit.restrained) keys.push("net");
   return keys;
 }
@@ -2803,7 +2803,7 @@ function updateKingAI(k, dtMs){
   const alive = kingBearersAlive(k);
   if (Math.abs(dx) > 2 && alive > 0){
     const speed = getEffectiveSpeed(k, def.walkSpeed) * (alive >= 2 ? 1 : 0.6);
-    k.x += (dx > 0 ? 1 : -1) * speed * (dtMs / 1000);
+    k.x += moveWithCollision(k, (dx > 0 ? 1 : -1) * speed * (dtMs / 1000));
     applyFrame(k);
   }
 }
@@ -3046,7 +3046,7 @@ function lanesOverlap(aLo, aHi, bLo, bHi){ return aLo <= bHi && bLo <= aHi; }
 // このユニットが攻撃・効果を届かせられるレーンの範囲。通常は自分のレーンだけ。laneReachがあれば占有レーンの上下にその分広がる
 function getReachLanes(unit){
   const r = unit.def.laneReach || 0;
-  if (r === 0) return [unit.lane, unit.lane];
+  if (r === 0) return [unit.laneLo, unit.laneHi]; // 2レーン・3レーンを占める大きい体は、占有する全てのレーンに攻撃が届く
   let lo = Math.max(0, unit.laneLo - r), hi = Math.min(GRID_LANES - 1, unit.laneHi + r);
   if (unit.def.laneStep){
     // レーンを移動して攻撃する魔獣は、出現したレーンと、その両隣のレーンまでしか行けない
@@ -4154,6 +4154,46 @@ function isSuperArmored(unit, attacker){
 // 攻撃者がtargetの正面にいるか(盾兵のガードは前方からの攻撃にしか効かない)
 // 横幅のあるユニット(投石器など)同士の距離を、単なる座標の差ではなく
 // 「箱と箱の隙間」で計算する。幅を持たない通常ユニットは従来通りの点同士の距離になる。
+/* ---------- 敵同士のぶつかり ---------- */
+// 味方は味方をすり抜けられるが、敵の体には通り抜けられずにぶつかる。
+// ぶつかり判定に使う体の幅：hitboxWidthがあればそれ、なければ絵の幅から見積もった値
+function bodyWidth(u){
+  if (u.def.bodyWidth != null) return u.def.bodyWidth;
+  if (u.def.hitboxWidth) return u.def.hitboxWidth;
+  return u._bodyW || 30;
+}
+// 横に dx だけ動こうとしたとき、敵の体にぶつからずに動ける量を返す。
+// 例外(すり抜けられる)：ラッシャーの猛突進、passThroughEnemiesを持つキャラ、レーン移動中、宙に飛ばされている間
+function moveWithCollision(unit, dx){
+  if (!dx || !battle) return dx;
+  if (unit.def.passThroughEnemies || unit.charging || unit.laneMoving || unit.launched || unit.mounted) return dx;
+  const dir = dx > 0 ? 1 : -1;
+  const wu = bodyWidth(unit);
+  let allowed = Math.abs(dx);
+  battle.units.forEach(o => {
+    if (o === unit || o.dead || o.side === unit.side || o.mounted || o.launched || o.laneMoving) return;
+    if (o.def.invulnerable || o.def.passThroughEnemies) return; // 壊せない巨大ゲートなどは、ぶつからない
+    if (!lanesOverlap(unit.laneLo, unit.laneHi, o.laneLo, o.laneHi)) return;
+    const wo = bodyWidth(o);
+    const uc = unit.x + wu / 2, oc = o.x + wo / 2;
+    if (dir > 0 ? !(oc > uc) : !(oc < uc)) return; // 進む方向の先にいる敵だけが対象
+    const gap = dir > 0 ? o.x - (unit.x + wu) : unit.x - (o.x + wo);
+    allowed = Math.min(allowed, Math.max(0, gap));
+  });
+  return dir * allowed;
+}
+
+/* ---------- 状態異常のゲージ ---------- */
+// 状態異常(毒・出血・今後増える状態異常)は、種類ごとに、対象1体につきゲージが1つだけ。誰が攻撃しても、同じゲージにたまる。
+// 蓄積が閾値に達したらtrueを返し、ゲージを0に戻す(発動の中身は呼び出し側で行う)。
+function addStatusGauge(target, key, amount, threshold){
+  if (!target.gauges) target.gauges = {};
+  const v = Math.min(threshold, (target.gauges[key] || 0) + amount);
+  if (v >= threshold){ target.gauges[key] = 0; return true; }
+  target.gauges[key] = v;
+  return false;
+}
+
 function edgeDistance(a, b){
   const aw = (a.def && a.def.hitboxWidth) || 0;
   const bw = (b.def && b.def.hitboxWidth) || 0;
@@ -4354,10 +4394,10 @@ function applyDamageToUnit(target, amount, attacker){
   if (attacker && attacker.def.poisonOnHit && target.hp > 0 && !target.def.poisonImmune){
     const stackPerHit = attacker.def.poisonStackPerHit || 0;
     const threshold = attacker.def.poisonStackThreshold || 100;
-    target.poisonStack = Math.min(threshold, (target.poisonStack || 0) + stackPerHit);
+    const poisonTriggered = addStatusGauge(target, "poison", stackPerHit, threshold); // 毒ゲージは、対象ごとに1つ(誰の矢でも同じゲージにたまる)
     target.poisonFxDef = attacker.def.fxPoisonStatus || target.poisonFxDef;
 
-    if (target.poisonStack >= threshold){
+    if (poisonTriggered){
       const durationMs = attacker.def.poisonDurationMs || 0;
       const tickInterval = attacker.def.poisonTickIntervalMs || 1000;
       const tickCount = Math.max(1, Math.round(durationMs / tickInterval));
@@ -4366,16 +4406,13 @@ function applyDamageToUnit(target, amount, attacker){
       target.poisonTickTimer = tickInterval;
       target.poisonTickIntervalMs = tickInterval;
       target.poisonDamagePerTick = totalDamage / tickCount;
-      target.poisonStack = 0; // 発動したら蓄積はリセットし、再度貯め直しになる
     }
   }
 
   // 出血付与(ゴブリン長の斬撃)：蓄積式。100%で発動し「最大HPの一定割合＋固定値」のダメージ
   if (attacker && attacker.def.bleedStackPerHit && target.hp > 0 && !target.def.bleedImmune){
     const threshold = attacker.def.bleedStackThreshold || 100;
-    target.bleedStack = Math.min(threshold, (target.bleedStack || 0) + attacker.def.bleedStackPerHit);
-    if (target.bleedStack >= threshold){
-      target.bleedStack = 0; // 発動したら蓄積はリセット
+    if (addStatusGauge(target, "bleed", attacker.def.bleedStackPerHit, threshold)){ // 出血ゲージも、対象ごとに1つ
       const bleedDmg = target.hpMax * (attacker.def.bleedMaxHpPercent || 0) + (attacker.def.bleedFixedDamage || 0);
       target.hp = Math.max(0, target.hp - bleedDmg);
       applyFrame(target);
@@ -4480,7 +4517,7 @@ function updateUnitAI(unit, dtMs){
     if (Math.abs(dx) > 2){
       const dir = dx > 0 ? 1 : -1;
       const speed = getEffectiveSpeed(unit, def.walkSpeed);
-      unit.x += dir * speed * (dtMs/1000);
+      unit.x += moveWithCollision(unit, dir * speed * (dtMs/1000));
       applyFrame(unit);
     }
     return;
@@ -4579,7 +4616,7 @@ function updateUnitAI(unit, dtMs){
       return;
     }
 
-    unit.x += moveAmount;
+    unit.x += moveWithCollision(unit, moveAmount);
     applyFrame(unit);
 
     // 車輪の回転を再現できない代わりに、移動中は足元に砂埃をまとわせて誤魔化す
