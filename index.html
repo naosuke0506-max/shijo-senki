@@ -879,7 +879,7 @@ const CHAR_DEFS = {
     detectionRange: 280,
     canGuard: false,
     alwaysSuperArmored: true, // 常時スーパーアーマー(スーパーアーマー無効の攻撃以外では怯まない)
-    attackFlags: { ignoresGuard: true, launchesUp: true }, // 通常攻撃もガード無効・打ち上げ効果を持つ
+    attackFlags: { ignoresGuard: true, knocksBack: true }, // 通常攻撃もガード無効。当たった相手は、後ろへ2マス吹き飛ぶ(かち上げはしない)
     icon: ICON_RUSHER,
     imageBase: IMG_RUSHER,
     pixelScale: 124 / 541, // 全高約2.3m(兵士1.7m=92px比で約124px)。歩行コマ(541px)基準
@@ -1634,7 +1634,7 @@ function startBattle(stage){
     paused: false,
     fxList: [],                    // 毎フレーム進めるエフェクト・タイマー(一時停止に連動する)
     comboDone: { player: false, enemy: false }, // 指輪コンボは陣営ごとに1回だけ
-    selectedLane: null,            // 召喚するレーン(下から0〜4)。選ぶまで召喚できない
+    selectedLanes: new Set(),      // 召喚するレーン(下から0〜4)。複数選べて、選んだレーンごとに1体ずつ出る。1つも選んでいないと召喚できない
     time: 0,                       // 戦闘の経過時間(秒)
     nextWave: 0                    // 次に出す敵ウェーブの番号
   };
@@ -1715,20 +1715,24 @@ function updateWalletUI(){
 function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
   const cost = getDeployCost(def);
-  if (battle.selectedLane == null){ flashLaneButtons(); return; } // 先にレーンを選ばないと召喚できない
-  if (battle.money < cost) return;
-  battle.money -= cost;
+  const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
+  if (!lanes.length){ flashLaneButtons(); return; } // 先にレーンを選ばないと召喚できない
+  const total = cost * lanes.length; // 選んだレーンの数だけ、1体(1セット)ずつ出る。値段もその分かかる
+  if (battle.money < total) return;
+  battle.money -= total;
   updateWalletUI();
-  const lane = battle.selectedLane;
-  const main = spawnUnit(kind, "player", 0, { lane });
-  (def.summons || []).forEach(s => {
-    // 魔獣などは、両隣のレーンに1匹ずつ(壁があれば、その側の1匹は本体と同じレーン)
-    const lanes = summonLanes(main.lane, s.count);
-    for (let i = 0; i < s.count; i++){
-      // 同じレーンに重なる場合は、少しずつ横にずらして重なりすぎないようにする
-      const offset = (i - (s.count - 1) / 2) * 26;
-      spawnUnit(s.kind, "player", offset, { lane: lanes[i] });
-    }
+  lanes.forEach(lane => {
+    // 複数レーンを占めるキャラは、選んだレーンを基準にまたぐ位置が決まる(選んだレーンの数だけ、それぞれに出る)
+    const main = spawnUnit(kind, "player", 0, { lane });
+    (def.summons || []).forEach(s => {
+      // 魔獣などは、両隣のレーンに1匹ずつ(壁があれば、その側の1匹は本体と同じレーン)
+      const subLanes = summonLanes(main.lane, s.count);
+      for (let i = 0; i < s.count; i++){
+        // 同じレーンに重なる場合は、少しずつ横にずらして重なりすぎないようにする
+        const offset = (i - (s.count - 1) / 2) * 26;
+        spawnUnit(s.kind, "player", offset, { lane: subLanes[i] });
+      }
+    });
   });
 }
 
@@ -1834,6 +1838,7 @@ function spawnUnit(kind, side, xOffset, opts){
     downFinished: false,          // フォートレス専用：ダウンモーションを最後まで再生し終えた
     staggerVX: 0,                 // よろめき後退中の速度(px/秒)
     lane: 0, laneLo: 0, laneHi: 0, // いるレーン(下から0〜4)。laneLo〜laneHiが占有レーン
+    homeLane: 0,                  // 出現したレーン(魔獣は、ここと両隣のレーンまでしか移動できない)
     baseB: 74,                    // 足元の高さ(画面の下からのpx)
     laneTween: null, laneMoving: false, laneReturnMs: 0, laneReturnPending: false, dodgeHomeLane: 0, // レーン移動(回避)
     bearerOf: null,               // キングの担ぎ手として担いでいる相手
@@ -1864,7 +1869,8 @@ function spawnUnit(kind, side, xOffset, opts){
   if (def.blendScreen) img.style.mixBlendMode = "screen";
   if (def.invulnerable) uhp.style.display = "none";
   battle.units.push(unit);
-  setUnitLane(unit, (opts && opts.lane != null) ? opts.lane : (battle.selectedLane != null ? battle.selectedLane : 0));
+  setUnitLane(unit, (opts && opts.lane != null) ? opts.lane : defaultLane());
+  unit.homeLane = unit.lane;
   setMotion(unit, "idle");
   if (opts && opts.mount) mountRider(unit, opts.mount, opts.slot);
   if (opts && opts.bearerOf){ unit.bearerOf = opts.bearerOf; unit.slot = opts.slot; copyLane(unit, opts.bearerOf, 1); }
@@ -2893,6 +2899,11 @@ function spawnBigGate(k, side, tx){
 /* ---------- レーン ---------- */
 // 縦は5レーン(下から 0=最左翼 〜 4=最右翼)。各ユニットは、足元が「いちばん下の占有レーン」の床に立つ。
 // laneSpan(1〜3)は縦に何レーン分の大きさか。2レーンは下のレーン、3レーンは真ん中のレーンを「自分のレーン」とする。
+// レーンを指定しないで出すとき(検証用ボタンなど)のレーン：選んでいるレーンのいちばん下、なければ最下段
+function defaultLane(){
+  if (battle && battle.selectedLanes && battle.selectedLanes.size) return Math.min.apply(null, Array.from(battle.selectedLanes));
+  return 0;
+}
 function laneFloor(l){ return GRID_GROUND + l * GRID_CELL; }
 function laneZ(u){ return 10 + (GRID_LANES - u.laneLo) * 10; } // 手前(下)のレーンほど前に描く
 function clampLaneForSpan(lane, span){
@@ -2934,7 +2945,13 @@ function lanesOverlap(aLo, aHi, bLo, bHi){ return aLo <= bHi && bLo <= aHi; }
 function getReachLanes(unit){
   const r = unit.def.laneReach || 0;
   if (r === 0) return [unit.lane, unit.lane];
-  return [Math.max(0, unit.laneLo - r), Math.min(GRID_LANES - 1, unit.laneHi + r)];
+  let lo = Math.max(0, unit.laneLo - r), hi = Math.min(GRID_LANES - 1, unit.laneHi + r);
+  if (unit.def.laneStep){
+    // レーンを移動して攻撃する魔獣は、出現したレーンと、その両隣のレーンまでしか行けない
+    lo = Math.max(lo, unit.homeLane - 1);
+    hi = Math.min(hi, unit.homeLane + 1);
+  }
+  return [lo, hi];
 }
 function canReachLane(unit, target){
   const rl = getReachLanes(unit);
@@ -4273,7 +4290,7 @@ function applyDamageToUnit(target, amount, attacker){
     if (attacker.def.attackFlags.launchesUp){
       launchUnit(target, attacker, { upSpeed: 380 });
     } else if (attacker.def.attackFlags.knocksBack){
-      launchUnit(target, attacker, { upSpeed: 340, knockback: true, backSpeed: 260 });
+      launchUnit(target, attacker, { upSpeed: 340, knockback: true }); // 後ろへ2マス分
     }
   }
 
@@ -4754,11 +4771,23 @@ function buildLaneButtons(){
     b.dataset.lane = k;
     b.addEventListener("click", () => {
       if (!battle) return;
-      battle.selectedLane = k;
+      // タップするたびに、選択・解除が切り替わる(5レーン全て選べる)
+      if (battle.selectedLanes.has(k)) battle.selectedLanes.delete(k); else battle.selectedLanes.add(k);
       updateLaneButtons();
     });
     box.appendChild(b);
   }
+  // 全レーンの選択・解除をまとめて切り替えるボタン
+  const all = document.createElement("button");
+  all.id = "lane-all-btn";
+  all.textContent = "全レーン";
+  all.addEventListener("click", () => {
+    if (!battle) return;
+    if (battle.selectedLanes.size >= GRID_LANES) battle.selectedLanes.clear();
+    else for (let k = 0; k < GRID_LANES; k++) battle.selectedLanes.add(k);
+    updateLaneButtons();
+  });
+  box.appendChild(all);
   layoutLaneButtons();
 }
 function layoutLaneButtons(){
@@ -4768,6 +4797,13 @@ function layoutLaneButtons(){
   const scale = Math.min(frame.clientWidth / STAGE_W, frame.clientHeight / STAGE_H);
   const offy = frame.clientHeight - STAGE_H * scale;
   Array.from(box.children).forEach(b => {
+    if (b.id === "lane-all-btn"){
+      // 「全レーン」ボタンは、いちばん下のレーンの下(地面の下の余白)に置く
+      const t = offy + (STAGE_H - GRID_GROUND) * scale + 2;
+      b.style.top = t + "px";
+      b.style.height = Math.max(16, GRID_GROUND * scale - 4) + "px";
+      return;
+    }
     const k = Number(b.dataset.lane);
     const top = offy + (STAGE_H - GRID_GROUND - GRID_CELL * (k + 1)) * scale;
     b.style.top = (top + 1) + "px";
@@ -4778,7 +4814,11 @@ function updateLaneButtons(){
   const box = document.getElementById("lane-buttons");
   if (!box) return;
   Array.from(box.children).forEach(b => {
-    b.classList.toggle("selected", !!battle && battle.selectedLane === Number(b.dataset.lane));
+    if (b.id === "lane-all-btn"){
+      b.classList.toggle("selected", !!battle && battle.selectedLanes.size >= GRID_LANES);
+      return;
+    }
+    b.classList.toggle("selected", !!battle && battle.selectedLanes.has(Number(b.dataset.lane)));
   });
 }
 function flashLaneButtons(){
