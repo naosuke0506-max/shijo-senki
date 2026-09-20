@@ -2133,13 +2133,17 @@ function updatePoison(unit, dtMs){
 // 黒背景のままだと、ユニットに重ねたときに黒い四角が見えてしまうため、読み込んだ画像の「黒い部分」を透明にした画像に差し替える。
 // 変換が終わるまでは元の画像を使う。戦闘開始時に、使う画像をあらかじめ変換しておく。
 const keyedFxCache = new Map(); // url -> 変換後のdataURL / "pending" / "fail"
-function keyedFxSrc(url){
+// opts: { bp: 黒とみなす明るさ(これ以下は透明), wp: 完全に不透明とみなす明るさ, sub: trueなら背景の明るさ(bp)を差し引いた色にする }
+// 背景が真っ黒でなく暗い灰色のグラデーションになっている画像(回復エフェクト)は、bp/wpを大きめにして sub:true で使う
+const FX_KEY_DEFAULT = { bp: 6, wp: 50, sub: false };
+const FX_KEY_HEAL = { bp: 52, wp: 175, sub: true };
+function keyedFxSrc(url, opts){
   const c = keyedFxCache.get(url);
   if (c && c !== "pending" && c !== "fail") return c;
-  if (!c) loadKeyedFx(url);
+  if (!c) loadKeyedFx(url, opts || FX_KEY_DEFAULT);
   return url;
 }
-function loadKeyedFx(url){
+function loadKeyedFx(url, opts){
   keyedFxCache.set(url, "pending");
   const im = new Image();
   im.crossOrigin = "anonymous";
@@ -2151,10 +2155,16 @@ function loadKeyedFx(url){
       ctx.drawImage(im, 0, 0);
       const data = ctx.getImageData(0, 0, cv.width, cv.height);
       const d = data.data;
+      const bp = opts.bp, wp = opts.wp;
       for (let i = 0; i < d.length; i += 4){
         const m = Math.max(d[i], d[i+1], d[i+2]);
-        let a = (m - 6) / 44; // 明るさに応じて不透明にする(真っ黒=透明、明るい=不透明)
+        let a = (m - bp) / (wp - bp); // 明るさに応じて不透明にする(暗い=透明、明るい=不透明)
         a = a < 0 ? 0 : (a > 1 ? 1 : a);
+        if (opts.sub && m > 0){
+          // 背景の明るさ(bp)を差し引いた色にして、暗い背景のもやが残らないようにする
+          const k = Math.max(0, m - bp) / m;
+          d[i] *= k; d[i+1] *= k; d[i+2] *= k;
+        }
         if (a > 0 && a < 1){
           d[i]   = Math.min(255, d[i]   / a);
           d[i+1] = Math.min(255, d[i+1] / a);
@@ -2174,9 +2184,10 @@ function loadKeyedFx(url){
 function warmKeyedFx(){
   Object.keys(CHAR_DEFS).forEach(k => {
     const d = CHAR_DEFS[k];
-    [d.fxPoisonStatus, d.fxBleed, d.fxHealAura].forEach(fx => {
+    [[d.fxPoisonStatus, FX_KEY_DEFAULT], [d.fxBleed, FX_KEY_DEFAULT], [d.fxHealAura, FX_KEY_HEAL]].forEach(pair => {
+      const fx = pair[0];
       if (!fx) return;
-      for (let i = 0; i < fx.count; i++) keyedFxSrc(fx.imageBase + fx.prefix + (i + 1) + ".png");
+      for (let i = 0; i < fx.count; i++) keyedFxSrc(fx.imageBase + fx.prefix + (i + 1) + ".png", pair[1]);
     });
   });
 }
@@ -2220,6 +2231,7 @@ const LAUNCH_GRAVITY = 1400; // px/s^2
 // 対象を空中に打ち上げる(knockback:trueで後方への水平吹き飛びも同時に加える)
 function launchUnit(target, attacker, opts){
   if (target.dead) return;
+  if (target.def.immobile) return; // ゲートなど動かないものは、打ち上げ・吹き飛ばしを受けない
   if (target.def.staggerOnLaunch){ startStagger(target, attacker); return; } // 巨体は宙に浮かない
   opts = opts || {};
   target.launched = true;
@@ -2319,7 +2331,7 @@ function updateHealer(unit, dtMs){
           // 味方の体の中心に、体の大きさに合わせたサイズで重ねる(黒背景は透過に変換済み)
           const H = ally._displayHeight || 92;
           const cx = ally.x + (ally._displayWidth || 0) / 2;
-          const el = spawnFx(keyedFxSrc(fx.imageBase + fx.prefix + (i+1) + ".png"), cx, {
+          const el = spawnFx(keyedFxSrc(fx.imageBase + fx.prefix + (i+1) + ".png", FX_KEY_HEAL), cx, {
             height: Math.round(H * 0.6), bottom: Math.round(74 + (ally.rideY || 0) + H * 0.25), lifespan: fx.durations[i]
           });
           if (el){
@@ -4006,6 +4018,7 @@ function applyDamageToUnit(target, amount, attacker){
   }
 
   if (isSuperArmored(target, attacker) || target.restrained || target.launched) return; // スーパーアーマー中・拘束中・打ち上げ中は怯まない
+  if (def.gateUnit || !def.frameCounts.flinch) return; // 怯みモーションを持たないもの(ゲートなど)は、殴られても見た目が変わらない
 
   setMotion(target, "flinch", { onEnd: () => afterReaction(target) });
 }
