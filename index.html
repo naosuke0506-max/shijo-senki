@@ -270,14 +270,14 @@
   <section id="screen-title" class="screen active">
     <h1>屍城戦記</h1>
     <div class="sub">SHIJO SENKI</div>
-    <button class="primary" id="btn-to-formation">はじめる</button>
+    <button class="primary" id="btn-to-formation">出陣</button>
   </section>
 
   <!-- 編成 -->
   <section id="screen-formation" class="screen">
     <div class="topbar">
-      <h2>編成</h2>
-      <button class="primary" id="btn-to-stage">ステージ選択へ</button>
+      <h2>布陣</h2>
+      <button class="primary" id="btn-to-stage">戦線選択</button>
     </div>
     <div class="formation-slots" id="formation-slots"></div>
     <div class="unit-grid" id="unit-grid"></div>
@@ -287,8 +287,8 @@
   <!-- ステージ選択 -->
   <section id="screen-stage" class="screen">
     <div class="topbar" style="width:100%;max-width:420px;">
-      <h2>ステージ選択</h2>
-      <button id="btn-back-formation">戻る</button>
+      <h2>戦線選択</h2>
+      <button id="btn-back-formation">帰陣</button>
     </div>
     <div class="stage-list" id="stage-list"></div>
   </section>
@@ -298,7 +298,7 @@
 
     <div id="battle-topbar">
       <div id="top-left-controls">
-        <div class="stage-plate" id="stage-name-plate">魔の平原</div>
+        <div class="stage-plate" id="stage-name-plate">魔野</div>
         <button id="btn-pause" title="一時停止">Ⅱ</button>
         <button id="btn-surrender" title="投降">✕</button>
       </div>
@@ -315,8 +315,8 @@
         </div>
       </div>
       <div id="top-right-money">
-        <div class="money-num" id="money-num">0円</div>
-        <div class="money-cap" id="money-cap">上限1500円</div>
+        <div class="money-num" id="money-num">0銭</div>
+        <div class="money-cap" id="money-cap">上限1500銭</div>
       </div>
     </div>
 
@@ -326,31 +326,31 @@
       <div class="castle enemy"><div class="battlements"></div><div class="flag">🏴</div></div>
       <div class="castle player"><div class="battlements"></div><div class="flag">🚩</div></div>
     </div>
-      <button id="grid-toggle">マス表示: ON</button>
+      <button id="grid-toggle">区画表示: 有</button>
       <button id="debug-tab">動作確認</button>
       <div id="debug-panel"></div>
-      <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000円(検証用)</button>
-      <button id="cheat-enemy-btn" style="position:absolute;left:0;top:76px;z-index:6;font-size:.62rem;padding:6px 8px;">敵兵士召喚(検証用)</button>
-      <button id="cheat-enemy-spear-btn" style="position:absolute;left:0;top:112px;z-index:6;font-size:.62rem;padding:6px 8px;">敵槍兵召喚(検証用)</button>
-      <button id="cheat-enemy-shield-btn" style="position:absolute;left:0;top:148px;z-index:6;font-size:.62rem;padding:6px 8px;">敵盾兵召喚(検証用)</button>
-      <button id="cheat-enemy-gun-btn" style="position:absolute;left:0;top:184px;z-index:6;font-size:.62rem;padding:6px 8px;">敵火縄銃兵召喚(検証用)</button>
-      <button id="cheat-enemy-goblin-btn" style="position:absolute;left:0;top:220px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン召喚(検証用)</button>
-      <button id="cheat-enemy-drummer-btn" style="position:absolute;left:0;top:256px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鼓舞兵召喚(検証用)</button>
-      <button id="cheat-enemy-catapult-btn" style="position:absolute;left:0;top:292px;z-index:6;font-size:.62rem;padding:6px 8px;">敵投石器召喚(検証用)</button>
-      <button id="cheat-enemy-chief-btn" style="position:absolute;left:0;top:328px;z-index:6;font-size:.62rem;padding:6px 8px;">敵ゴブリン長召喚(検証用)</button>
-      <button id="cheat-enemy-fortress-btn" style="position:absolute;left:0;top:364px;z-index:6;font-size:.62rem;padding:6px 8px;">敵フォートレス召喚(検証用)</button>
-      <button id="cheat-enemy-queen-btn" style="position:absolute;left:0;top:400px;z-index:6;font-size:.62rem;padding:6px 8px;">敵女王召喚(検証用)</button>
-      <button id="cheat-enemy-king-btn" style="position:absolute;left:0;top:436px;z-index:6;font-size:.62rem;padding:6px 8px;">敵キング召喚(検証用)</button>
+      <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000銭(検証用)</button>
+      <button id="cheat-enemy-btn" style="position:absolute;left:0;top:76px;z-index:6;font-size:.62rem;padding:6px 8px;">敵戍卒出現(検証用)</button>
+      <button id="cheat-enemy-spear-btn" style="position:absolute;left:0;top:112px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鎗卒出現(検証用)</button>
+      <button id="cheat-enemy-shield-btn" style="position:absolute;left:0;top:148px;z-index:6;font-size:.62rem;padding:6px 8px;">敵楯衛出現(検証用)</button>
+      <button id="cheat-enemy-gun-btn" style="position:absolute;left:0;top:184px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鳥銃手出現(検証用)</button>
+      <button id="cheat-enemy-goblin-btn" style="position:absolute;left:0;top:220px;z-index:6;font-size:.62rem;padding:6px 8px;">敵餓鬼出現(検証用)</button>
+      <button id="cheat-enemy-drummer-btn" style="position:absolute;left:0;top:256px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鼓鬼出現(検証用)</button>
+      <button id="cheat-enemy-catapult-btn" style="position:absolute;left:0;top:292px;z-index:6;font-size:.62rem;padding:6px 8px;">敵礫車出現(検証用)</button>
+      <button id="cheat-enemy-chief-btn" style="position:absolute;left:0;top:328px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鬼将出現(検証用)</button>
+      <button id="cheat-enemy-fortress-btn" style="position:absolute;left:0;top:364px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鬼象砦出現(検証用)</button>
+      <button id="cheat-enemy-queen-btn" style="position:absolute;left:0;top:400px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鬼后出現(検証用)</button>
+      <button id="cheat-enemy-king-btn" style="position:absolute;left:0;top:436px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鬼王出現(検証用)</button>
     <div id="lane-buttons"></div>
     <div id="lane-hint"></div>
     </div><!-- /battlefield-frame -->
 
     <div id="battle-bottombar">
       <div id="wallet-widget">
-        <div class="lv-label" id="wallet-lv-label">財布Lv0</div>
-        <div class="rate" id="wallet-rate-label">30円/秒</div>
+        <div class="lv-label" id="wallet-lv-label">軍資Lv0</div>
+        <div class="rate" id="wallet-rate-label">30銭/秒</div>
         <div class="bar"><i id="money-bar" style="width:0%"></i></div>
-        <button id="wallet-upgrade-btn">強化(600円)</button>
+        <button id="wallet-upgrade-btn">強化(600銭)</button>
       </div>
       <div id="deploy-row"></div>
       <div id="reserved-space"></div>
@@ -362,7 +362,7 @@
   <section id="screen-result" class="screen">
     <h2 id="result-title">勝利</h2>
     <p id="result-sub" style="color:var(--text-dim);font-size:.85rem;"></p>
-    <button class="primary" id="btn-result-continue" style="margin-top:20px;padding:12px 36px;">ステージ選択へ戻る</button>
+    <button class="primary" id="btn-result-continue" style="margin-top:20px;padding:12px 36px;">帰陣</button>
   </section>
 
 </div>
@@ -448,7 +448,7 @@ function buildSummonSchedule(remainingByKind, totalSec){
 
 const CHAR_DEFS = {
   soldier: {
-    name: "兵士",
+    name: "戍卒",
     rank: null,
     race: "human", // 後日決定
     cost: 500,
@@ -500,7 +500,7 @@ const CHAR_DEFS = {
 
   spearman: {
     bonusVsRace: { beast: 1.2 }, // 魔獣・獣(種族beast)への攻撃力が20%上がる
-    name: "槍兵",
+    name: "鎗卒",
     rank: null, // 後日決定
     race: "human",
     cost: 450,
@@ -542,7 +542,7 @@ const CHAR_DEFS = {
   },
 
   shieldman: {
-    name: "盾兵",
+    name: "楯衛",
     rank: null,
     race: "human",
     cost: 500,
@@ -588,7 +588,7 @@ const CHAR_DEFS = {
 
   arquebusier: {
     laneReach: 1,              // 自分のレーンと、隣のレーンまで攻撃できる
-    name: "火縄銃兵",
+    name: "鳥銃手",
     rank: null,
     race: "human",
     cost: 650,
@@ -636,7 +636,7 @@ const CHAR_DEFS = {
 
   trapper: {
     trapCells: [18, 10],        // 罠を置くマス(左から数えた列)。以前は3つだったが、2つに
-    name: "ゴブリン罠兵",
+    name: "穽鬼",
     rank: null,
     race: "goblin",
     cost: 480,        // 鼓舞兵(320)より高め。拘束は戦況を壊しかねないため割高に設定
@@ -672,7 +672,7 @@ const CHAR_DEFS = {
 
   archer: {
     laneReach: 1,              // 自分のレーンと、隣のレーンまで攻撃できる
-    name: "ゴブリン弓兵",
+    name: "弓鬼",
     rank: null,
     race: "goblin",
     cost: 350,          // 火縄銃兵(750)より安いが通常ゴブリン(250)より高い、毒の継続ダメージ込みで評価
@@ -723,7 +723,7 @@ const CHAR_DEFS = {
   },
 
   bruteGoblin: {
-    name: "屈強なゴブリン",
+    name: "剛鬼",
     rank: null,
     race: "goblin",
     cost: 750,
@@ -763,7 +763,7 @@ const CHAR_DEFS = {
 
   healer: {
     laneReach: 1,              // 自分のレーンと、隣のレーンまで回復できる
-    name: "ゴブリン・ヒーラー",
+    name: "巫鬼",
     rank: null,
     race: "goblin",
     cost: 500,
@@ -806,7 +806,7 @@ const CHAR_DEFS = {
   },
 
   tamer: {
-    name: "ゴブリンテイマー",
+    name: "馭獣鬼",
     rank: null,
     race: "goblin",
     cost: 300,          // 本体は指示役。コストの大半は犬2匹側に乗せる想定(暫定)
@@ -839,7 +839,7 @@ const CHAR_DEFS = {
   hound: {
     laneReach: 1,              // 隣のレーンの敵も見つけられる
     laneStep: true,            // 近接攻撃のとき、隣のレーンへ移動して攻撃できる
-    name: "魔獣",
+    name: "鬼犬",
     rank: null,
     race: "beast",       // ゴブリン族ではない(鼓舞兵のバフ対象外・ヒーラーの蘇生対象外)
     buffEligible: true,  // 例外的に鼓舞兵のバフを受けられる
@@ -880,7 +880,7 @@ const CHAR_DEFS = {
   },
 
   rusher: {
-    name: "ゴブリン・ラッシャー",
+    name: "鬼犀",
     rank: null,
     race: "beast",
     buffEligible: true, // 例外的に鼓舞兵のバフを受けられる
@@ -896,7 +896,7 @@ const CHAR_DEFS = {
     detectionRange: 280,
     canGuard: false,
     alwaysSuperArmored: true, // 常時スーパーアーマー(スーパーアーマー無効の攻撃以外では怯まない)
-    attackFlags: { ignoresGuard: true, knocksBack: true }, // 通常攻撃もガード無効。当たった相手は、後ろへ2マス吹き飛ぶ(かち上げはしない)
+    attackFlags: { breaksShield: true, knocksBack: true }, // 通常攻撃はガードブレイカー(盾を壊す)。当たった相手は、後ろへ2マス吹き飛ぶ(かち上げはしない)
     icon: ICON_RUSHER,
     imageBase: IMG_RUSHER,
     pixelScale: 124 / 541, // 全高約2.3m(兵士1.7m=92px比で約124px)。歩行コマ(541px)基準
@@ -926,7 +926,7 @@ const CHAR_DEFS = {
   },
 
   chief: {
-    name: "ゴブリン長",
+    name: "鬼将",
     rank: null,
     race: "goblin",
     cost: 2200,           // 屈強なゴブリン(750)・ラッシャー(900)より上、投石器(2800)より下の中堅上位(暫定)
@@ -1002,7 +1002,7 @@ const CHAR_DEFS = {
   fortress: {
     laneStdHeight: 348,
     laneSpan: 3,               // 3レーン分の大きさ(基準は真ん中のレーン)。近接は自分のレーンだけ
-    name: "ゴブリン・ビースト・フォートレス",
+    name: "鬼象砦",
     rank: null,
     race: "beast",
     buffEligible: true,        // 背中の鼓舞兵のバフを本体も受けられる
@@ -1069,7 +1069,7 @@ const CHAR_DEFS = {
   queen: {
     laneStdHeight: 288,
     laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)。攻撃は自分のレーンだけ
-    name: "ゴブリンの女王",
+    name: "鬼后",
     rank: null,
     race: "goblin",
     heightM: 4,                // シールドが守れるのは4m以下(フォートレスは6mなので対象外)
@@ -1151,7 +1151,7 @@ const CHAR_DEFS = {
 
   king: {
     laneReach: 4,              // ゲート召喚のきっかけになる敵は、どのレーンにいても見つけられる(自分は攻撃しない)
-    name: "ゴブリン・キング",
+    name: "鬼王",
     rank: null,
     race: "goblin",
     cost: 30000,                // (数値は現実の体格を目安に決めたもの。バランスは調整中)
@@ -1218,7 +1218,7 @@ const CHAR_DEFS = {
   gate: {
     laneStdHeight: 292,
     laneSpan: 2,               // 2レーン分
-    name: "ゲート",
+    name: "鬼門",
     hiddenFromFormation: true,
     rank: null,
     race: "object",
@@ -1264,7 +1264,7 @@ const CHAR_DEFS = {
   bigGate: {
     laneStdHeight: 390,
     laneSpan: 3,               // 3レーン分(中央のレーンが基準)
-    name: "巨大ゲート",
+    name: "大鬼門",
     hiddenFromFormation: true,
     rank: null,
     race: "object",
@@ -1306,7 +1306,7 @@ const CHAR_DEFS = {
   },
 
   goblin: {
-    name: "ゴブリン",
+    name: "餓鬼",
     rank: null,
     race: "goblin", // 鼓舞兵のバフ対象判定に使用
     cost: 250,
@@ -1352,7 +1352,7 @@ const CHAR_DEFS = {
 
   drummerGoblin: {
     laneReach: 1,              // 自分のレーンと、隣のレーンまでバフをかけられる
-    name: "ゴブリン鼓舞兵",
+    name: "鼓鬼",
     rank: null,
     race: "goblin",
     cost: 320,
@@ -1395,7 +1395,7 @@ const CHAR_DEFS = {
     laneStdHeight: 152,        // 立っているときの高さ(px)。複数レーンを占めるキャラは、占有するレーンの中心にこの高さの中心を合わせる
     laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)
     splashLaneSpan: 2,         // 着弾の範囲は2レーン分(自分のレーンの敵を狙い、隣にもダメージ)
-    name: "ゴブリン投石器",
+    name: "礫車",
     rank: null,
     race: "goblin",
     cost: 2400,
@@ -1488,7 +1488,7 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    ========================================================= */
 const STAGES = [
   // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔の平原", enemyCastleHp:3000, playerCastleHp:2000, enemyWaves: [] }
+  { id:"plain", name:"魔野", enemyCastleHp:3000, playerCastleHp:2000, enemyWaves: [] }
 ];
 
 /* =========================================================
@@ -1523,10 +1523,10 @@ const state = {
 };
 
 const FORMATION_CATEGORIES = [
-  { id: "all",    label: "すべて" },
+  { id: "all",    label: "全" },
   { id: "human",  label: "人間" },
-  { id: "goblin", label: "ゴブリン" },
-  { id: "beast",  label: "魔獣" }
+  { id: "goblin", label: "鬼" },
+  { id: "beast",  label: "鬼獣" }
 ];
 
 // テイマーのように、召喚すると付随するユニットも同時に出るキャラのコスト合計(セット価格)を返す
@@ -1557,7 +1557,7 @@ function buildFormationSlots(){
     slot.className = "formation-slot";
     slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag">${getDeployCost(def)}</div>`;
     attachImgFallback(slot.querySelector("img"), def.name);
-    slot.title = def.name + "(タップで編成から外す)";
+    slot.title = def.name + "(タップで布陣から外す)";
     slot.addEventListener("click", () => {
       state.selectedUnits.splice(i, 1);
       buildFormationScreen();
@@ -1602,7 +1602,7 @@ function buildUnitGrid(){
       <div class="rank-tag">${def.rank || "―"}</div>
       <div class="icon-wrap"><img src="${def.icon}" alt="${def.name}"></div>
       <div class="name">${def.name}</div>
-      <div class="cost">${getDeployCost(def)}円</div>
+      <div class="cost">${getDeployCost(def)}銭</div>
     `;
     attachImgFallback(card.querySelector("img"), def.name);
     card.addEventListener("click", () => {
@@ -1706,7 +1706,7 @@ function buildDeployRow(){
     const btn = document.createElement("button");
     btn.className = "deploy-btn";
     btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag">${getDeployCost(def)}</span>` +
-      ((def.laneSpan || 1) > 1 ? `<span class="lane-tag">${def.laneSpan}レーン</span>` : "");
+      ((def.laneSpan || 1) > 1 ? `<span class="lane-tag">${def.laneSpan}戦列</span>` : "");
     attachImgFallback(btn.querySelector("img"), def.name);
     btn.addEventListener("click", () => tryDeploy(kind));
     row.appendChild(btn);
@@ -1727,18 +1727,18 @@ document.getElementById("wallet-upgrade-btn").addEventListener("click", tryUpgra
 function updateWalletUI(){
   if (!battle) return;
   const lv = WALLET_LEVELS[battle.walletLevel];
-  document.getElementById("money-num").textContent = Math.floor(battle.money) + "円";
-  document.getElementById("money-cap").textContent = "上限" + lv.cap + "円";
+  document.getElementById("money-num").textContent = Math.floor(battle.money) + "銭";
+  document.getElementById("money-cap").textContent = "上限" + lv.cap + "銭";
   document.getElementById("money-bar").style.width = (battle.money / lv.cap * 100) + "%";
-  document.getElementById("wallet-lv-label").textContent = "財布Lv" + battle.walletLevel;
-  document.getElementById("wallet-rate-label").textContent = lv.rate + "円/秒";
+  document.getElementById("wallet-lv-label").textContent = "軍資Lv" + battle.walletLevel;
+  document.getElementById("wallet-rate-label").textContent = lv.rate + "銭/秒";
 
   const upBtn = document.getElementById("wallet-upgrade-btn");
   if (lv.upgradeCost == null){
     upBtn.textContent = "最大強化";
     upBtn.disabled = true;
   } else {
-    upBtn.textContent = "強化(" + lv.upgradeCost + "円)";
+    upBtn.textContent = "強化(" + lv.upgradeCost + "銭)";
     upBtn.disabled = battle.money < lv.upgradeCost;
   }
 
@@ -1753,7 +1753,7 @@ function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
   const cost = getDeployCost(def);
   const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
-  if (!lanes.length){ flashLaneButtons(); showLaneHint("先にレーンを選んでください"); return; } // 先にレーンを選ばないと召喚できない
+  if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; } // 先にレーンを選ばないと召喚できない
   const span = def.laneSpan || 1;
   if (span >= 2){
     // 複数レーンを占めるキャラは、必要な数のレーンを連続で選んだときだけ、1体だけ出せる(複数同時には出せない)。
@@ -1761,7 +1761,7 @@ function tryDeploy(kind){
     const contiguous = lanes.every((l, i) => i === 0 || l === lanes[i - 1] + 1);
     if (lanes.length !== span || !contiguous){
       flashLaneButtons();
-      showLaneHint(def.name + "は、隣り合う" + span + "レーンを選んでください(1体だけ出ます)");
+      showLaneHint(def.name + "は、隣り合う" + span + "戦列を選べ(1体のみ)");
       return;
     }
     if (battle.money < cost) return;
@@ -1903,6 +1903,7 @@ function spawnUnit(kind, side, xOffset, opts){
     lane: 0, laneLo: 0, laneHi: 0, // いるレーン(下から0〜4)。laneLo〜laneHiが占有レーン
     homeLane: 0,                  // 出現したレーン(魔獣は、ここと両隣のレーンまでしか移動できない)
     baseB: 74,                    // 足元の高さ(画面の下からのpx)
+    needsPullBack: false,         // レーン移動・着地などのあと、敵と重なっていたら手前に引く
     laneTween: null, laneMoving: false, laneReturnMs: 0, laneReturnPending: false, dodgeHomeLane: 0, // レーン移動(回避)
     bearerOf: null,               // キングの担ぎ手として担いでいる相手
     bearers: null,                // キング専用：担ぎ手の一覧
@@ -2413,6 +2414,7 @@ function updateLaunch(unit, dtMs){
     unit.launchY = 0;
     unit.launchVY = 0;
     unit.launchVX = 0;
+    unit.needsPullBack = true; // 着地した先で敵と重なっていたら、手前に引く
 
     const def = unit.def;
     const finishRecovery = () => {
@@ -2644,17 +2646,17 @@ const STATUS_ICON_DEFS = {
   // 被ダメージ軽減(鼓舞兵)：青い盾＋上向き矢印
   defUp:   { title: "被ダメージ軽減", svg: '<path d="M2.5 3 H14 V12 C14 16.5 8.2 20 8.2 21.5 C8.2 20 2.5 16.5 2.5 12Z" fill="#4a90e2" stroke="#0c2a52" stroke-width=".9"/>' + UP_ARROW_SVG("#6cf08a") },
   // 魔獣への攻撃力上昇(テイマー)：魔獣の頭＋オレンジの上向き矢印
-  beastAtk:{ title: "魔獣・獣への攻撃力上昇", svg: '<path d="M1.5 17 L3 8 L6 10 L10 7.5 L13 10.5 L15.5 12 L14 15.5 L10 17.5 L5 18Z" fill="#a67c52" stroke="#3b2612" stroke-width=".9"/><circle cx="9" cy="12.2" r="1.1" fill="#ffd45c"/><path d="M12.5 16 l1.6 2 M10.5 16.5 l1 2" stroke="#fff" stroke-width=".9"/>' + UP_ARROW_SVG("#ff8a1f") },
+  beastAtk:{ title: "獣への攻撃力上昇", svg: '<path d="M1.5 17 L3 8 L6 10 L10 7.5 L13 10.5 L15.5 12 L14 15.5 L10 17.5 L5 18Z" fill="#a67c52" stroke="#3b2612" stroke-width=".9"/><circle cx="9" cy="12.2" r="1.1" fill="#ffd45c"/><path d="M12.5 16 l1.6 2 M10.5 16.5 l1 2" stroke="#fff" stroke-width=".9"/>' + UP_ARROW_SVG("#ff8a1f") },
   // 対城攻撃力上昇(長の旗)：城＋オレンジの上向き矢印
   castleAtk:{ title: "敵城への攻撃力上昇", svg: '<path d="M1.5 21 V9 H4.5 V11.5 H7.5 V9 H10.5 V11.5 H13.5 V9 H15.5 V21Z" fill="#b39b6a" stroke="#3b3320" stroke-width=".9"/><rect x="6.5" y="15" width="3" height="6" fill="#3b3320"/>' + UP_ARROW_SVG("#ff8a1f") },
   // 近接攻撃中スーパーアーマー(長の特殊モーション)
-  armor:   { title: "スーパーアーマー", svg: '<path d="M12 1.5 L20.5 5 V12 C20.5 17 15 20.5 12 22.5 C9 20.5 3.5 17 3.5 12 V5Z" fill="#d1a52a" stroke="#4a3608" stroke-width="1"/><path d="M12 7 L13.4 10.4 L17 10.7 L14.2 13 L15.1 16.5 L12 14.6 L8.9 16.5 L9.8 13 L7 10.7 L10.6 10.4Z" fill="#fff3c2"/>' },
+  armor:   { title: "不撓", svg: '<path d="M12 1.5 L20.5 5 V12 C20.5 17 15 20.5 12 22.5 C9 20.5 3.5 17 3.5 12 V5Z" fill="#d1a52a" stroke="#4a3608" stroke-width="1"/><path d="M12 7 L13.4 10.4 L17 10.7 L14.2 13 L15.1 16.5 L12 14.6 L8.9 16.5 L9.8 13 L7 10.7 L10.6 10.4Z" fill="#fff3c2"/>' },
   // 女王のバリアに守られている
-  barrier: { title: "バリア", svg: '<path d="M12 1.5 L21 6.5 V17.5 L12 22.5 L3 17.5 V6.5Z" fill="rgba(173,120,255,.45)" stroke="#c9a6ff" stroke-width="2"/><path d="M12 6 L16.5 8.6 V13.6 L12 16.2 L7.5 13.6 V8.6Z" fill="none" stroke="#e6d5ff" stroke-width="1.2"/>' },
+  barrier: { title: "結界", svg: '<path d="M12 1.5 L21 6.5 V17.5 L12 22.5 L3 17.5 V6.5Z" fill="rgba(173,120,255,.45)" stroke="#c9a6ff" stroke-width="2"/><path d="M12 6 L16.5 8.6 V13.6 L12 16.2 L7.5 13.6 V8.6Z" fill="none" stroke="#e6d5ff" stroke-width="1.2"/>' },
   // 毒
-  poison:  { title: "毒", svg: '<path d="M12 1.5 C12 1.5 4.5 11 4.5 15.5 A7.5 7.5 0 0 0 19.5 15.5 C19.5 11 12 1.5 12 1.5Z" fill="#9b4dca" stroke="#2c0f42" stroke-width="1"/><circle cx="9.5" cy="15" r="1.4" fill="#e8c8ff"/><circle cx="14.5" cy="17" r="1" fill="#e8c8ff"/><path d="M9.5 9 Q11 12 9 14" stroke="#e8c8ff" stroke-width="1" fill="none"/>' },
+  poison:  { title: "瘴毒", svg: '<path d="M12 1.5 C12 1.5 4.5 11 4.5 15.5 A7.5 7.5 0 0 0 19.5 15.5 C19.5 11 12 1.5 12 1.5Z" fill="#9b4dca" stroke="#2c0f42" stroke-width="1"/><circle cx="9.5" cy="15" r="1.4" fill="#e8c8ff"/><circle cx="14.5" cy="17" r="1" fill="#e8c8ff"/><path d="M9.5 9 Q11 12 9 14" stroke="#e8c8ff" stroke-width="1" fill="none"/>' },
   // 出血
-  bleed:   { title: "出血", svg: '<path d="M12 1.5 C12 1.5 4.5 11 4.5 15.5 A7.5 7.5 0 0 0 19.5 15.5 C19.5 11 12 1.5 12 1.5Z" fill="#d42a2a" stroke="#4a0808" stroke-width="1"/><path d="M8.6 14 Q9 17.5 12.2 18.6" stroke="#ffb0b0" stroke-width="1.3" fill="none"/>' },
+  bleed:   { title: "創血", svg: '<path d="M12 1.5 C12 1.5 4.5 11 4.5 15.5 A7.5 7.5 0 0 0 19.5 15.5 C19.5 11 12 1.5 12 1.5Z" fill="#d42a2a" stroke="#4a0808" stroke-width="1"/><path d="M8.6 14 Q9 17.5 12.2 18.6" stroke="#ffb0b0" stroke-width="1.3" fill="none"/>' },
   // 拘束(網)
   net:     { title: "拘束", svg: '<path d="M2 2 H22 V22 H2Z M2 8.7 H22 M2 15.3 H22 M8.7 2 V22 M15.3 2 V22" fill="rgba(255,255,255,.12)" stroke="#e8e8e8" stroke-width="1.6"/>' },
   // 無敵(第二形態への移行中など)
@@ -3093,6 +3095,7 @@ function updateLaneTween(unit, dtMs){
     unit.laneTween = null;
     unit.laneMoving = false;
     setUnitLane(unit, tw.toLane);
+    unit.needsPullBack = true; // 移動した先で敵と重なっていたら、手前に引く
     if (tw.first) unit.laneReturnMs = 2000; // 隣のレーンに着いてから2秒間は通常どおり(ダメージも受ける・戦える)。そのあと元のレーンへ戻る
   }
 }
@@ -3747,7 +3750,7 @@ function advanceUnit(unit, dtMs){
     const lungeDurations = def.frameDurations[lungeMotionName] || [1000];
     const lungeTotalMs = lungeDurations.reduce((a, b) => a + b, 0) || 1;
     const forwardDir = unit.side === "player" ? -1 : 1;
-    unit.x += forwardDir * (def.attackLungeDistance / lungeTotalMs) * dtMs;
+    unit.x += moveWithCollision(unit, forwardDir * (def.attackLungeDistance / lungeTotalMs) * dtMs); // 踏み込みも、敵の体にはめり込まない
   }
 
   // よろめき後退(フォートレス)：吹き飛びモーション中、ゆっくり後ろへ下がる
@@ -4181,6 +4184,35 @@ function moveWithCollision(unit, dx){
     allowed = Math.min(allowed, Math.max(0, gap));
   });
   return dir * allowed;
+}
+
+// 敵と体が重なってしまったとき(魔獣・ゴブリンのレーン移動、吹き飛びの着地など、原因は問わない)は、手前(自分の後ろ側)へ引いて離れる。
+// 例外：ラッシャーの猛突進、宙に飛ばされている間、レーン移動中、動かないもの、大きい体(当たり判定の幅200以上)
+function resolveEnemyOverlap(unit, dtMs){
+  if (!unit.needsPullBack) return; // 自分の能力(レーン移動・吹き飛びの着地など)で動いたユニットだけが、重なりを解消する
+  if (!battle || unit.dead || unit.def.immobile || unit.def.passThroughEnemies || unit.charging || unit.launched ||
+      unit.laneMoving || unit.mounted || unit.bearerOf || (unit.def.hitboxWidth || 0) >= 200) return;
+  const wu = bodyWidth(unit);
+  const uc = unit.x + wu / 2;
+  const fwd = unit.side === "player" ? -1 : 1; // 進む方向
+  let pullBack = 0, pushFront = 0;
+  battle.units.forEach(o => {
+    if (o === unit || o.dead || o.side === unit.side || o.mounted || o.launched || o.laneMoving) return;
+    if (o.def.invulnerable || o.def.passThroughEnemies) return;
+    if (!lanesOverlap(unit.laneLo, unit.laneHi, o.laneLo, o.laneHi)) return;
+    const wo = bodyWidth(o);
+    const ov = Math.min(unit.x + wu, o.x + wo) - Math.max(unit.x, o.x);
+    if (ov <= 0) return;
+    const ahead = ((o.x + wo / 2) - uc) * fwd > 0;
+    if (ahead) pullBack = Math.max(pullBack, ov); else pushFront = Math.max(pushFront, ov); // 相手を追い越していたら、前へ抜ける
+  });
+  const amt = pullBack > 0 ? pullBack : pushFront;
+  if (amt <= 0){ unit.needsPullBack = false; return; } // 重なっていなければ終わり
+  const step = Math.min(amt, 400 * (dtMs / 1000)); // 素早く引く(毎秒400px)
+  const dirMove = pullBack > 0 ? -fwd : fwd;
+  const field = document.getElementById("battlefield");
+  unit.x = Math.max(30, Math.min(field.clientWidth - 30 - wu, unit.x + dirMove * step));
+  applyFrame(unit);
 }
 
 /* ---------- 状態異常のゲージ ---------- */
@@ -4666,6 +4698,7 @@ function battleLoop(now){
     if (unit.meteorCooldown > 0) unit.meteorCooldown = Math.max(0, unit.meteorCooldown - dt);
     if (unit.barrierMs > 0) unit.barrierMs = Math.max(0, unit.barrierMs - dt);
     updateLaneTween(unit, dt);
+    resolveEnemyOverlap(unit, dt);
     updateMount(unit, dt);
     updateStatusIcons(unit);
     updateBearerSync(unit);
@@ -4704,7 +4737,7 @@ function endBattle(win){
   resultScreen.classList.add(win ? "win" : "lose");
   document.getElementById("result-title").textContent = win ? "勝利" : "敗北";
   document.getElementById("result-sub").textContent =
-    win ? "敵城を陥落させた。" : "自城が陥落した。";
+    win ? "敵城、陥落。" : "自城、陥落。";
   showScreen("screen-result");
 }
 
@@ -4885,7 +4918,7 @@ function buildGrid(){
     add("text", { x: c * GRID_CELL + GRID_CELL / 2, y: STAGE_H - GRID_GROUND + 30, fill: "rgba(255,255,255,0.5)", "font-size": 22, "font-family": "sans-serif", "text-anchor": "middle" }, String(c + 1));
   }
   add("text", { x: STAGE_W / 2, y: 30, fill: "rgba(255,255,255,0.6)", "font-size": 24, "font-family": "sans-serif", "text-anchor": "middle" },
-      "1マス = " + GRID_CELL + "px (兵士1体ぶん) / 横" + cols + "マス × " + GRID_LANES + "レーン");
+      "1区画 = " + GRID_CELL + "px (戍卒1体分) / 横" + cols + "区画 × " + GRID_LANES + "戦列");
   svg.style.display = gridVisible ? "" : "none";
   field.insertBefore(svg, field.firstChild);
 }
@@ -4894,7 +4927,7 @@ document.getElementById("grid-toggle").addEventListener("click", e => {
   gridVisible = !gridVisible;
   const ov = document.getElementById("grid-overlay");
   if (ov) ov.style.display = gridVisible ? "" : "none";
-  e.target.textContent = "マス表示: " + (gridVisible ? "ON" : "OFF");
+  e.target.textContent = "区画表示: " + (gridVisible ? "有" : "無");
 });
 window.addEventListener("resize", () => { fitStage(); layoutLaneButtons(); });
 buildGrid();
@@ -4921,7 +4954,7 @@ function buildLaneButtons(){
   // 全レーンの選択・解除をまとめて切り替えるボタン
   const all = document.createElement("button");
   all.id = "lane-all-btn";
-  all.textContent = "全レーン";
+  all.textContent = "全戦列";
   all.addEventListener("click", () => {
     if (!battle) return;
     if (battle.selectedLanes.size >= GRID_LANES) battle.selectedLanes.clear();
