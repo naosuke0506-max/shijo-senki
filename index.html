@@ -736,6 +736,8 @@ const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
 const ICON_SPEARMAN = REPO_BASE + "icons/spearman_icon.png";
+const IMG_LANGXIAN = REPO_BASE + "images/langxian_repo_upload/";
+const ICON_LANGXIAN = REPO_BASE + "icons/langxian_icon.png";
 const IMG_SHIELDMAN = REPO_BASE + "images/shieldman_repo_upload/";
 const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
 const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
@@ -898,6 +900,52 @@ const CHAR_DEFS = {
       getup:      [200,235,270,400,230]
     },
     attackImpactFrame: 5
+  },
+
+  langxian: {
+    reading: "ろうせんしゅ",             // 名前の読み(長押しで表示)
+    intro: "枝つきの長き竹を振るう兵。隣の戦列まで薙ぎ払い、身をかわす鬼をも引き寄せて絡め取る。",
+    name: "狼筅手",
+    rank: null,
+    race: "human",
+    cost: 450,
+    hp: 44,
+    atk: 8,
+    weight: 66,
+    walkSpeed: 38,
+    attackRange: 70,
+    detectionRange: 240,
+    laneReach: 1,                 // 自分の戦列と、両隣の戦列まで届く(計3戦列)
+    areaHitReach: 70,             // 近接は範囲攻撃：前方この距離以内の、届く戦列の敵全員に当たる
+    attackFlags: { sideHitbox: true }, // 側面判定つきの薙ぎ払い：餓鬼の回避で避けられない
+    pullToOwnLane: true,          // 薙ぎ払いの後、上の戦列の敵1体と、下の戦列の敵1体(それぞれ最も近い敵)を、自分の戦列へ引き寄せる。目の前の戦列の敵は動かさない
+    entangleMs: 2000,             // 引き寄せた敵を、絡めて2秒間、動けなくする
+    approachMotion: "sneak",
+    approachSpeed: 22,
+    parryable: false,
+    guardable: false,
+    bleedOnHit: false,
+    icon: ICON_LANGXIAN,
+    imageBase: IMG_LANGXIAN,
+    pixelScale: 92 / 510,         // 立ち姿の高さ(兜の上から足元まで)510px基準、兵士と同じ表示身長92pxに合わせる
+    frameCounts: {
+      idle:1, walk:4, discover:2, sneak:4, attack:9,
+      flinch:6, guardbreak:3, blowback:6, down:2, getup:5
+    },
+    // 実測済みの数値(1倍速)
+    frameDurations: {
+      idle:       [1000],
+      walk:       [215,215,215,215],
+      discover:   [395,450],
+      sneak:      [385,385,385,385],
+      attack:     [295,295,295,295,500,295,295,295,295],
+      flinch:     [265,265,265,265,265,265],
+      guardbreak: [370,370,370],
+      blowback:   [300,300,300,300,300,300],
+      down:       [500,500],
+      getup:      [285,285,285,285,285]
+    },
+    attackImpactFrame: 4          // attack_5(500ms・枝が広がる瞬間)
   },
 
   shieldman: {
@@ -5290,11 +5338,39 @@ function resolveAreaHit(unit){
   const centerX = unit.x + (def.hitboxWidth || 0) / 2;
   if (def.fxStompDust) spawnStompDust(unit);
   const dmg = getEffectiveAtk(unit);
-  battle.units.filter(o =>
+  const hits = battle.units.filter(o =>
     !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide && canReachLane(unit, o) &&
     Math.sign(o.x - centerX) === forwardDir &&
     edgeDistance(unit, o) <= def.areaHitReach
-  ).forEach(o => applyDamageToUnit(o, dmg, unit));
+  );
+  hits.forEach(o => applyDamageToUnit(o, dmg, unit));
+  if (def.pullToOwnLane) pullToOwnLane(unit, hits);
+}
+// 狼筅の薙ぎ払い：当たった敵のうち、上の戦列の敵1体と下の戦列の敵1体(それぞれ、いちばん近い敵)を、自分の戦列へ引き寄せ、絡めて動けなくする。
+// 目の前の戦列の敵は、動かさない。巨体(2戦列以上)・常時スーパーアーマー・乗っている敵・拘束中の敵などは引き寄せられない
+function canBePulled(attacker, o){
+  const d = o.def;
+  if (o.dead || o.launched || o.restrained || o.mounted || o.bearerOf || o.laneTween) return false;
+  if ((d.laneSpan || 1) >= 2 || d.alwaysSuperArmored || d.immobile || d.gateUnit) return false;
+  if (d.laneStep && Math.abs(attacker.lane - o.homeLane) > 1) return false; // 出現した戦列から離れすぎる魔獣は動かさない
+  return true;
+}
+function pullToOwnLane(attacker, hits){
+  [1, -1].forEach(dl => { // dl=1：上の戦列 / -1：下の戦列
+    const cand = hits.filter(o => o.lane === attacker.lane + dl && canBePulled(attacker, o));
+    if (!cand.length) return;
+    cand.sort((a, b) => edgeDistance(attacker, a) - edgeDistance(attacker, b));
+    const t = cand[0];
+    if (shiftUnitLane(t, -dl)) entangleUnit(t, attacker.def.entangleMs || 2000);
+  });
+}
+// 絡めて動けなくする(拘束と同じ状態。時間が来ると、自然にほどける)。罠の網と違い、姿は隠さない
+function entangleUnit(target, ms){
+  if (!target || target.dead) return;
+  target.restrained = true;
+  target.restrainRemainingMs = ms;
+  target.target = null;
+  if (target.def.frameCounts.idle) setMotion(target, "idle", { loop:true });
 }
 
 // 踏み潰しの砂煙：踏んだ足(体の前端付近)の地面に、5コマを順番に重ねる
