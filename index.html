@@ -534,7 +534,7 @@
    ========================================================= */
 // @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
 // コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
-const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@98a8399/";
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@455ff24/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
@@ -1689,7 +1689,7 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    ========================================================= */
 const STAGES = [
   // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔野", reading:"まや", art:{ seed:20260921, bg:"plain_bg.jpg", ground:"plain_ground.jpg", castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
+  { id:"plain", name:"魔野", reading:"まや", art:{ seed:20260921, bg:"plain_bg.jpg", ground:["plain_ground.png","plain_ground.jpg"], castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
   // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
   // 城も硬くして、10分ほどで決着がつくようにした(簡易な自動プレイで、約7分で勝てる強さ)。
   startCorpse:1000, corpseGainRate:1.0,
@@ -2252,8 +2252,10 @@ function buildStageArt(stage){
   // ---- 地面の画像(あれば、コード描きの地面の代わりに使う) ----
   if (art.ground){
     const gi = document.createElement("img"); gi.className = "art-ground-img"; gi.alt = ""; gi.draggable = false;
-    gi.onload = () => root.classList.add("has-ground"); gi.onerror = () => gi.remove();
-    gi.src = STAGE_ART_BASE + art.ground; root.appendChild(gi);
+    const gList = Array.isArray(art.ground) ? art.ground.slice() : [art.ground]; // 拡張子が違っても読めるよう、順に試す
+    gi.onload = () => root.classList.add("has-ground");
+    gi.onerror = () => { gList.shift(); if (gList.length) gi.src = STAGE_ART_BASE + gList[0]; else gi.remove(); };
+    gi.src = STAGE_ART_BASE + gList[0]; root.appendChild(gi);
   }
 
   // ---- 戦列：床をマス目にはせず、うっすらとした畝(うね)だけで分ける。よく見ればわかる程度 ----
