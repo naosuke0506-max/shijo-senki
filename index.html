@@ -306,7 +306,31 @@
   #stage-art.has-bg .art-bg-img{ display:block; }
   #stage-art.has-bg .code-layer{ display:none; }
   #battlefield.themed #ground-line{ display:none; }
-  #stage-fog, #stage-atmo{ position:absolute; left:0; top:0; width:2000px; height:600px; pointer-events:none; }
+  #stage-fog{ position:absolute; left:0; top:0; width:2000px; height:600px; pointer-events:none; }
+  #stage-atmo{ position:absolute; left:0; top:-1100px; width:2000px; height:1700px; pointer-events:none; }
+  /* 戦場の上に余る画面(タブレットの縦持ちなど)は、背景の景色を上へ延ばして使う。戦場と同じ倍率・位置で描くので、つなぎ目は出ない */
+  #stage-backdrop{ position:absolute; left:0; top:0; width:2000px; height:600px; z-index:0; pointer-events:none;
+    transform-origin:0 0; transform:translate(var(--stage-offx), var(--stage-offy)) scale(var(--stage-scale)); }
+  #stage-backdrop .bd-sky{ position:absolute; left:-4000px; width:10000px; top:-1600px; height:1800px;
+    background:linear-gradient(0deg,#3a1617 0%,#2d1215 20%,#1b0b0e 58%,#0b0508 100%); }
+  #battlefield-frame.bd-on{ background-color:#0b0508; }
+  #stage-backdrop img.bd-img{ position:absolute; top:-101px; width:2000px; height:857px; display:block;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 150px); mask-image:linear-gradient(180deg,transparent 0,#000 150px); }
+  #stage-backdrop img.bd-img.mirror{ transform:scaleX(-1); }
+  #stage-backdrop .bd-cloud{ position:absolute; left:0; width:4000px; opacity:.5; animation:cloudDrift 200s linear infinite;
+    background-repeat:repeat-x; background-size:2000px 100%;
+    background-image:
+      radial-gradient(ellipse 420px 44px at 260px 36%, rgba(8,4,5,.9), transparent 72%),
+      radial-gradient(ellipse 520px 50px at 900px 64%, rgba(40,14,14,.7), transparent 72%),
+      radial-gradient(ellipse 380px 40px at 1500px 30%, rgba(8,4,5,.85), transparent 72%); }
+  #stage-backdrop .crow{ position:absolute; left:0; opacity:.9; animation:crowFly 46s linear infinite; }
+  #stage-backdrop .crow svg{ display:block; fill:#0b0607; transform-origin:50% 60%; animation:crowFlap .5s ease-in-out infinite alternate; }
+  #stage-vignette{ position:absolute; inset:0; z-index:5; pointer-events:none;
+    background:
+      radial-gradient(ellipse at 50% 58%, rgba(0,0,0,0) 55%, rgba(0,0,0,.5) 100%),
+      linear-gradient(90deg, rgba(120,22,16,.24), rgba(120,22,16,0) 20%),
+      linear-gradient(270deg, rgba(70,80,44,.16), rgba(70,80,44,0) 16%); }
+  #battlefield.bd-on{ background-color:transparent; overflow:visible; }
   #stage-fog{ z-index:3; overflow:hidden; }
   #stage-atmo{ z-index:120; overflow:hidden; }
   #stage-fog .fog{ position:absolute; left:0; width:3000px; background-repeat:repeat-x; background-size:1000px 100%; }
@@ -318,26 +342,21 @@
     background-image:
       radial-gradient(ellipse 420px 50px at 260px 62%, rgba(120,84,64,.42), transparent 72%),
       radial-gradient(ellipse 340px 42px at 760px 45%, rgba(110,76,58,.36), transparent 72%); }
-  #stage-atmo .vignette{ position:absolute; inset:0;
-    background:
-      radial-gradient(ellipse at 50% 56%, rgba(0,0,0,0) 52%, rgba(0,0,0,.52) 100%),
-      linear-gradient(90deg, rgba(120,22,16,.24), rgba(120,22,16,0) 22%),
-      linear-gradient(270deg, rgba(70,80,44,.16), rgba(70,80,44,0) 18%); }
   #stage-atmo .ash{ position:absolute; top:-20px; border-radius:50%; background:#9a938a; opacity:0; animation:ashDrift 12s linear infinite; }
   #stage-atmo .ember{ position:absolute; border-radius:50%; background:#ffb45a; box-shadow:0 0 8px 3px rgba(255,120,40,.65); opacity:0; animation:emberRise 7s ease-out infinite; }
   #stage-atmo .crow{ position:absolute; left:0; opacity:.9; animation:crowFly 46s linear infinite; }
   #stage-atmo .crow svg{ display:block; fill:#0b0607; transform-origin:50% 60%; animation:crowFlap .5s ease-in-out infinite alternate; }
   @keyframes cloudDrift{ from{ transform:translateX(0);} to{ transform:translateX(-2000px);} }
   @keyframes fogDrift{ from{ transform:translateX(0);} to{ transform:translateX(-1000px);} }
-  @keyframes ashDrift{ 0%{ transform:translate(0,0) rotate(0deg); opacity:0;} 10%{ opacity:.75;} 88%{ opacity:.5;} 100%{ transform:translate(320px,660px) rotate(300deg); opacity:0;} }
+  @keyframes ashDrift{ 0%{ transform:translate(0,0) rotate(0deg); opacity:0;} 10%{ opacity:.75;} 88%{ opacity:.5;} 100%{ transform:translate(520px,1690px) rotate(300deg); opacity:0;} }
   @keyframes emberRise{ 0%{ transform:translate(0,0) scale(1); opacity:0;} 14%{ opacity:1;} 100%{ transform:translate(140px,-330px) scale(.25); opacity:0;} }
   @keyframes crowFly{ from{ transform:translate(-120px,0);} to{ transform:translate(2150px,-46px);} }
   @keyframes crowFlap{ from{ transform:scaleY(1);} to{ transform:scaleY(.45);} }
-  .castle.has-img{ width:auto; height:440px; bottom:56px; z-index:4; background:none; border:none; border-radius:0; box-shadow:none; }
+  .castle.has-img{ width:auto; height:390px; bottom:58px; z-index:4; background:none; border:none; border-radius:0; box-shadow:none; }
   .castle.has-img .flag, .castle.has-img .battlements{ display:none; }
   .castle.has-img img{ display:block; height:100%; width:auto; filter:drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
-  .castle.enemy.has-img{ left:-30px; }
-  .castle.player.has-img{ right:-30px; }
+  .castle.enemy.has-img{ left:-66px; }
+  .castle.player.has-img{ right:-66px; }
 
   .unit-sprite{ position:absolute; bottom:74px; transform-origin:bottom center; }
   .unit-sprite img{ display:block; image-rendering:-webkit-optimize-contrast; filter:drop-shadow(0 4px 4px rgba(0,0,0,.5)); }
@@ -1658,7 +1677,7 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    ========================================================= */
 const STAGES = [
   // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔野", reading:"まや", art:{ seed:20260921, bg:"plain_bg.png", castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
+  { id:"plain", name:"魔野", reading:"まや", art:{ seed:20260921, bg:"plain_bg.jpg", castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
   // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
   // 城も硬くして、10分ほどで決着がつくようにした(簡易な自動プレイで、約7分で勝てる強さ)。
   startCorpse:1000, corpseGainRate:1.0,
@@ -2140,7 +2159,9 @@ function svgEl(name, attrs){ const e = document.createElementNS("http://www.w3.o
 
 function buildStageArt(stage){
   const field = document.getElementById("battlefield");
-  ["stage-art","stage-fog","stage-atmo"].forEach(id => { const o = document.getElementById(id); if (o) o.remove(); });
+  ["stage-art","stage-fog","stage-atmo","stage-backdrop","stage-vignette"].forEach(id => { const o = document.getElementById(id); if (o) o.remove(); });
+  field.classList.remove("bd-on");
+  const frame = document.getElementById("battlefield-frame"); frame.classList.remove("bd-on");
   const art = stage.art || {};
   const rand = seededRand(art.seed || 20260921);
   const R = (a, b) => a + rand() * (b - a);
@@ -2248,13 +2269,33 @@ function buildStageArt(stage){
   });
   root.appendChild(gsvg);
 
-  // 画像(あれば、コードの絵の代わりに使う)
+  // 背景画像(あれば、コードの絵の代わりに使う)。戦場の上に余る画面まで、同じ絵を延ばす
   if (art.bg){
-    const im = document.createElement("img"); im.className = "art-bg-img"; im.alt = ""; im.draggable = false;
-    im.onload = () => root.classList.add("has-bg");
-    im.onerror = () => im.remove();
-    im.src = STAGE_ART_BASE + art.bg;
-    root.appendChild(im);
+    const probe = new Image();
+    probe.onload = () => {
+      if (!document.body.contains(root)) return; // 別の戦闘に入り直していたら捨てる
+      const bd = document.createElement("div"); bd.id = "stage-backdrop";
+      const sky = document.createElement("div"); sky.className = "bd-sky"; bd.appendChild(sky);
+      // 上に余る空：雲を流し、鴉を飛ばす
+      [[-300,150,.5,200],[-520,170,.42,260],[-760,190,.34,320],[-1000,200,.28,380]].forEach(c => {
+        const cl = document.createElement("div"); cl.className = "bd-cloud"; cl.style.top = c[0] + "px"; cl.style.height = c[1] + "px"; cl.style.opacity = c[2]; cl.style.animationDuration = c[3] + "s"; cl.style.animationDelay = (-R(0, 100)) + "s"; bd.appendChild(cl);
+      });
+      [-2000, 0, 2000].forEach((x, i) => {
+        const im = document.createElement("img"); im.className = "bd-img" + (i === 1 ? "" : " mirror"); im.alt = ""; im.draggable = false;
+        im.style.left = x + "px"; im.src = probe.src; bd.appendChild(im);
+      });
+      for (let i = 0; i < 4; i++){
+        const c = document.createElement("div"); c.className = "crow";
+        c.style.cssText = "top:" + R(-700, 40).toFixed(0) + "px;width:" + R(36, 64).toFixed(0) + "px;animation-duration:" + R(40, 70).toFixed(0) + "s;animation-delay:" + (-R(0, 60)).toFixed(0) + "s;";
+        c.innerHTML = '<svg viewBox="0 0 24 10"><path d="M0 4 Q6 -2 12 5 Q18 -2 24 4 Q18 3 12 8 Q6 3 0 4Z"/></svg>';
+        bd.appendChild(c);
+      }
+      frame.insertBefore(bd, frame.firstChild);
+      field.classList.add("bd-on"); frame.classList.add("bd-on");
+      root.classList.add("has-bg");
+    };
+    probe.onerror = () => {};
+    probe.src = STAGE_ART_BASE + art.bg;
   }
   field.insertBefore(root, field.firstChild);
   field.classList.add("themed");
@@ -2266,22 +2307,16 @@ function buildStageArt(stage){
 
   // ---- 灰・火の粉・鴉・暗がり(ユニットの前) ----
   const atmo = document.createElement("div"); atmo.id = "stage-atmo";
-  const vg = document.createElement("div"); vg.className = "vignette"; atmo.appendChild(vg);
-  for (let i = 0; i < 34; i++){
+  const vg = document.createElement("div"); vg.id = "stage-vignette"; frame.appendChild(vg);
+  for (let i = 0; i < 60; i++){
     const a = document.createElement("i"); a.className = "ash"; const sz = R(4, 9);
-    a.style.cssText = "left:" + R(-100, 1900).toFixed(0) + "px;width:" + sz.toFixed(1) + "px;height:" + sz.toFixed(1) + "px;animation-duration:" + R(9, 20).toFixed(1) + "s;animation-delay:" + (-R(0, 20)).toFixed(1) + "s;";
+    a.style.cssText = "left:" + R(-100, 1900).toFixed(0) + "px;top:0;width:" + sz.toFixed(1) + "px;height:" + sz.toFixed(1) + "px;animation-duration:" + R(28, 52).toFixed(1) + "s;animation-delay:" + (-R(0, 52)).toFixed(1) + "s;";
     atmo.appendChild(a);
   }
   for (let i = 0; i < 16; i++){
     const e = document.createElement("i"); e.className = "ember"; const sz = R(3, 6);
-    e.style.cssText = "left:" + R(0, 1900).toFixed(0) + "px;top:" + R(300, 600).toFixed(0) + "px;width:" + sz.toFixed(1) + "px;height:" + sz.toFixed(1) + "px;animation-duration:" + R(5, 10).toFixed(1) + "s;animation-delay:" + (-R(0, 10)).toFixed(1) + "s;";
+    e.style.cssText = "left:" + R(0, 1900).toFixed(0) + "px;top:" + R(1400, 1700).toFixed(0) + "px;width:" + sz.toFixed(1) + "px;height:" + sz.toFixed(1) + "px;animation-duration:" + R(5, 10).toFixed(1) + "s;animation-delay:" + (-R(0, 10)).toFixed(1) + "s;";
     atmo.appendChild(e);
-  }
-  for (let i = 0; i < 3; i++){
-    const c = document.createElement("div"); c.className = "crow";
-    c.style.cssText = "top:" + R(14, 70).toFixed(0) + "px;width:" + R(30, 44).toFixed(0) + "px;animation-duration:" + R(38, 60).toFixed(0) + "s;animation-delay:" + (-R(0, 50)).toFixed(0) + "s;";
-    c.innerHTML = '<svg viewBox="0 0 24 10"><path d="M0 4 Q6 -2 12 5 Q18 -2 24 4 Q18 3 12 8 Q6 3 0 4Z"/></svg>';
-    atmo.appendChild(c);
   }
   field.appendChild(atmo);
 
