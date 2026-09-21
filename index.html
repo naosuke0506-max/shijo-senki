@@ -61,12 +61,14 @@
   #screen-title button{ padding:15px 50px; font-size:1.05rem; letter-spacing:.1em; }
 
   /* ---------- 編成 ---------- */
-  #screen-formation{ padding:14px; background:linear-gradient(180deg,#181510,#100f0b); }
+  #screen-formation{ padding:14px; background:linear-gradient(180deg,#181510,#100f0b); overflow-y:auto; }
+  #screen-formation > *{ flex-shrink:0; }
   .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .topbar h2{ margin:0; font-size:1.05rem; color:var(--gold); letter-spacing:.1em; font-weight:400; }
   .topbar button{ font-family:'Yu Gothic',sans-serif; padding:8px 16px; font-size:.8rem; }
 
-  .unit-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:10px; flex:1; align-content:start; overflow-y:auto; }
+  .world-intro{ margin:14px 0 22px; color:var(--text-dim); font-size:.85rem; line-height:2; letter-spacing:.22em; text-align:center; }
+  .unit-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:10px; flex:none; align-content:start; overflow:visible; }
 
   .formation-slots{
     display:flex; gap:14px; padding:8px 10px; overflow-x:auto; flex-shrink:0;
@@ -102,8 +104,9 @@
   }
 
   .category-tabs{
-    display:flex; gap:6px; padding-top:10px; margin-top:10px;
+    display:flex; gap:6px; padding:10px 0; margin-top:10px;
     border-top:1px solid var(--line); overflow-x:auto; flex-shrink:0;
+    position:sticky; bottom:0; background:#100f0b;
   }
   .category-tab{
     flex-shrink:0; padding:8px 14px; font-size:.78rem; font-family:'Yu Gothic',sans-serif;
@@ -246,6 +249,14 @@
   .role-banner.enemy{ color:#ff7a68; text-shadow:0 0 14px rgba(255,60,40,.95); border-color:#8a2a1e; }
   @keyframes bannerBig{ 0%{ opacity:0; transform:scale(1.5); } 12%{ opacity:1; transform:scale(1); } 80%{ opacity:1; } 100%{ opacity:0; } }
   @keyframes bannerSmall{ 0%{ opacity:0; transform:translateY(6px); } 15%{ opacity:1; transform:none; } 80%{ opacity:1; } 100%{ opacity:0; } }
+  /* 戦列の選択の強調(戦場を直接タップして選ぶ) */
+  .lane-band{ position:absolute; left:0; width:100%; height:100px; background:rgba(240,207,106,.10); border-top:1px solid rgba(240,207,106,.45); border-bottom:1px solid rgba(240,207,106,.45); pointer-events:none; z-index:2; display:none; }
+  .lane-band.on{ display:block; }
+  /* 兵の情報 */
+  #unit-info{ display:none; position:absolute; z-index:9; min-width:150px; max-width:230px; background:rgba(10,8,5,.96); border:1px solid #8a6a1e; padding:6px 8px; font-size:.68rem; color:var(--text); line-height:1.6; }
+  #unit-info .ui-title{ color:#f0cf6a; font-size:.78rem; margin-bottom:2px; }
+  #unit-info .ui-row{ display:flex; gap:4px; margin-top:4px; }
+  #unit-info button{ font-size:.62rem; padding:4px 8px; background:#1a1710; border:1px solid var(--line-dim); color:var(--text); border-radius:2px; }
   /* 軍令のボタンとパネル */
   #cmd-open-btn{ position:absolute; right:8px; bottom:6px; z-index:8; padding:8px 14px; font-size:.8rem; letter-spacing:.2em; background:#2a1a0a; border:1px solid #c8963e; color:#f0cf6a; }
   #cmd-panel{ display:none; position:absolute; right:8px; bottom:46px; z-index:8; width:min(380px, 62%); max-height:72%; overflow-y:auto;
@@ -333,6 +344,7 @@
   <section id="screen-title" class="screen active">
     <h1>屍城戦記</h1>
     <div class="sub">SHIJO SENKI</div>
+    <div class="world-intro">人の世の果てに、屍城あり。<br>鬼の群、日毎夜毎に押し寄せ、<br>守備の兵、斃れし者の屍を糧として、<br>なお戦い止まず。</div>
     <button class="primary" id="btn-to-formation" data-reading="しゅつじん">出陣</button>
   </section>
 
@@ -365,6 +377,7 @@
       <div id="top-left-controls">
         <div class="stage-plate" id="stage-name-plate" data-reading="まや">魔野</div>
         <button id="btn-pause" title="一時停止">Ⅱ</button>
+        <button id="btn-speed" title="速度" data-reading="そくど">×1</button>
         <button id="btn-surrender" title="投降">✕</button>
       </div>
       <div id="top-center-hp">
@@ -407,6 +420,7 @@
       <button id="cheat-enemy-king-btn" style="position:absolute;left:0;top:436px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鬼王出現(検証用)</button>
     <div id="lane-buttons"></div>
     <div id="lane-hint"></div>
+    <div id="unit-info"></div>
     <button id="cmd-open-btn" data-reading="ぐんれい">軍令</button>
     <div id="cmd-panel"></div>
     </div><!-- /battlefield-frame -->
@@ -509,6 +523,7 @@ function buildSummonSchedule(remainingByKind, totalSec){
 const CHAR_DEFS = {
   soldier: {
     reading: "じゅそつ",             // 名前の読み(長押しで表示)
+    intro: "辺境を戍る兵卒。灰の外套に、鉄の兜を戴く。",
     name: "戍卒",
     rank: null,
     race: "human", // 後日決定
@@ -561,6 +576,7 @@ const CHAR_DEFS = {
 
   spearman: {
     reading: "そうそつ",             // 名前の読み(長押しで表示)
+    intro: "長き鎗を携えし兵卒。獣の類には、ことさら強し。",
     bonusVsRace: { beast: 1.2 }, // 魔獣・獣(種族beast)への攻撃力が20%上がる
     name: "鎗卒",
     rank: null, // 後日決定
@@ -606,6 +622,7 @@ const CHAR_DEFS = {
   shieldman: {
     coverRange: 160,           // ガードできる状態なら、後ろ(この距離まで)の味方への、同じ戦列の正面からの遠距離攻撃を、肩代わりして防ぐ
     reading: "じゅんえい",             // 名前の読み(長押しで表示)
+    intro: "鉄の大楯にて味方を庇う衛士。正面の攻めを退け、後ろの味方への矢弾をも遮る。",
     name: "楯衛",
     rank: null,
     race: "human",
@@ -653,6 +670,7 @@ const CHAR_DEFS = {
   arquebusier: {
     pierce: { mult: 0.5, range: 160 }, // 弾が貫通し、同じ戦列の、その後ろ(この距離まで)の2体目にも半分の威力で当たる
     reading: "ちょうじゅうしゅ",             // 名前の読み(長押しで表示)
+    intro: "前装の銃を操る射手。一発は重く、弾は貫きて、後ろの敵をも穿つ。",
     laneReach: 1,              // 自分のレーンと、隣のレーンまで攻撃できる
     name: "鳥銃手",
     rank: null,
@@ -702,6 +720,7 @@ const CHAR_DEFS = {
 
   trapper: {
     reading: "せいき",             // 名前の読み(長押しで表示)
+    intro: "陥穽を仕掛くる鬼。嵌まりし者、逃るる術なし。",
     trapCells: [18, 10],        // 罠を置くマス(左から数えた列)。以前は3つだったが、2つに
     name: "穽鬼",
     rank: null,
@@ -739,6 +758,7 @@ const CHAR_DEFS = {
 
   archer: {
     reading: "きゅうき",             // 名前の読み(長押しで表示)
+    intro: "毒を塗りし矢を放つ、鬼の射手。",
     laneReach: 1,              // 自分のレーンと、隣のレーンまで攻撃できる
     name: "弓鬼",
     rank: null,
@@ -793,6 +813,7 @@ const CHAR_DEFS = {
   bruteGoblin: {
     areaHitReach: 75,          // 近接は範囲攻撃：前方の攻撃範囲内にいる、自分の戦列の敵全員に当たる
     reading: "ごうき",             // 名前の読み(長押しで表示)
+    intro: "怪力無双の鬼。一撃にて、居並ぶ敵をも薙ぎ払う。",
     name: "剛鬼",
     rank: null,
     race: "goblin",
@@ -833,6 +854,7 @@ const CHAR_DEFS = {
 
   healer: {
     reading: "ふき",             // 名前の読み(長押しで表示)
+    intro: "傷を癒し、斃れし鬼を呼び戻す、鬼の巫。",
     laneReach: 1,              // 自分のレーンと、隣のレーンまで回復できる
     name: "巫鬼",
     rank: null,
@@ -878,6 +900,7 @@ const CHAR_DEFS = {
 
   tamer: {
     reading: "ぎょじゅうき",             // 名前の読み(長押しで表示)
+    intro: "鬼犬を馴らす鬼。獣の力を、いよいよ高む。",
     name: "馭獣鬼",
     rank: null,
     race: "goblin",
@@ -910,6 +933,7 @@ const CHAR_DEFS = {
 
   hound: {
     reading: "きけん",             // 名前の読み(長押しで表示)
+    intro: "鬼の血を引く猛犬。隣の戦列へも、躍り込む。",
     laneReach: 1,              // 隣のレーンの敵も見つけられる
     laneStep: true,            // 近接攻撃のとき、隣のレーンへ移動して攻撃できる
     name: "鬼犬",
@@ -954,6 +978,7 @@ const CHAR_DEFS = {
 
   rusher: {
     reading: "きさい",             // 名前の読み(長押しで表示)
+    intro: "鬼の血を引く犀。角にて楯を砕き、敵を薙ぎ倒す。",
     name: "鬼犀",
     rank: null,
     race: "beast",
@@ -1001,6 +1026,7 @@ const CHAR_DEFS = {
 
   chief: {
     reading: "きしょう",             // 名前の読み(長押しで表示)
+    intro: "鬼の軍を率うる将。旗の下、城攻めの力を増す。",
     name: "鬼将",
     rank: null,
     race: "goblin",
@@ -1076,6 +1102,7 @@ const CHAR_DEFS = {
 
   fortress: {
     reading: "きぞうさい",             // 名前の読み(長押しで表示)
+    intro: "背に砦を負う、巨大なる鬼象。踏み潰し、砦の鬼どもは矢を射掛く。",
     laneStdHeight: 348,
     laneSpan: 3,               // 3レーン分の大きさ(基準は真ん中のレーン)。近接は自分のレーンだけ
     name: "鬼象砦",
@@ -1144,6 +1171,7 @@ const CHAR_DEFS = {
 
   queen: {
     reading: "きこう",             // 名前の読み(長押しで表示)
+    intro: "鬼の女王。結界を張り、星を墜とす。深く傷つけば、獣の相を顕す。",
     laneStdHeight: 288,
     laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)。攻撃は自分のレーンだけ
     name: "鬼后",
@@ -1228,6 +1256,7 @@ const CHAR_DEFS = {
 
   king: {
     reading: "きおう",             // 名前の読み(長押しで表示)
+    intro: "玉座に座し、鬼門を開く王。屍を糧に、大鬼門を呼ぶ。",
     laneReach: 4,              // ゲート召喚のきっかけになる敵は、どのレーンにいても見つけられる(自分は攻撃しない)
     name: "鬼王",
     rank: null,
@@ -1295,6 +1324,7 @@ const CHAR_DEFS = {
 
   gate: {
     reading: "きもん",             // 名前の読み(長押しで表示)
+    intro: "鬼王の笑いに応じ、地より現るる門。鬼どもを吐き出す。",
     laneStdHeight: 292,
     laneSpan: 2,               // 2レーン分
     name: "鬼門",
@@ -1342,6 +1372,7 @@ const CHAR_DEFS = {
 
   bigGate: {
     reading: "だいきもん",             // 名前の読み(長押しで表示)
+    intro: "屍を糧に開かれし、巨大なる鬼門。永劫に閉じず。",
     laneStdHeight: 390,
     laneSpan: 3,               // 3レーン分(中央のレーンが基準)
     name: "大鬼門",
@@ -1387,6 +1418,7 @@ const CHAR_DEFS = {
 
   goblin: {
     reading: "がき",             // 名前の読み(長押しで表示)
+    intro: "飢えに狂える鬼の下郎。数を恃みに、押し寄せ来たる。",
     name: "餓鬼",
     rank: null,
     race: "goblin", // 鼓舞兵のバフ対象判定に使用
@@ -1433,6 +1465,7 @@ const CHAR_DEFS = {
 
   drummerGoblin: {
     reading: "こき",             // 名前の読み(長押しで表示)
+    intro: "戦鼓を打ち鳴らし、鬼の群の士気を鼓する。",
     laneReach: 1,              // 自分のレーンと、隣のレーンまでバフをかけられる
     name: "鼓鬼",
     rank: null,
@@ -1475,6 +1508,7 @@ const CHAR_DEFS = {
 
   catapult: {
     reading: "れきしゃ",             // 名前の読み(長押しで表示)
+    intro: "巨岩を投ずる攻城の車。広き範囲を押し潰す。",
     laneStdHeight: 152,        // 立っているときの高さ(px)。複数レーンを占めるキャラは、占有するレーンの中心にこの高さの中心を合わせる
     laneSpan: 2,               // 2レーン分の大きさ(基準は下のレーン)
     splashLaneSpan: 2,         // 着弾の範囲は2レーン分(自分のレーンの敵を狙い、隣にもダメージ)
@@ -1571,7 +1605,7 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    ========================================================= */
 const STAGES = [
   // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔野", reading:"まや", enemyCastleHp:3000, playerCastleHp:2000, enemyWaves: [] }
+  { id:"plain", name:"魔野", reading:"まや", intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:3000, playerCastleHp:2000, enemyWaves: [] }
 ];
 
 /* =========================================================
@@ -1594,23 +1628,27 @@ function showScreen(id){
 // 布陣の役職(名前は仮)。布陣は10枠で、役職ごとの枠数が決まっている。役職に就けるのも、空けておくのも自由。
 // limit: 招集の制限。perBattle=1試合に出せる回数、alive=同時に戦場にいられる数(1種類のキャラごと)
 // 効果(数値は仮)：
+//  先手   … 自分の移動速度が上がる。新しい相手への最初の一撃が、威力を増す(先手必勝)
+//  斬込隊 … 敵の役職者(総大将・宿老・部隊長・組頭・先手・斬込隊・特殊兵)への攻撃力が上がる(役職狩り)
 //  総大将 … 自分のHPが増える。生きている間、毎秒 corpsePerSec の屍を生む。倒れると、味方全員が shakenMs の間、攻撃が shakenAtkMult 倍になる。禍々しい屍のオーラをまとう
 //  宿老   … 自分の戦列と上下1つの戦列の、半径 auraRadius 以内の味方の、被ダメージが auraDmgMult 倍になる
 //  部隊長 … 自分と同じ戦列の、半径 auraRadius 以内の味方の、移動速度が auraSpeedMult 倍になる
 //  組頭   … 自分のHPと攻撃が、それぞれ selfHpMult・selfAtkMult 倍になる
 //  big=true の役職は、出現・討死のときに、画面に大きく告知が出る
 const FORMATION_ROLES = [
-  { id: "general", label: "総大将", short: "総", reading: "そうだいしょう", defaultCount: 1, max: 1, limit: { perBattle: 1 }, big: true,
+  { id: "general", label: "総大将", short: "総", reading: "そうだいしょう", intro: "全軍を統ぶる大将。屍を生じ、倒るれば、全軍揺らぐ。", defaultCount: 1, max: 1, limit: { perBattle: 1 }, big: true,
     hpMult: 1.5, corpsePerSec: 2, shakenAtkMult: 0.9, shakenMs: 30000 },
-  { id: "elder",   label: "宿老",   short: "宿", reading: "しゅくろう",     defaultCount: 1, max: 1, limit: { alive: 1 }, big: true },
-  { id: "captain", label: "部隊長", short: "隊", reading: "ぶたいちょう",   defaultCount: 2, max: 2, limit: { alive: 2 }, big: false },
-  { id: "chief",   label: "組頭",   short: "組", reading: "くみがしら",     defaultCount: 2, max: 2, limit: { alive: 2 }, big: false,
+  { id: "elder",   label: "宿老",   short: "宿", reading: "しゅくろう", intro: "軍略に通ずる老臣。大将の令を、部隊長・組頭に伝う。",     defaultCount: 1, max: 1, limit: { alive: 1 }, big: true },
+  { id: "captain", label: "部隊長", short: "隊", reading: "ぶたいちょう", intro: "戦列を率うる将。令の下るたび、隊の士気高まる。",   defaultCount: 2, max: 2, limit: { alive: 2 }, big: false },
+  { id: "chief",   label: "組頭",   short: "組", reading: "くみがしら", intro: "前線を担う剛の者。己が力を、いよいよ高む。",     defaultCount: 2, max: 2, limit: { alive: 2 }, big: false,
     selfHpMult: 1.15, selfAtkMult: 1.15 },
   // 先手・斬込隊は、効果が未設定(名前と札だけ)。特殊兵は、自分の特殊技のクールタイムが短くなる
-  { id: "vanguard", label: "先手",  short: "先", reading: "せんて",         defaultCount: 0, max: 2, limit: { alive: 2 }, big: false },
-  { id: "assault", label: "斬込隊", short: "斬", reading: "きりこみたい",   defaultCount: 0, max: 2, limit: { alive: 2 }, big: false },
-  { id: "special", label: "特殊兵", short: "特", reading: "とくしゅへい",   defaultCount: 0, max: 2, limit: { alive: 2 }, big: false },
-  { id: "foot",    label: "歩兵",   short: "",   reading: "ほへい",         defaultCount: 4, max: 4, limit: null }
+  { id: "vanguard", label: "先手",  short: "先", reading: "せんて", intro: "陣の先を駆くる兵。先んずれば、人を制す。",         defaultCount: 0, max: 2, limit: { alive: 2 }, big: false,
+    selfSpeedMult: 1.15, firstStrikeMult: 1.5 },
+  { id: "assault", label: "斬込隊", short: "斬", reading: "きりこみたい", intro: "敵将を狙う刃。役ある者に、深く斬り込む。",   defaultCount: 0, max: 2, limit: { alive: 2 }, big: false,
+    roleHunterMult: 1.5 },
+  { id: "special", label: "特殊兵", short: "特", reading: "とくしゅへい", intro: "異なる技に長けし兵。待機の間、技を研ぎ澄ます。",   defaultCount: 0, max: 2, limit: { alive: 2 }, big: false },
+  { id: "foot",    label: "歩兵",   short: "",   reading: "ほへい", intro: "戦列を支うる兵。将の傍らにあれば、士気高し。",         defaultCount: 4, max: 4, limit: null }
 ];
 function roleCfg(id){ return FORMATION_ROLES.find(r => r.id === id) || null; }
 const MAX_FORMATION = 10; // 布陣できる数の上限(=枠の数)。役職の内訳は、枠ごとに自由に変えられる(何かを削って、何かを足す)
@@ -1703,6 +1741,10 @@ function setDefaultFormation(){
   syncSelectedUnits();
 }
 setDefaultFormation();
+// 長押しで出す説明(紹介文と、おもな数値)
+function unitDesc(def){
+  return (def.intro || "") + "　HP " + def.hp + "　攻 " + def.atk + "　屍 " + getDeployCost(def);
+}
 function roleOfKind(kind){
   const sl = state.formationSlots.find(x => x.kind === kind);
   return sl ? sl.role : "foot";
@@ -1765,12 +1807,13 @@ function buildFormationSlots(){
     label.className = "role-label";
     label.textContent = role.label;
     label.dataset.reading = role.reading;
+    label.dataset.desc = role.intro;
     cell.appendChild(label);
     const slot = document.createElement("div");
     if (sl.kind){
       const def = CHAR_DEFS[sl.kind];
       slot.className = "formation-slot" + (state.activeSlot === idx ? " active" : "");
-      slot.dataset.rname = def.name; slot.dataset.reading = def.reading || "";
+      slot.dataset.rname = def.name; slot.dataset.reading = def.reading || ""; slot.dataset.desc = unitDesc(def);
       slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag corpse">${getDeployCost(def)}</div>`;
       attachImgFallback(slot.querySelector("img"), def.name);
     } else {
@@ -1807,12 +1850,13 @@ function buildMoraleSelect(){
   box.innerHTML = "";
   const t = document.createElement("span"); t.className = "editor-title"; t.textContent = "歩兵の士気"; t.dataset.reading = "ほへいのしき";
   box.appendChild(t);
-  const opts = [{ id: null, label: "なし" }].concat(FORMATION_ROLES.filter(r => r.id !== "foot").map(r => ({ id: r.id, label: r.label, reading: r.reading })));
+  const opts = [{ id: null, label: "なし" }].concat(FORMATION_ROLES.filter(r => r.id !== "foot").map(r => ({ id: r.id, label: r.label, reading: r.reading, desc: r.intro })));
   opts.forEach(o => {
     const b = document.createElement("button");
     b.className = "editor-btn" + (state.moraleRole === o.id ? " sel" : "");
     b.textContent = o.label;
     if (o.reading) b.dataset.reading = o.reading;
+    if (o.desc) b.dataset.desc = o.desc;
     b.addEventListener("click", () => { state.moraleRole = o.id; buildMoraleSelect(); });
     box.appendChild(b);
   });
@@ -1826,14 +1870,23 @@ function buildSlotEditor(){
   if (idx == null){ box.style.display = "none"; return; }
   box.style.display = "block";
   const sl = state.formationSlots[idx];
-  const mk = (text, cls, onclick, reading) => {
+  const mk = (text, cls, onclick, reading, desc) => {
     const b = document.createElement("button");
     b.className = "editor-btn" + (cls ? " " + cls : "");
     b.textContent = text;
     if (reading) b.dataset.reading = reading;
+    if (desc) b.dataset.desc = desc;
     if (onclick) b.addEventListener("click", onclick); else b.disabled = true;
     return b;
   };
+  // キャラ(外す・入れ替え)
+  if (sl.kind){
+    const r0 = document.createElement("div"); r0.className = "editor-row";
+    const t0 = document.createElement("span"); t0.className = "editor-title"; t0.textContent = "キャラ"; r0.appendChild(t0);
+    const nm = document.createElement("span"); nm.style.cssText = "font-size:.7rem;color:var(--text);margin-right:6px;"; nm.textContent = CHAR_DEFS[sl.kind].name + "(下の一覧から選ぶと入れ替わる)"; r0.appendChild(nm);
+    r0.appendChild(mk("外す", "", () => { sl.kind = null; sl.parent = null; syncSelectedUnits(); buildFormationScreen(); }));
+    box.appendChild(r0);
+  }
   // 役職
   const r1 = document.createElement("div"); r1.className = "editor-row";
   const t1 = document.createElement("span"); t1.className = "editor-title"; t1.textContent = "役職"; r1.appendChild(t1);
@@ -1845,7 +1898,7 @@ function buildSlotEditor(){
       sl.role = role.id;
       syncSelectedUnits();
       buildFormationScreen();
-    }, role.reading);
+    }, role.reading, role.intro);
     r1.appendChild(b);
   });
   box.appendChild(r1);
@@ -1891,7 +1944,7 @@ function buildUnitGrid(){
     const inFormation = state.selectedUnits.includes(kind);
     const card = document.createElement("div");
     card.className = "unit-card" + (inFormation ? " in-formation" : "");
-    card.dataset.rname = def.name; card.dataset.reading = def.reading || "";
+    card.dataset.rname = def.name; card.dataset.reading = def.reading || ""; card.dataset.desc = unitDesc(def);
     card.innerHTML = `
       <div class="rank-tag">${def.rank || "―"}</div>
       <div class="icon-wrap"><img src="${def.icon}" alt="${def.name}"></div>
@@ -1908,7 +1961,8 @@ function buildUnitGrid(){
       } else {
         // 選んでいる枠(空いていれば)に入れる。なければ、歩兵の空き枠、それもなければ、どこかの空き枠
         const act = state.activeSlot;
-        let target = (act != null && state.formationSlots[act] && !state.formationSlots[act].kind) ? act : -1;
+        // 選んでいる枠があれば、そこに入れる(埋まっている枠なら、入れ替える)。なければ、歩兵の空き枠へ
+        let target = (act != null && state.formationSlots[act]) ? act : -1;
         if (target === -1) target = state.formationSlots.findIndex(sl => !sl.kind && sl.role === "foot");
         if (target === -1) target = state.formationSlots.findIndex(sl => !sl.kind);
         if (target === -1){ showToast("布陣は" + MAX_FORMATION + "体まで"); return; } // 上限
@@ -1940,6 +1994,7 @@ function buildStageScreen(){
     `;
     const nameEl = card.querySelector(".name");
     nameEl.dataset.reading = stage.reading || "";
+    nameEl.dataset.desc = stage.intro || "";
     card.querySelector("button").addEventListener("click", () => {
       state.stage = stage;
       startBattle(stage);
@@ -1955,6 +2010,8 @@ let battle = null;
 
 function startBattle(stage){
   roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
+  const spb = document.getElementById("btn-speed"); if (spb) spb.textContent = "×1";
+  infoUI.unit = null; const uib = document.getElementById("unit-info"); if (uib) uib.style.display = "none";
   cmdUI.open = false; cmdUI.cmdrId = null; cmdUI.branch = null; cmdUI.pickTarget = false; cmdUI.pickFormation = false;
   warmKeyedFx();
   const field = document.getElementById("battlefield");
@@ -1977,6 +2034,7 @@ function startBattle(stage){
     fxList: [],                    // 毎フレーム進めるエフェクト・タイマー(一時停止に連動する)
     comboDone: { player: false, enemy: false }, // 指輪コンボは陣営ごとに1回だけ
     commands: [],                  // いま出ている軍令
+    speed: 1,                      // 倍速(1・2・3)
     roleUsed: {},                  // 役職のキャラを、この試合で何体出したか(総大将は1度きり)
     corpse: START_CORPSE,          // 屍(全キャラの召喚資金)。最初に少し持っていて、あとは倒れたユニットの分だけたまる。時間では増えない
     selectedLanes: new Set(),      // 召喚するレーン(下から0〜4)。複数選べて、選んだレーンごとに1体ずつ出る。1つも選んでいないと召喚できない
@@ -2037,7 +2095,7 @@ function buildDeployRow(){
     const def = CHAR_DEFS[kind];
     const btn = document.createElement("button");
     btn.className = "deploy-btn";
-    btn.dataset.rname = def.name; btn.dataset.reading = def.reading || "";
+    btn.dataset.rname = def.name; btn.dataset.reading = def.reading || ""; btn.dataset.desc = unitDesc(def); btn.dataset.kind = kind;
     btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag${currencyKey(def) === "corpse" ? " corpse" : ""}">${getDeployCost(def)}</span>` +
       ((def.laneSpan || 1) > 1 ? `<span class="lane-tag">${def.laneSpan}戦列</span>` : "") +
       (roleShort(kind) ? `<span class="role-tag">${roleShort(kind)}</span>` : "");
@@ -2063,10 +2121,19 @@ function currencyUnit(def){ return "屍"; }
 function updateWalletUI(){
   if (!battle) return;
   document.getElementById("corpse-num").textContent = "屍 " + Math.floor(battle.corpse);
-  document.querySelectorAll(".deploy-btn").forEach((btn, i) => {
-    const kind = state.selectedUnits[i];
+  // 召喚ボタン：1戦列のキャラは、選んでいる戦列の数だけ出るので、「×数」と合計の屍を出す(役職の制限で出せる数まで)
+  const nLanes = battle.selectedLanes.size;
+  document.querySelectorAll(".deploy-btn").forEach(btn => {
+    const kind = btn.dataset.kind;
     const def = CHAR_DEFS[kind];
-    btn.disabled = battle.corpse < getDeployCost(def) || deployAllowance(kind).max <= 0;
+    if (!def) return;
+    const allow = deployAllowance(kind).max;
+    let count = 1;
+    if ((def.laneSpan || 1) === 1 && nLanes > 0) count = Math.max(1, Math.min(nLanes, allow));
+    const total = getDeployCost(def) * count;
+    const tag = btn.querySelector(".cost-tag");
+    if (tag) tag.textContent = (count > 1 ? "×" + count + " " : "") + total;
+    btn.disabled = battle.corpse < total || allow <= 0;
   });
 }
 
@@ -2252,6 +2319,7 @@ function spawnUnit(kind, side, xOffset, opts){
     baseB: 74,                    // 足元の高さ(画面の下からのpx)
     deployedKind: null,           // プレイヤーが召喚したキャラの種類(役職の制限の数え方に使う)
     id: ++unitIdSeq,              // ユニットごとの番号
+    lastStrikeTarget: null,       // 先手：最後に攻撃した相手(新しい相手への最初の一撃を強くするため)
     role: null,                   // 就いている役職(general/elder/captain/chief/vanguard/assault/special)
     slotIdx: -1,                  // プレイヤーが召喚したキャラが入っていた、布陣の枠の番号(軍令の上下関係に使う)
     slotRole: "foot",             // その枠の役職
@@ -2348,6 +2416,17 @@ function getBuffFactor(unit, key){
   unit.buffSources.forEach(src => { const v = src.def[key]; if (v != null) m *= v; });
   return m;
 }
+// 相手ごとの攻撃力の補正：種族(槍兵は獣に強い)・役職狩り(斬込隊は敵の役職者に強い)・先手必勝(先手は新しい相手への最初の一撃が強い)。
+// commit=true のときだけ、先手の「最初の一撃」を使ったことにする
+function attackBonus(unit, target, commit){
+  let m = (unit.def.bonusVsRace && unit.def.bonusVsRace[target.def.race]) || 1;
+  if (unit.role === "assault" && target.role) m *= roleCfg("assault").roleHunterMult;
+  if (unit.role === "vanguard" && unit.lastStrikeTarget !== target){
+    m *= roleCfg("vanguard").firstStrikeMult;
+    if (commit) unit.lastStrikeTarget = target;
+  }
+  return m;
+}
 function getEffectiveAtk(unit){
   let atk = unit.def.atk * getBuffFactor(unit, "buffAtkMult") * (unit.roleAtkMult || 1) * (unit.shakenMs > 0 ? roleCfg("general").shakenAtkMult : 1);
   if (unit.cmd && (unit.cmd.type === "attack" || unit.cmd.type === "advance")){
@@ -2361,7 +2440,8 @@ function getEffectiveAtk(unit){
 }
 function getEffectiveSpeed(unit, baseSpeed){
   const vanguard = (unit.role === "vanguard" && unit.cmd && (unit.cmd.type === "attack" || unit.cmd.type === "advance")) ? CMD_BUFF.vanguardSpeed : 1; // 先手：進撃で移動速度が上がる
-  return baseSpeed * getBuffFactor(unit, "buffSpeedMult") * vanguard;
+  const self = unit.role === "vanguard" ? roleCfg("vanguard").selfSpeedMult : 1; // 先手：いつでも、移動速度が上がる
+  return baseSpeed * getBuffFactor(unit, "buffSpeedMult") * vanguard * self;
 }
 function getDamageCutMultiplier(unit){
   let f = getBuffFactor(unit, "buffDamageCutMult");
@@ -4701,7 +4781,7 @@ function fireProjectile(unit){
 
     if (capturedTarget){
       if (!capturedTarget.dead){
-        applyDamageToUnit(capturedTarget, getEffectiveAtk(unit), unit);
+        applyDamageToUnit(capturedTarget, getEffectiveAtk(unit) * attackBonus(unit, capturedTarget, true), unit);
       }
       // 貫通：狙った相手の後ろにいる、同じ戦列の敵1体にも、弾が当たる
       if (def.pierce){
@@ -4785,8 +4865,7 @@ function resolveAttackImpact(unit){
     if (unit.attackHadTarget) return;
   } else if (unit.target && !unit.target.dead){
     // 種族ごとの攻撃力ボーナス(槍兵は魔獣・獣に強い)
-    const raceBonus = (unit.def.bonusVsRace && unit.def.bonusVsRace[unit.target.def.race]) || 1;
-    applyDamageToUnit(unit.target, getEffectiveAtk(unit) * raceBonus, unit);
+    applyDamageToUnit(unit.target, getEffectiveAtk(unit) * attackBonus(unit, unit.target, true), unit);
     return;
   }
   if (unit.side === "player"){
@@ -5487,9 +5566,18 @@ function battleLoop(now){
     requestAnimationFrame(battleLoop);
     return;
   }
-  const dt = now - battle.lastTick;
+  // 経過時間を、倍速(speed)に応じて増やし、40msずつに区切って進める(倍速でも、当たり判定などが粗くならないように)
+  let dt = Math.min(now - battle.lastTick, 100) * (battle.speed || 1);
   battle.lastTick = now;
+  while (dt > 0 && battle && !battle.ended){
+    const step = Math.min(dt, 40);
+    battleStep(step);
+    dt -= step;
+  }
+  if (battle && !battle.ended) requestAnimationFrame(battleLoop);
+}
 
+function battleStep(dt){
   // 屍は時間では増えない(倒れたユニットのときだけ増える)ので、ここでは何もためない
 
   updateCommands(dt); // 軍令の終了判定・クールタイム・強化のフラグ
@@ -5570,7 +5658,6 @@ function battleLoop(now){
   const keptTasks = runningTasks.filter(task => task(dt) !== false);
   battle.fxList = keptTasks.concat(battle.fxList);
 
-  requestAnimationFrame(battleLoop);
 }
 
 function endBattle(win){
@@ -5636,6 +5723,11 @@ document.getElementById("cheat-corpse-btn").addEventListener("click", () => {
   if (!battle) return;
   battle.corpse += 1000;
   updateWalletUI();
+});
+document.getElementById("btn-speed").addEventListener("click", (e) => {
+  if (!battle) return;
+  battle.speed = battle.speed >= 3 ? 1 : battle.speed + 1; // ×1 → ×2 → ×3 → ×1
+  e.target.textContent = "×" + battle.speed;
 });
 document.getElementById("btn-pause").addEventListener("click", (e) => {
   if (!battle) return;
@@ -5861,6 +5953,95 @@ function formationDiagramHTML(id, n){
   }, true);
 })();
 
+/* ---------- 戦場のタップ：兵の情報・戦列の選択 ---------- */
+const infoUI = { unit: null };
+function fieldPointToLogical(e){
+  const field = document.getElementById("battlefield");
+  const r = field.getBoundingClientRect();
+  const scale = r.width / STAGE_W;
+  return { lx: (e.clientX - r.left) / scale, ly: (e.clientY - r.top) / scale };
+}
+// タップした位置にいる兵(小さい兵でも押せるよう、少し広めに判定する)
+function unitAtPoint(lx, ly){
+  const by = STAGE_H - ly; // 下からの高さ
+  let best = null, bd = Infinity;
+  battle.units.forEach(u => {
+    if (u.dead || u.mounted || u.def.invulnerable || u.def.gateUnit) return;
+    const w = u._displayWidth || 60, h = u._displayHeight || 80, pad = 16;
+    const bottom = (u.baseB || GRID_GROUND) + Math.round(u.launchY || 0) + Math.round(u.rideY || 0);
+    if (lx < u.x - pad || lx > u.x + w + pad) return;
+    if (by < bottom - pad || by > bottom + h + pad) return;
+    const d = Math.abs((u.x + w / 2) - lx) + Math.abs((bottom + h / 2) - by);
+    if (d < bd){ bd = d; best = u; }
+  });
+  return best;
+}
+function showUnitInfo(u){
+  infoUI.unit = u;
+  renderUnitInfo();
+}
+function closeUnitInfo(){
+  infoUI.unit = null;
+  const box = document.getElementById("unit-info");
+  if (box) box.style.display = "none";
+}
+function renderUnitInfo(){
+  const box = document.getElementById("unit-info");
+  const u = infoUI.unit;
+  if (!u || u.dead || !battle){ closeUnitInfo(); return; }
+  box.style.display = "block";
+  box.innerHTML = "";
+  const role = u.role ? roleCfg(u.role) : null;
+  const title = document.createElement("div"); title.className = "ui-title";
+  title.textContent = (u.side === "enemy" ? "敵 " : "") + u.def.name + (role ? "　" + role.label : "");
+  box.appendChild(title);
+  const line = t => { const d = document.createElement("div"); d.textContent = t; box.appendChild(d); };
+  line("HP " + Math.ceil(u.hp) + " / " + u.hpMax + "　攻 " + Math.round(getEffectiveAtk(u) * 10) / 10);
+  line(LANE_LABELS[u.lane] + (u.laneHi > u.laneLo ? "ほか" : "") + "　" + (u.side === "player" ? "味方" : "敵"));
+  if (u.side === "player" && u.slotIdx >= 0){
+    const slRole = roleCfg(u.slotRole);
+    if (slRole && u.slotRole !== "foot" && !u.role) line("役職 " + slRole.label);
+    if (u.leader && !u.leader.dead) line("上官 " + roleCfg(u.leader.role).label + "(" + u.leader.def.name + ")");
+    if (u.cmd) line("軍令 " + CMD_LABEL[u.cmd.type]);
+  }
+  if (u.shakenMs > 0) line("動揺");
+  const row = document.createElement("div"); row.className = "ui-row";
+  if (u.side === "player" && u.role && COMMANDER_ROLES.indexOf(u.role) !== -1){
+    const b = document.createElement("button"); b.textContent = "軍令を出す";
+    b.addEventListener("click", () => {
+      cmdUI.open = true; cmdUI.cmdrId = u.id; cmdUI.branch = null; cmdUI.pickTarget = false; cmdUI.pickFormation = false;
+      renderCmdPanel(); closeUnitInfo();
+    });
+    row.appendChild(b);
+  }
+  const c = document.createElement("button"); c.textContent = "閉"; c.addEventListener("click", closeUnitInfo); row.appendChild(c);
+  box.appendChild(row);
+  // 兵の近くに置く(画面の外にはみ出さないように)
+  const frame = document.getElementById("battlefield-frame").getBoundingClientRect();
+  const r = u.el.getBoundingClientRect();
+  const bw = box.offsetWidth, bh = box.offsetHeight;
+  let left = r.left - frame.left + r.width / 2 - bw / 2;
+  left = Math.max(4, Math.min(frame.width - bw - 4, left));
+  let top = r.top - frame.top - bh - 6;
+  if (top < 4) top = r.bottom - frame.top + 6;
+  top = Math.max(4, Math.min(frame.height - bh - 4, top));
+  box.style.left = left + "px";
+  box.style.top = top + "px";
+}
+document.getElementById("battlefield").addEventListener("click", e => {
+  if (!battle || battle.ended) return;
+  const p = fieldPointToLogical(e);
+  const u = unitAtPoint(p.lx, p.ly);
+  if (u){ showUnitInfo(u); return; }               // 兵をタップ：情報を出す
+  closeUnitInfo();
+  // 何もない所をタップ：その戦列を、選ぶ・解除する(複数選べる)
+  const lane = Math.floor((STAGE_H - GRID_GROUND - p.ly) / GRID_CELL);
+  if (lane < 0 || lane >= GRID_LANES) return;
+  if (battle.selectedLanes.has(lane)) battle.selectedLanes.delete(lane); else battle.selectedLanes.add(lane);
+  updateLaneButtons();
+});
+setInterval(() => { if (infoUI.unit && battle && !battle.paused) renderUnitInfo(); }, 300);
+
 /* ---------- 軍令の画面 ---------- */
 const cmdUI = { open: false, cmdrId: null, branch: null, pickTarget: false, pickFormation: false };
 function unitLabel(u){ return roleCfg(u.role).label + "(" + u.def.name + ") " + LANE_LABELS[u.lane]; }
@@ -6030,7 +6211,24 @@ function layoutLaneButtons(){
     b.style.height = Math.max(20, GRID_CELL * scale - 3) + "px";
   });
 }
+function updateLaneBands(){
+  const field = document.getElementById("battlefield");
+  if (!field) return;
+  for (let k = 0; k < GRID_LANES; k++){
+    let band = document.getElementById("lane-band-" + k);
+    if (!band){
+      band = document.createElement("div");
+      band.id = "lane-band-" + k;
+      band.className = "lane-band";
+      band.style.bottom = laneFloor(k) + "px";
+      field.appendChild(band);
+    }
+    band.classList.toggle("on", !!battle && battle.selectedLanes.has(k));
+  }
+}
 function updateLaneButtons(){
+  updateLaneBands();
+  if (battle) updateWalletUI(); // 召喚ボタンの「×選んだ戦列の数」と合計の屍を更新する
   const box = document.getElementById("lane-buttons");
   if (!box) return;
   Array.from(box.children).forEach(b => {
