@@ -82,7 +82,14 @@
     color:var(--text-dim); font-size:1.3rem; border-style:dashed; cursor:pointer;
   }
   .formation-slot.active{ border-color:var(--gold); box-shadow:0 0 8px rgba(240,207,106,.75); }
-  .formation-group{ display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+  .formation-group{ display:flex; flex-direction:column; gap:3px; flex-shrink:0; }
+  .slot-link{ font-size:.55rem; color:var(--text-dim); height:.8rem; text-align:center; }
+  #slot-editor{ display:none; background:#0d0c09; border:1px solid var(--line); padding:6px 8px; margin-bottom:8px; flex-shrink:0; }
+  #slot-editor .editor-row{ display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin-bottom:4px; }
+  #slot-editor .editor-title{ font-size:.62rem; color:var(--gold); margin-right:4px; min-width:3.2em; }
+  #slot-editor .editor-btn{ font-size:.62rem; padding:4px 8px; background:#1a1710; border:1px solid var(--line-dim); color:var(--text); border-radius:2px; }
+  #slot-editor .editor-btn.sel{ border-color:var(--gold); color:var(--gold); background:#2a2412; }
+  #slot-editor .editor-btn:disabled{ opacity:.35; }
   .formation-group .role-label{ font-size:.62rem; color:var(--gold); letter-spacing:.1em; white-space:nowrap; }
   .formation-group .role-row{ display:flex; gap:6px; }
   .formation-slot .cost-tag{
@@ -210,16 +217,27 @@
   .role-elder .ring{ border:2px solid rgba(220,220,235,.75); box-shadow:0 0 9px rgba(220,220,235,.55); }
   .role-captain .ring{ border:2px solid rgba(224,88,74,.85); box-shadow:0 0 9px rgba(224,88,74,.6); }
   .role-chief .ring{ border:2px solid rgba(90,180,200,.85); box-shadow:0 0 9px rgba(90,180,200,.6); }
+  .role-morale .glow{ inset:0; background:radial-gradient(ellipse at 50% 80%, rgba(196,146,52,.6), rgba(150,100,30,.3) 34%, rgba(0,0,0,0) 66%); animation:auraPulse 2s ease-in-out infinite; }
+  .role-morale .ring{ left:20%; right:20%; bottom:4%; height:16%; border-radius:50%; border:2px solid rgba(206,156,62,.9); box-shadow:0 0 10px rgba(206,156,62,.65); animation:auraPulse 2s ease-in-out infinite; }
+  .role-vanguard .ring{ border:2px solid rgba(170,210,90,.85); box-shadow:0 0 9px rgba(170,210,90,.6); }
+  .role-assault .ring{ border:2px solid rgba(255,140,50,.85); box-shadow:0 0 9px rgba(255,140,50,.6); }
+  .role-special .ring{ border:2px solid rgba(240,207,106,.9); box-shadow:0 0 9px rgba(240,207,106,.65); }
+  .role-vanguard .ring, .role-assault .ring, .role-special .ring{ left:22%; right:22%; bottom:4%; height:16%; border-radius:50%; animation:auraPulse 2s ease-in-out infinite; }
+  .role-name-vanguard{ color:#b8e06a; } .role-name-assault{ color:#ffa060; } .role-name-special{ color:#f0cf6a; }
   @keyframes auraPulse{ 0%,100%{ opacity:.7; transform:scale(1); } 50%{ opacity:1; transform:scale(1.07); } }
   @keyframes mistRise{ 0%{ transform:translateY(25%) scale(.8); opacity:0; } 30%{ opacity:.95; } 100%{ transform:translateY(-95%) scale(1.35); opacity:0; } }
   @keyframes skullRise{ 0%{ transform:translateY(0) scale(.7); opacity:0; } 15%{ opacity:.9; } 100%{ transform:translateY(-230%) scale(1.2) rotate(9deg); opacity:0; } }
+  /* HPバーの上の役職名 */
+  .role-name{ position:absolute; left:50%; top:-36px; white-space:nowrap; font-size:20px; letter-spacing:.12em; font-weight:bold; pointer-events:none; z-index:7;
+    text-shadow:0 0 3px #000, 0 0 3px #000, 0 1px 2px #000; }
+  .role-name-general{ color:#e4a6ff; } .role-name-elder{ color:#e6e6f0; } .role-name-captain{ color:#ff8a7a; } .role-name-chief{ color:#7fd0e4; }
   /* 役職の告知 */
   #role-banner-layer{ position:fixed; left:0; right:0; top:26%; z-index:99990; pointer-events:none; text-align:center; }
   .role-banner{ display:block; margin:0 auto 6px; width:fit-content; color:#f0cf6a; letter-spacing:.35em; white-space:nowrap; opacity:0;
     background:linear-gradient(90deg, rgba(20,0,10,0), rgba(24,0,16,.92) 18%, rgba(24,0,16,.92) 82%, rgba(20,0,10,0));
     border-top:1px solid #8a6a1e; border-bottom:1px solid #8a6a1e; text-shadow:0 0 14px rgba(170,50,220,.95); }
-  .role-banner.big{ font-size:1.7rem; padding:10px 60px; animation:bannerBig 2.6s ease forwards; }
-  .role-banner.small{ font-size:.85rem; padding:3px 26px; animation:bannerSmall 1.8s ease forwards; }
+  .role-banner.big{ font-size:1.7rem; padding:10px 60px; animation:bannerBig 2.4s ease forwards; }
+  .role-banner.small{ font-size:.85rem; padding:3px 26px; animation:bannerSmall 1.5s ease forwards; }
   .role-banner.enemy{ color:#ff7a68; text-shadow:0 0 14px rgba(255,60,40,.95); border-color:#8a2a1e; }
   @keyframes bannerBig{ 0%{ opacity:0; transform:scale(1.5); } 12%{ opacity:1; transform:scale(1); } 80%{ opacity:1; } 100%{ opacity:0; } }
   @keyframes bannerSmall{ 0%{ opacity:0; transform:translateY(6px); } 15%{ opacity:1; transform:none; } 80%{ opacity:1; } 100%{ opacity:0; } }
@@ -309,6 +327,7 @@
       <button class="primary" id="btn-to-stage" data-reading="せんせんせんたく">戦線選択</button>
     </div>
     <div class="formation-slots" id="formation-slots"></div>
+    <div id="slot-editor"></div>
     <div class="unit-grid" id="unit-grid"></div>
     <div class="category-tabs" id="category-tabs"></div>
   </section>
@@ -1562,32 +1581,55 @@ function showScreen(id){
 //  組頭   … 自分のHPと攻撃が、それぞれ selfHpMult・selfAtkMult 倍になる
 //  big=true の役職は、出現・討死のときに、画面に大きく告知が出る
 const FORMATION_ROLES = [
-  { id: "general", label: "総大将", short: "総", reading: "そうだいしょう", count: 1, limit: { perBattle: 1 }, big: true,
+  { id: "general", label: "総大将", short: "総", reading: "そうだいしょう", defaultCount: 1, max: 1, limit: { perBattle: 1 }, big: true,
     hpMult: 1.5, corpsePerSec: 2, shakenAtkMult: 0.9, shakenMs: 30000 },
-  { id: "elder",   label: "宿老",   short: "宿", reading: "しゅくろう",     count: 1, limit: { alive: 1 }, big: true,
+  { id: "elder",   label: "宿老",   short: "宿", reading: "しゅくろう",     defaultCount: 1, max: 1, limit: { alive: 1 }, big: true,
     auraDmgMult: 0.9, auraRadius: 300 },
-  { id: "captain", label: "部隊長", short: "隊", reading: "ぶたいちょう",   count: 2, limit: { alive: 2 }, big: false,
+  { id: "captain", label: "部隊長", short: "隊", reading: "ぶたいちょう",   defaultCount: 2, max: 2, limit: { alive: 2 }, big: false,
     auraSpeedMult: 1.15, auraRadius: 300 },
-  { id: "chief",   label: "組頭",   short: "組", reading: "くみがしら",     count: 2, limit: { alive: 2 }, big: false,
+  { id: "chief",   label: "組頭",   short: "組", reading: "くみがしら",     defaultCount: 2, max: 2, limit: { alive: 2 }, big: false,
     selfHpMult: 1.15, selfAtkMult: 1.15 },
-  { id: "foot",    label: "歩兵",   short: "",   reading: "ほへい",         count: 4, limit: null }
+  // 先手・斬込隊は、効果が未設定(名前と札だけ)。特殊兵は、自分の特殊技のクールタイムが短くなる
+  { id: "vanguard", label: "先手",  short: "先", reading: "せんて",         defaultCount: 0, max: 2, limit: { alive: 2 }, big: false },
+  { id: "assault", label: "斬込隊", short: "斬", reading: "きりこみたい",   defaultCount: 0, max: 2, limit: { alive: 2 }, big: false },
+  { id: "special", label: "特殊兵", short: "特", reading: "とくしゅへい",   defaultCount: 0, max: 2, limit: { alive: 2 }, big: false, cdMult: 0.7 },
+  { id: "foot",    label: "歩兵",   short: "",   reading: "ほへい",         defaultCount: 4, max: 4, limit: null }
 ];
 function roleCfg(id){ return FORMATION_ROLES.find(r => r.id === id) || null; }
-const MAX_FORMATION = FORMATION_ROLES.reduce((a, r) => a + r.count, 0); // 布陣できる数の上限(=枠の数)
+const MAX_FORMATION = 10; // 布陣できる数の上限(=枠の数)。役職の内訳は、枠ごとに自由に変えられる(何かを削って、何かを足す)
+
+// 上官(指示を聞く・守る相手)にできる関係：キーの役職に、値の役職が着ける。(数と中身は仮)
+//  総大将には、全ての役職が着ける／宿老には3種類／部隊長には2種類
+const FOLLOW_RULES = {
+  general: ["elder", "captain", "chief", "vanguard", "assault", "special", "foot"],
+  elder:   ["captain", "vanguard", "foot"],
+  captain: ["chief", "foot"]
+};
+const GUARD_DMG_MULT = 0.85;  // 士気(守る役職がいる間の、歩兵の被ダメージ)
 
 function makeEmptySlots(){
   const slots = [];
-  FORMATION_ROLES.forEach(r => { for (let i = 0; i < r.count; i++) slots.push({ role: r.id, kind: null }); });
+  FORMATION_ROLES.forEach(r => { for (let i = 0; i < r.defaultCount; i++) slots.push({ role: r.id, kind: null, parent: null }); });
   return slots;
 }
 const state = {
-  formationSlots: makeEmptySlots(),  // 10枠。それぞれ {role, kind}
+  formationSlots: makeEmptySlots(),  // 10枠。それぞれ {role, kind, parent(上官・守る相手の枠の番号)}
   selectedUnits: [],                 // 枠の順に並べた、布陣しているキャラ(枠から自動で作る)
   activeSlot: null,                  // 布陣画面で、いま選んでいる枠
   formationCategory: "all",
   stage: null
 };
-function syncSelectedUnits(){ state.selectedUnits = state.formationSlots.filter(sl => sl.kind).map(sl => sl.kind); }
+// 上官の指定が、いまの役職・キャラの状態と合っているかを確認して、合わないものは外す
+function sanitizeFormation(){
+  const slots = state.formationSlots;
+  slots.forEach((sl, i) => {
+    if (sl.parent == null) return;
+    const ps = slots[sl.parent];
+    const ok = ps && ps.kind && sl.parent !== i && (FOLLOW_RULES[ps.role] || []).indexOf(sl.role) !== -1;
+    if (!ok) sl.parent = null;
+  });
+}
+function syncSelectedUnits(){ sanitizeFormation(); state.selectedUnits = state.formationSlots.filter(sl => sl.kind).map(sl => sl.kind); }
 function setDefaultFormation(){
   const slots = makeEmptySlots();
   const place = (role, kinds) => { let i = 0; slots.forEach(sl => { if (sl.role === role && i < kinds.length) sl.kind = kinds[i++]; }); };
@@ -1646,56 +1688,98 @@ function buildFormationScreen(){
   buildUnitGrid();
 }
 
-// 上部：10枠の布陣。役職ごとに枠がまとまっている。空の枠をタップで選び、下の一覧のキャラをタップすると、その枠に入る。
-// 埋まっている枠をタップすると、キャラが外れて、その枠が選ばれる。
+// 上部：10枠の布陣。枠ごとに役職を変えられる(何かを削って、何かを足す)。
+// 枠をタップして選び、下の一覧のキャラをタップすると、その枠に入る。選んだ枠の下に、役職と上官(守る相手)を選ぶ画面が出る。
+function roleCount(roleId){ return state.formationSlots.filter(sl => sl.role === roleId).length; }
+
 function buildFormationSlots(){
   const wrap = document.getElementById("formation-slots");
   wrap.innerHTML = "";
-  let gi = 0;
-  FORMATION_ROLES.forEach(role => {
-    const group = document.createElement("div");
-    group.className = "formation-group";
+  state.formationSlots.forEach((sl, idx) => {
+    const role = roleCfg(sl.role);
+    const cell = document.createElement("div");
+    cell.className = "formation-group";
     const label = document.createElement("div");
     label.className = "role-label";
     label.textContent = role.label;
     label.dataset.reading = role.reading;
-    group.appendChild(label);
-    const row = document.createElement("div");
-    row.className = "role-row";
-    for (let n = 0; n < role.count; n++, gi++){
-      const idx = gi;
-      const sl = state.formationSlots[idx];
-      const slot = document.createElement("div");
-      if (sl.kind){
-        const def = CHAR_DEFS[sl.kind];
-        slot.className = "formation-slot" + (state.activeSlot === idx ? " active" : "");
-        slot.dataset.rname = def.name; slot.dataset.reading = def.reading || "";
-        slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag corpse">${getDeployCost(def)}</div>`;
-        attachImgFallback(slot.querySelector("img"), def.name);
-        slot.addEventListener("click", () => {
-          sl.kind = null;
-          state.activeSlot = idx;
-          syncSelectedUnits();
-          buildFormationScreen();
-        });
-      } else {
-        slot.className = "formation-slot empty" + (state.activeSlot === idx ? " active" : "");
-        slot.textContent = "+";
-        slot.addEventListener("click", () => {
-          state.activeSlot = state.activeSlot === idx ? null : idx;
-          buildFormationScreen();
-        });
-      }
-      row.appendChild(slot);
+    cell.appendChild(label);
+    const slot = document.createElement("div");
+    if (sl.kind){
+      const def = CHAR_DEFS[sl.kind];
+      slot.className = "formation-slot" + (state.activeSlot === idx ? " active" : "");
+      slot.dataset.rname = def.name; slot.dataset.reading = def.reading || "";
+      slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag corpse">${getDeployCost(def)}</div>`;
+      attachImgFallback(slot.querySelector("img"), def.name);
+    } else {
+      slot.className = "formation-slot empty" + (state.activeSlot === idx ? " active" : "");
+      slot.textContent = "+";
     }
-    group.appendChild(row);
-    wrap.appendChild(group);
+    slot.addEventListener("click", () => {
+      state.activeSlot = state.activeSlot === idx ? null : idx; // 枠を選ぶ(もう一度押すと解除)
+      buildFormationScreen();
+    });
+    cell.appendChild(slot);
+    // 上官(守る相手)の表示
+    const link = document.createElement("div");
+    link.className = "slot-link";
+    if (sl.parent != null){
+      const pr = roleCfg(state.formationSlots[sl.parent].role);
+      link.textContent = (sl.role === "foot" ? "守:" : "従:") + pr.short;
+    }
+    cell.appendChild(link);
+    wrap.appendChild(cell);
   });
   const count = document.createElement("div");
   count.className = "formation-count";
   count.textContent = state.selectedUnits.length + "/" + MAX_FORMATION;
   count.style.cssText = "align-self:center;margin-left:4px;color:var(--text-dim);font-size:.9rem;white-space:nowrap;";
   wrap.appendChild(count);
+  buildSlotEditor();
+}
+
+// 選んでいる枠の、役職・キャラ・上官を編集する画面
+function buildSlotEditor(){
+  const box = document.getElementById("slot-editor");
+  box.innerHTML = "";
+  const idx = state.activeSlot;
+  if (idx == null){ box.style.display = "none"; return; }
+  box.style.display = "block";
+  const sl = state.formationSlots[idx];
+  const mk = (text, cls, onclick, reading) => {
+    const b = document.createElement("button");
+    b.className = "editor-btn" + (cls ? " " + cls : "");
+    b.textContent = text;
+    if (reading) b.dataset.reading = reading;
+    if (onclick) b.addEventListener("click", onclick); else b.disabled = true;
+    return b;
+  };
+  // 役職
+  const r1 = document.createElement("div"); r1.className = "editor-row";
+  const t1 = document.createElement("span"); t1.className = "editor-title"; t1.textContent = "役職"; r1.appendChild(t1);
+  FORMATION_ROLES.forEach(role => {
+    const n = roleCount(role.id);
+    const cur = sl.role === role.id;
+    const full = !cur && n >= role.max;
+    const b = mk(role.label + " " + n + "/" + role.max, cur ? "sel" : "", full ? null : () => {
+      sl.role = role.id;
+      syncSelectedUnits();
+      buildFormationScreen();
+    }, role.reading);
+    r1.appendChild(b);
+  });
+  box.appendChild(r1);
+  // 上官・守る相手
+  if (sl.role !== "general"){
+    const r2 = document.createElement("div"); r2.className = "editor-row";
+    const t2 = document.createElement("span"); t2.className = "editor-title"; t2.textContent = sl.role === "foot" ? "守る役職" : "上官"; r2.appendChild(t2);
+    r2.appendChild(mk("なし", sl.parent == null ? "sel" : "", () => { sl.parent = null; buildFormationScreen(); }));
+    state.formationSlots.forEach((ps, pi) => {
+      if (pi === idx || !ps.kind || (FOLLOW_RULES[ps.role] || []).indexOf(sl.role) === -1) return;
+      r2.appendChild(mk(roleCfg(ps.role).label + ":" + CHAR_DEFS[ps.kind].name, sl.parent === pi ? "sel" : "", () => { sl.parent = pi; buildFormationScreen(); }));
+    });
+    box.appendChild(r2);
+  }
 }
 
 // 下部：カテゴリータブ。タップで一覧の絞り込みが切り替わる
@@ -1742,7 +1826,7 @@ function buildUnitGrid(){
         state.formationSlots[cur].kind = null;
         state.activeSlot = cur;
       } else {
-        // 選んでいる空き枠に入れる。なければ、歩兵の空き枠、それもなければ、どこかの空き枠
+        // 選んでいる枠(空いていれば)に入れる。なければ、歩兵の空き枠、それもなければ、どこかの空き枠
         const act = state.activeSlot;
         let target = (act != null && state.formationSlots[act] && !state.formationSlots[act].kind) ? act : -1;
         if (target === -1) target = state.formationSlots.findIndex(sl => !sl.kind && sl.role === "foot");
@@ -1790,6 +1874,7 @@ function buildStageScreen(){
 let battle = null;
 
 function startBattle(stage){
+  roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
   warmKeyedFx();
   const field = document.getElementById("battlefield");
   field.querySelectorAll(".unit-sprite").forEach(el => el.remove());
@@ -1903,8 +1988,51 @@ function updateWalletUI(){
   });
 }
 
+// 特殊兵の役職は、自分の特殊技(女王の結界・メテオ、鬼将の中距離技、鬼王のゲートなど)のクールタイムが短くなる
+function skillCd(unit, ms){
+  const r = unit.role ? roleCfg(unit.role) : null;
+  return (r && r.cdMult) ? ms * r.cdMult : ms;
+}
+
+// 歩兵の「守る役職」：その役職の兵が戦場にいれば、その兵を返す(いなければnull)
+function findGuardedUnit(kind){
+  const sl = state.formationSlots.find(x => x.kind === kind);
+  if (!sl || sl.role !== "foot" || sl.parent == null) return null;
+  const ps = state.formationSlots[sl.parent];
+  if (!ps || !ps.kind) return null;
+  return battle.units.find(u => u.side === "player" && u.deployedKind === ps.kind && !u.dead) || null;
+}
+
+// 守りの歩兵の召喚：守る役職の兵が占めているレーンに、1レーンにつき1体ずつ出る(戦列の選択は使わない)。士気のオーラをまとう
+function deployGuard(kind, guarded){
+  const def = CHAR_DEFS[kind];
+  const lanes = [];
+  for (let l = guarded.laneLo; l <= guarded.laneHi; l++) lanes.push(l);
+  const total = getDeployCost(def) * lanes.length;
+  if (battle.corpse < total) return;
+  battle.corpse -= total;
+  lanes.forEach(lane => {
+    const u = spawnUnit(kind, "player", 0, { lane });
+    u.deployedKind = kind;
+    u.guardOf = guarded;
+    attachMoraleAura(u);
+    battle.roleUsed[kind] = (battle.roleUsed[kind] || 0) + 1;
+  });
+  updateWalletUI();
+}
+// 士気のオーラ(黄土色)。守る役職の兵がいる間、被ダメージが軽くなる
+function attachMoraleAura(unit){
+  const aura = document.createElement("div");
+  aura.className = "role-aura role-morale";
+  aura.innerHTML = '<i class="glow"></i><i class="ring"></i>';
+  unit.el.insertBefore(aura, unit.el.firstChild);
+  unit.moraleEl = aura;
+}
+
 function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
+  const guarded = findGuardedUnit(kind);
+  if (guarded && (def.laneSpan || 1) === 1){ deployGuard(kind, guarded); return; }
   const cost = getDeployCost(def);
   const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
   if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; } // 先にレーンを選ばないと召喚できない
@@ -2073,7 +2201,8 @@ function spawnUnit(kind, side, xOffset, opts){
     homeLane: 0,                  // 出現したレーン(魔獣は、ここと両隣のレーンまでしか移動できない)
     baseB: 74,                    // 足元の高さ(画面の下からのpx)
     deployedKind: null,           // プレイヤーが召喚したキャラの種類(役職の制限の数え方に使う)
-    role: null,                   // 就いている役職(general/elder/captain/chief)
+    role: null,                   // 就いている役職(general/elder/captain/chief/vanguard/assault/special)
+    guardOf: null,                // 歩兵：守っている役職の兵(いる間は士気が上がる)
     roleAtkMult: 1,               // 役職による攻撃力の倍率(組頭)
     shakenMs: 0,                  // 総大将が倒れたことによる動揺の残り時間(ms)。攻撃力が下がる
     needsPullBack: false,         // レーン移動・着地などのあと、敵と重なっていたら手前に引く
@@ -2186,7 +2315,8 @@ function getEffectiveSpeed(unit, baseSpeed){
   return baseSpeed * getBuffFactor(unit, "buffSpeedMult") * roleAuraFactor(unit, "speed");
 }
 function getDamageCutMultiplier(unit){
-  return getBuffFactor(unit, "buffDamageCutMult") * roleAuraFactor(unit, "dmg");
+  const guardF = (unit.guardOf && !unit.guardOf.dead) ? GUARD_DMG_MULT : 1; // 士気：守る役職の兵がいる間、被ダメージが軽くなる
+  return getBuffFactor(unit, "buffDamageCutMult") * roleAuraFactor(unit, "dmg") * guardF;
 }
 
 // このユニットが死亡/消滅した際、そのユニットが与えていたバフを全員から取り除く
@@ -2768,7 +2898,7 @@ function findMidrangeTarget(unit, mid){
 
 function startMidrange(unit){
   const mid = unit.def.midrange;
-  unit.midCooldown = mid.cooldownMs || 6000;
+  unit.midCooldown = skillCd(unit, mid.cooldownMs || 6000);
   unit.attackHadTarget = !!unit.target;
   if (unit.target && !lanesOverlap(unit.lane, unit.lane, unit.target.laneLo, unit.target.laneHi)){
     // 突進(最初の4コマ)のあいだに、相手のレーンへ移る
@@ -2844,6 +2974,8 @@ const STATUS_ICON_DEFS = {
   roleElder:   { title: "宿老", svg: '<circle cx="12" cy="12" r="10.5" fill="#26262e" stroke="#c9c9d8" stroke-width="1.8"/><text x="12" y="17.5" text-anchor="middle" font-size="14" font-family="serif" fill="#f0e6c0">宿</text>' },
   roleCaptain: { title: "部隊長", svg: '<circle cx="12" cy="12" r="10.5" fill="#3a0f0f" stroke="#e0584a" stroke-width="1.8"/><text x="12" y="17.5" text-anchor="middle" font-size="14" font-family="serif" fill="#f0e6c0">隊</text>' },
   roleChief:   { title: "組頭", svg: '<circle cx="12" cy="12" r="10.5" fill="#0f2a33" stroke="#5ab4c8" stroke-width="1.8"/><text x="12" y="17.5" text-anchor="middle" font-size="14" font-family="serif" fill="#f0e6c0">組</text>' },
+  // 士気(守る役職の兵がいる間、防御が上がる)：黄土色の盾と上向き矢印
+  morale:  { title: "士気", svg: '<path d="M2.5 3 H14 V12 C14 16.5 8.2 20 8.2 21.5 C8.2 20 2.5 16.5 2.5 12Z" fill="#b8862e" stroke="#3a2a08" stroke-width=".9"/>' + UP_ARROW_SVG("#e0b050") },
   // 動揺(総大将を失った)
   shaken:  { title: "動揺", svg: '<path d="M12 2C7 2 4 5.5 4 10c0 2.6 1 4.2 2.5 5.3V19h11v-3.7C19 14.2 20 12.6 20 10c0-4.5-3-8-8-8Z" fill="#b8b0c8" stroke="#2c1c3c" stroke-width="1"/><circle cx="8.6" cy="10.5" r="2" fill="#2c1c3c"/><circle cx="15.4" cy="10.5" r="2" fill="#2c1c3c"/><path d="M18.5 15 L23.5 15 L21 21Z" fill="#e0584a" stroke="#3a0f0f" stroke-width=".8"/>' },
   // 毒
@@ -2862,8 +2994,8 @@ Object.keys(STATUS_ICON_DEFS).forEach(k => { STATUS_ICON_URLS[k] = svgIcon(STATU
 function getStatusKeys(unit){
   const keys = [];
   const def = unit.def;
-  if (unit.role) keys.push("role" + unit.role.charAt(0).toUpperCase() + unit.role.slice(1));
   if (unit.shakenMs > 0) keys.push("shaken");
+  if (unit.guardOf && !unit.guardOf.dead) keys.push("morale");
   if (roleAuraFactor(unit, "dmg") < 1 && keys.indexOf("defUp") === -1) keys.push("defUp");      // 宿老のオーラ
   if (roleAuraFactor(unit, "speed") > 1 && keys.indexOf("speedUp") === -1) keys.push("speedUp"); // 部隊長のオーラ
   if (getBuffStacks(unit) > 0){
@@ -2937,19 +3069,36 @@ function attachRoleAura(unit, role){
   }
   unit.el.insertBefore(aura, unit.el.firstChild);
   unit.auraEl = aura;
+  // HPバーの上に、役職の名前を表示する(自軍側は親が左右反転しているので、文字だけ元に戻す)
+  const name = document.createElement("div");
+  name.className = "role-name role-name-" + role.id;
+  name.textContent = role.label;
+  name.style.transform = "translateX(-50%)" + (unit.facing === -1 ? " scaleX(-1)" : "");
+  unit.el.appendChild(name);
+  unit.roleNameEl = name;
 }
 
-// 画面中央の告知(総大将と宿老は大きく、部隊長と組頭は控えめに)
+// 画面中央の告知(総大将と宿老は大きく、部隊長と組頭は控えめに)。複数あるときは、1つずつ順番に出す
+const roleBannerQueue = [];
+let roleBannerBusy = false;
 function showRoleBanner(unit, role, what){
-  const layer = document.getElementById("role-banner-layer");
-  if (!layer) return;
   const enemy = unit.side === "enemy";
   const text = (enemy ? "敵" : "") + role.label + "　" + (what === "appear" ? "出現" : (enemy ? "討取" : "討死"));
+  roleBannerQueue.push({ text, big: !!role.big, enemy });
+  pumpRoleBanners();
+}
+function pumpRoleBanners(){
+  if (roleBannerBusy || !roleBannerQueue.length) return;
+  const layer = document.getElementById("role-banner-layer");
+  if (!layer){ roleBannerQueue.length = 0; return; }
+  roleBannerBusy = true;
+  const b = roleBannerQueue.shift();
   const el = document.createElement("div");
-  el.className = "role-banner " + (role.big ? "big" : "small") + (enemy ? " enemy" : "");
-  el.textContent = text;
+  el.className = "role-banner " + (b.big ? "big" : "small") + (b.enemy ? " enemy" : "");
+  el.textContent = b.text;
   layer.appendChild(el);
-  setTimeout(() => el.remove(), role.big ? 2600 : 1800);
+  const dur = b.big ? 2400 : 1500;
+  setTimeout(() => { el.remove(); roleBannerBusy = false; pumpRoleBanners(); }, dur);
 }
 
 // 役職者が倒れた
@@ -3062,7 +3211,7 @@ function updateKingAI(k, dtMs){
 }
 
 function startLaugh(k){
-  k.gateCooldown = k.def.gate.cooldownMs;
+  k.gateCooldown = skillCd(k, k.def.gate.cooldownMs);
   k.casting = "laugh";
   k.castId = (k.castId || 0) + 1;
   setMotion(k, "laugh", { onEnd: () => { k.casting = null; if (!k.dead) setMotion(k, k.grounded ? "idle" : "walk", { loop:true }); } });
@@ -3474,7 +3623,7 @@ function tryQueenSkills(unit, rangeDist){
 
 function startShieldCast(unit){
   const sk = unit.def.skills.shield;
-  unit.shieldCooldown = sk.cooldownMs;
+  unit.shieldCooldown = skillCd(unit, sk.cooldownMs);
   unit.casting = "shield";
   unit.castId = (unit.castId || 0) + 1;
   setMotion(unit, "shield", { onEnd: () => { unit.casting = null; onAttackEnd(unit); } });
@@ -3502,7 +3651,7 @@ function activateBarrier(unit){
 
 function startMeteorCast(unit){
   const sk = unit.def.skills.meteor;
-  unit.meteorCooldown = sk.cooldownMs;
+  unit.meteorCooldown = skillCd(unit, sk.cooldownMs);
   unit.casting = "meteor";
   unit.castId = (unit.castId || 0) + 1;
   unit.castTargetX = unit.target ? unitCenterX(unit.target) : null;
