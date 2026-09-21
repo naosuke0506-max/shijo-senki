@@ -415,7 +415,10 @@
   @keyframes crowFlap{ from{ transform:scaleY(1);} to{ transform:scaleY(.45);} }
 
   .unit-sprite{ position:absolute; bottom:74px; transform-origin:bottom center; }
-  .unit-sprite img{ display:block; image-rendering:-webkit-optimize-contrast; filter:drop-shadow(0 4px 4px rgba(0,0,0,.5)); }
+  .unit-sprite img{ display:block; image-rendering:-webkit-optimize-contrast; filter:brightness(.94) saturate(.93) drop-shadow(0 3px 3px rgba(0,0,0,.45)); }
+  /* 足元の影：兵が地面に立って見えるよう、足元に接地の影を敷く(幅は体の幅に合わせる) */
+  .unit-sprite::before{ content:""; position:absolute; left:50%; bottom:-7px; width:var(--sw,60%); height:16px; transform:translateX(-50%); border-radius:50%; z-index:-1; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,.62) 0%,rgba(0,0,0,.36) 46%,rgba(0,0,0,0) 74%); }
   .unit-sprite .uhp{ position:absolute; left:50%; transform:translateX(-50%); top:-10px; width:44px; height:5px; background:#0a0906; border:1px solid #000; }
   /* HPバーの横に出す、バフ・デバフのアイコン(SVGをコードで描画。あとで画像に差し替えも可能) */
   .ustatus{ position:absolute; top:-17px; display:flex; gap:2px; pointer-events:none; z-index:6; }
@@ -2636,6 +2639,7 @@ function spawnUnit(kind, side, xOffset, opts){
       img._ownerUnit._displayWidth = dw;
       img._ownerUnit._displayHeight = dh;
       if (!img._ownerUnit._bodyW) img._ownerUnit._bodyW = Math.max(20, Math.min(80, Math.round(dw * 0.55))); // ぶつかり判定に使う体の幅(武器などを除いた目安)
+      el.style.setProperty("--sw", Math.round(Math.max(36, dw * 0.6)) + "px"); // 足元の影の幅
     }
     img._retryCount = 0; // 読み込みに成功したらリトライ回数をリセット
   });
