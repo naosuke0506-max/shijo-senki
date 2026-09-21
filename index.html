@@ -52,13 +52,7 @@
     background:
       radial-gradient(ellipse at 50% 25%, #241f14 0%, #0c0b08 75%);
   }
-  #screen-title h1{
-    font-size:2.7rem; letter-spacing:.15em; color:var(--gold);
-    text-shadow:0 2px 10px rgba(0,0,0,.8);
-    margin:0 0 6px;
-  }
   #screen-title .sub{ color:var(--text-dim); margin-bottom:44px; font-size:.78rem; letter-spacing:.25em; font-family:'Yu Gothic',sans-serif; }
-  #screen-title button{ padding:15px 50px; font-size:1.05rem; letter-spacing:.1em; }
 
   /* ---------- 編成 ---------- */
   #screen-formation{ padding:14px; background:linear-gradient(180deg,#181510,#100f0b); overflow-y:auto; }
@@ -151,6 +145,147 @@
   .stage-card .name{ font-size:1rem; letter-spacing:.05em; }
   .stage-card .hp{ font-size:.7rem; color:var(--text-dim); font-family:'Yu Gothic',sans-serif; margin-top:2px; }
   .stage-card button{ font-family:'Yu Gothic',sans-serif; padding:8px 18px; }
+
+
+  /* =====================================================================
+     画面全体の意匠：リアルなダークファンタジー
+     黒ずんだ鉄・煤けた革・くすんだ金。背景は、戦線ごとの景色(stage.art)を使う。
+     今後、水の戦線や城内の戦線が増えても、stage.art の画像を変えるだけで、
+     メニューの景色・カードの絵が、その戦線のものに変わる。
+     ===================================================================== */
+  :root{ --mincho:'Hiragino Mincho ProN','Yu Mincho','Noto Serif JP',serif; --bronze:#8c6b32; --bronze-hi:#c9a24a; --gold-hi:#f0d78c; --parch:#d9cfae; }
+  button{
+    background:linear-gradient(180deg,#2e271b 0%,#19140d 100%); border:1px solid #6b5630; color:var(--parch); text-shadow:0 1px 0 #000;
+    box-shadow:inset 0 1px 0 rgba(255,225,160,.10), inset 0 -1px 0 rgba(0,0,0,.6), 0 1px 3px rgba(0,0,0,.6);
+  }
+  button.primary{
+    background:linear-gradient(180deg,#8f2c1d 0%,#56140c 100%); border-color:#a67a35; color:#f3e6c8;
+    box-shadow:inset 0 1px 0 rgba(255,190,150,.25), inset 0 -2px 0 rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.7);
+  }
+  #app[data-screen="screen-battle"] #menu-backdrop{ display:none; }
+  #screen-title, #screen-formation, #screen-stage, #screen-result{ background:transparent; }
+
+  /* --- 背景(景色・霧・灰・鴉) --- */
+  #menu-backdrop{ position:absolute; inset:0; overflow:hidden; background:linear-gradient(180deg,#07040a 0%,#120a0d 30%,#221012 55%,#341819 100%); }
+  #menu-backdrop .mb-scene{ position:absolute; left:0; bottom:0; width:100vw; height:42.85vw; transition:filter 1s; }
+  #menu-backdrop .mb-img{ position:absolute; inset:0; background-size:100% 100%; opacity:0; transition:opacity 1.4s; -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 14%); mask-image:linear-gradient(180deg,transparent 0,#000 14%); }
+  #menu-backdrop .mb-scene.loaded .mb-img{ opacity:1; }
+  #menu-backdrop img.mb-keep{ position:absolute; top:-12%; height:38%; width:auto; filter:brightness(.78) drop-shadow(0 4px 10px rgba(0,0,0,.6)); opacity:0; transition:opacity 1.4s;
+    -webkit-mask-image:linear-gradient(180deg,#000 80%,transparent 100%); mask-image:linear-gradient(180deg,#000 80%,transparent 100%); }
+  #menu-backdrop img.mb-keep.on{ opacity:1; }
+  #menu-backdrop img.mb-keep.enemy{ left:11%; } #menu-backdrop img.mb-keep.player{ left:77%; }
+  #app:not([data-screen="screen-title"]) #menu-backdrop .mb-scene{ filter:blur(3px) brightness(.78); }
+  #menu-backdrop .mb-cloud{ position:absolute; left:0; width:300vw; opacity:.5; background-repeat:repeat-x; background-size:100vw 100%; animation:mbFog 220s linear infinite; pointer-events:none;
+    background-image:radial-gradient(ellipse 22vw 5vh at 12vw 40%,rgba(8,4,5,.9),transparent 72%),radial-gradient(ellipse 30vw 6vh at 50vw 60%,rgba(44,16,16,.7),transparent 72%),radial-gradient(ellipse 20vw 5vh at 84vw 35%,rgba(8,4,5,.85),transparent 72%); }
+  #menu-backdrop .mb-fog{ position:absolute; left:0; width:300vw; background-repeat:repeat-x; background-size:100vw 100%; animation:mbFog 140s linear infinite; pointer-events:none; }
+  #menu-backdrop .mb-fog.a{ top:28vh; height:36vh; opacity:.5;
+    background-image:radial-gradient(ellipse 42vw 9vh at 18vw 55%,rgba(120,96,92,.5),transparent 72%),radial-gradient(ellipse 32vw 7vh at 68vw 40%,rgba(110,88,84,.42),transparent 72%); }
+  #menu-backdrop .mb-fog.b{ bottom:0; height:40vh; opacity:.5; animation-duration:90s;
+    background-image:radial-gradient(ellipse 46vw 10vh at 26vw 62%,rgba(96,78,72,.5),transparent 72%),radial-gradient(ellipse 36vw 8vh at 76vw 45%,rgba(90,72,66,.4),transparent 72%); }
+  @keyframes mbFog{ from{ transform:translateX(0);} to{ transform:translateX(-100vw);} }
+  #menu-backdrop .mb-ash i{ position:absolute; top:-12px; border-radius:50%; background:#a29a90; opacity:0; animation:mbAsh 24s linear infinite; }
+  #menu-backdrop .mb-ash i.ember{ top:auto; bottom:-10px; background:#ffb45a; box-shadow:0 0 8px 3px rgba(255,120,40,.65); animation:mbEmber 8s ease-out infinite; }
+  @keyframes mbAsh{ 0%{ transform:translate(0,0) rotate(0); opacity:0;} 10%{ opacity:.7;} 90%{ opacity:.45;} 100%{ transform:translate(26vw,112vh) rotate(300deg); opacity:0;} }
+  @keyframes mbEmber{ 0%{ transform:translate(0,0) scale(1); opacity:0;} 14%{ opacity:1;} 100%{ transform:translate(12vw,-62vh) scale(.25); opacity:0;} }
+  #menu-backdrop .mb-crow{ position:absolute; left:0; animation:mbCrow 50s linear infinite; opacity:.9; }
+  #menu-backdrop .mb-crow svg{ display:block; fill:#0b0607; animation:crowFlap .5s ease-in-out infinite alternate; transform-origin:50% 60%; }
+  @keyframes mbCrow{ from{ transform:translate(-10vw,0);} to{ transform:translate(112vw,-6vh);} }
+  #menu-backdrop .mb-vignette{ position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 46%,rgba(0,0,0,0) 45%,rgba(0,0,0,.66) 100%), linear-gradient(90deg,rgba(120,22,16,.2),rgba(120,22,16,0) 24%), linear-gradient(270deg,rgba(70,80,44,.14),rgba(70,80,44,0) 20%); }
+  #menu-backdrop .mb-dim{ position:absolute; inset:0; pointer-events:none; transition:opacity .8s; opacity:.86; background:linear-gradient(180deg,rgba(8,6,6,.7),rgba(8,6,6,.9)); }
+  #app[data-screen="screen-title"] #menu-backdrop .mb-dim{ opacity:.34; }
+
+  /* --- 飾り罫 --- */
+  .title-orn{ display:flex; align-items:center; gap:14px; width:min(540px,72vw); margin:10px auto; }
+  .title-orn i{ flex:1; height:1px; background:linear-gradient(90deg,transparent,#b8913f 40%,#b8913f 60%,transparent); }
+  .title-orn b{ color:#b8913f; font-size:.7rem; text-shadow:0 0 8px rgba(184,145,63,.6); }
+
+  /* --- 鍛えた鉄の大ボタン --- */
+  .btn-forge{
+    position:relative; font-family:var(--mincho); font-weight:900; font-size:1.25rem; letter-spacing:.5em; padding:16px 66px 16px calc(66px + .5em); color:#f4e4bd; border:1px solid #b8913f; border-radius:2px;
+    background:linear-gradient(180deg,#9d3121 0%,#5c160d 100%);
+    box-shadow:0 0 0 1px #000, 0 0 0 3px #6f5222, 0 0 0 4px #000, inset 0 1px 0 rgba(255,200,160,.3), inset 0 -3px 0 rgba(0,0,0,.4), 0 10px 26px rgba(0,0,0,.8), 0 0 34px rgba(170,40,20,.32);
+    text-shadow:0 2px 0 #000, 0 0 12px rgba(0,0,0,.8); animation:forgePulse 3.4s ease-in-out infinite; }
+  @keyframes forgePulse{ 0%,100%{ box-shadow:0 0 0 1px #000,0 0 0 3px #6f5222,0 0 0 4px #000,inset 0 1px 0 rgba(255,200,160,.3),inset 0 -3px 0 rgba(0,0,0,.4),0 10px 26px rgba(0,0,0,.8),0 0 30px rgba(170,40,20,.25);} 50%{ box-shadow:0 0 0 1px #000,0 0 0 3px #8a6a2c,0 0 0 4px #000,inset 0 1px 0 rgba(255,200,160,.3),inset 0 -3px 0 rgba(0,0,0,.4),0 10px 26px rgba(0,0,0,.8),0 0 44px rgba(190,50,24,.5);} }
+  .btn-forge.sm{ font-size:.95rem; padding:11px 40px 11px calc(40px + .5em); }
+
+  /* --- タイトル --- */
+  #screen-title{ align-items:center; justify-content:flex-start; text-align:center; padding-top:8vh; }
+  #screen-title .title-block{ display:flex; flex-direction:column; align-items:center; width:100%; }
+  #screen-title h1{ font-family:var(--mincho); font-size:clamp(3.2rem,10vw,6.8rem); font-weight:900; letter-spacing:.2em; padding-left:.2em; margin:4px 0; line-height:1.1;
+    background:linear-gradient(180deg,#f6e2a4 0%,#d2ab52 38%,#7d5b20 52%,#c79a44 68%,#f0d27c 100%); -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 3px 0 #000) drop-shadow(0 8px 18px rgba(0,0,0,.85)) drop-shadow(0 0 34px rgba(170,40,20,.42)); }
+  #screen-title .world-intro{ margin:2.4vh 0 4.4vh; font-size:clamp(.86rem,2.1vw,1.15rem); line-height:2.3; letter-spacing:.3em; color:#d2c6a4; text-shadow:0 0 10px #000,0 2px 4px #000; }
+  #screen-title .world-intro span{ display:block; opacity:0; animation:introLine 1.6s ease-out forwards; animation-delay:calc(var(--i) * .75s + .6s); }
+  @keyframes introLine{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
+  @media (max-height:520px){ #screen-title{ padding-top:3vh; } #screen-title h1{ font-size:3rem; } #screen-title .world-intro{ font-size:.8rem; line-height:1.9; margin:1vh 0 2vh; } .btn-forge{ padding-top:11px; padding-bottom:11px; font-size:1.05rem; } }
+
+  /* --- 見出し(布陣・戦線選択) --- */
+  .topbar{ padding-bottom:10px; margin-bottom:16px; border-bottom:1px solid transparent; border-image:linear-gradient(90deg,rgba(201,162,74,0),rgba(201,162,74,.75) 30%,rgba(201,162,74,.75) 70%,rgba(201,162,74,0)) 1; }
+  .topbar h2{ font-family:var(--mincho); font-size:1.5rem; font-weight:900; letter-spacing:.3em;
+    background:linear-gradient(180deg,#f3dc9a 0%,#c9a24a 55%,#8a6420 100%); -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; filter:drop-shadow(0 2px 3px #000); }
+  .topbar button{ font-family:var(--mincho); font-weight:700; letter-spacing:.2em; }
+
+  /* --- 布陣 --- */
+  #screen-formation{ padding:16px 24px; }
+  .formation-slots, #slot-editor, #morale-select{
+    background:linear-gradient(180deg,rgba(30,25,18,.9),rgba(12,10,8,.94)); border:1px solid #5a4a2c;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.6), inset 0 0 22px rgba(0,0,0,.55), 0 4px 14px rgba(0,0,0,.6); }
+  .formation-slot{ border:1px solid #6b5630; background:#070605; box-shadow:inset 0 0 12px #000, 0 0 0 1px #000; }
+  .formation-slot.empty{ border:1px dashed #6b5630; color:#8c6b32; }
+  .formation-slot.active{ border-color:#f0cf6a; box-shadow:inset 0 0 12px #000, 0 0 0 1px #000, 0 0 12px rgba(240,207,106,.7); }
+  .formation-group .role-label, #slot-editor .editor-title, #morale-select .editor-title{ font-family:var(--mincho); font-weight:700; color:#c9a24a; text-shadow:0 1px 0 #000; }
+  #slot-editor .editor-btn, #morale-select .editor-btn{ font-family:var(--mincho); background:linear-gradient(180deg,#2a2318,#16120c); border:1px solid #5a4a2c; }
+  .unit-card{ background:linear-gradient(180deg,#2c251a 0%,#14100b 100%); border:1px solid #5a4a2c; box-shadow:inset 0 0 0 1px rgba(0,0,0,.55), inset 0 0 18px rgba(0,0,0,.5); }
+  .unit-card .icon-wrap{ position:relative; border:1px solid #6b5630; box-shadow:inset 0 0 14px rgba(0,0,0,.85), 0 0 0 1px #000; }
+  .unit-card .icon-wrap::after{ content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%); }
+  .unit-card .name{ font-family:var(--mincho); font-weight:700; letter-spacing:.06em; color:#e0d5b4; }
+  .unit-card.in-formation{ border-color:#c9a24a; box-shadow:0 0 0 1px #c9a24a inset, 0 0 14px rgba(201,162,74,.32); }
+  .category-tabs{ background:linear-gradient(0deg,rgba(8,6,5,.96),rgba(8,6,5,.86)); border-top:1px solid #5a4a2c; }
+  .category-tab{ font-family:var(--mincho); font-weight:700; letter-spacing:.15em; background:linear-gradient(180deg,#2a2318,#16120c); border:1px solid #5a4a2c; }
+  .category-tab.active{ color:#f0cf6a; border-color:#c9a24a; box-shadow:0 0 10px rgba(201,162,74,.25); }
+
+  /* --- 戦線選択 --- */
+  #screen-stage{ padding:18px 26px; align-items:stretch; }
+  .stage-list{ flex:1; max-width:none; width:100%; margin-top:0; flex-direction:row; align-items:center; gap:26px; overflow-x:auto; padding:10px 6px 24px; scroll-snap-type:x mandatory; }
+  .stage-list::before, .stage-list::after{ content:""; flex:1 0 0; }
+  .stage-card{ position:relative; flex:0 0 auto; width:310px; padding:0; display:flex; flex-direction:column; align-items:stretch; gap:0; scroll-snap-align:center; clip-path:none;
+    background:linear-gradient(180deg,rgba(32,26,19,.95),rgba(13,10,8,.97)); border:1px solid #6b5630;
+    box-shadow:0 0 0 1px #000, 0 0 0 3px #3d3220, 0 0 0 4px #000, 0 12px 30px rgba(0,0,0,.8); }
+  .stage-card{ min-height:430px; }
+  .stage-card .sc-thumb{ position:relative; height:170px; overflow:hidden; border-bottom:1px solid #6b5630; background:radial-gradient(ellipse at 50% 60%,#4a1c1a,#120a0c); }
+  .stage-card .sc-img{ position:absolute; inset:0; background-size:cover; background-position:center 16%; }
+  .stage-card .sc-shade{ position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,.05) 35%,rgba(12,9,7,.96) 100%), radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 50%,rgba(0,0,0,.55) 100%); }
+  .stage-card .sc-tag{ position:absolute; left:10px; top:10px; padding:2px 10px; font-family:var(--mincho); font-size:.72rem; letter-spacing:.3em; padding-left:calc(10px + .3em); color:#e0c98a; background:rgba(10,7,6,.78); border:1px solid #7a5f2c; }
+  .stage-card .sc-body{ padding:10px 20px 6px; text-align:center; flex:1; }
+  .stage-card .sc-name{ font-family:var(--mincho); font-size:2rem; font-weight:900; letter-spacing:.3em; padding-left:.3em; margin-top:-6px;
+    background:linear-gradient(180deg,#f6e2a4 0%,#c9a24a 55%,#86601f 100%); -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; filter:drop-shadow(0 2px 3px #000); }
+  .stage-card .sc-read{ font-size:.66rem; letter-spacing:.4em; color:#8f8567; margin-top:2px; }
+  .stage-card .title-orn{ width:70%; margin:8px auto; }
+  .stage-card .sc-intro{ font-size:.8rem; line-height:1.9; color:#bdb190; letter-spacing:.08em; min-height:3.8em; }
+  .stage-card .sc-stats{ display:flex; justify-content:center; gap:18px; margin-top:8px; font-size:.72rem; letter-spacing:.12em; color:#a89c7c; }
+  .stage-card .sc-stats b{ color:#d9cfae; font-weight:700; margin-left:4px; }
+  .stage-card > button{ margin:12px auto 18px; align-self:center; }
+  .stage-card.locked{ filter:grayscale(.85) brightness(.62); }
+  .stage-card.locked .sc-name{ letter-spacing:.5em; }
+  .stage-card.locked .sc-thumb::after{ content:"鎖"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:var(--mincho); font-size:3.4rem; color:rgba(220,200,150,.5); text-shadow:0 2px 6px #000; }
+  @media (max-height:560px){
+    .stage-list{ padding:4px 2px 10px; gap:16px; }
+    .stage-card{ width:min(560px,86vw); flex-direction:row; align-items:center; min-height:0; }
+    .stage-card .sc-thumb{ width:38%; height:100%; min-height:190px; border-bottom:0; border-right:1px solid #6b5630; }
+    .stage-card .sc-body{ padding:6px 12px; }
+    .stage-card .sc-name{ font-size:1.5rem; margin-top:0; }
+    .stage-card > button{ margin:6px 14px; }
+    .stage-card .sc-intro{ font-size:.72rem; min-height:0; }
+  }
+
+  /* --- 結果 --- */
+  #screen-result{ align-items:center; justify-content:center; text-align:center; }
+  #screen-result h2{ font-family:var(--mincho); font-size:clamp(3rem,9vw,5.6rem); font-weight:900; letter-spacing:.35em; padding-left:.35em; margin:6px 0; line-height:1.1; animation:introLine 1.2s ease-out both;
+    -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; filter:drop-shadow(0 3px 0 #000) drop-shadow(0 8px 18px rgba(0,0,0,.85)); }
+  #screen-result.win h2{ background-image:linear-gradient(180deg,#f6e2a4 0%,#d2ab52 38%,#7d5b20 52%,#c79a44 68%,#f0d27c 100%); }
+  #screen-result.lose h2{ background-image:linear-gradient(180deg,#d9695a 0%,#a3291c 40%,#4d0f08 55%,#8e2317 72%,#c04a3a 100%); filter:drop-shadow(0 3px 0 #000) drop-shadow(0 8px 18px rgba(0,0,0,.85)) drop-shadow(0 0 26px rgba(150,20,10,.5)); }
+  #screen-result p{ font-family:var(--mincho); font-size:1.05rem; letter-spacing:.3em; color:#cfc3a1; margin:10px 0 26px; text-shadow:0 2px 6px #000; }
 
   /* ---------- 戦闘 ---------- */
   #screen-battle{ position:absolute; inset:0; background:linear-gradient(#2a271e 0%, #1a1812 55%, #100f0b 100%); font-family:'Yu Gothic',sans-serif; }
@@ -461,22 +596,21 @@
   #debug-panel button{ font-size:.6rem; padding:4px 6px; }
 
   /* ---------- 結果 ---------- */
-  #screen-result{ align-items:center; justify-content:center; text-align:center; background:linear-gradient(180deg,#181510,#0c0b08); }
-  #screen-result h2{ font-size:1.7rem; margin-bottom:8px; letter-spacing:.1em; }
-  #screen-result.win h2{ color:var(--gold); }
-  #screen-result.lose h2{ color:var(--blood-2); }
-  #screen-result p{ font-family:'Yu Gothic',sans-serif; }
-  #screen-result button{ font-family:'Yu Gothic',sans-serif; }
 </style>
 </head>
 <body>
-<div id="app">
+<div id="app" data-screen="screen-title">
+  <div id="menu-backdrop"></div>
 
   <!-- タイトル -->
   <section id="screen-title" class="screen active">
-    <h1>屍城戦記</h1>
-    <div class="world-intro">人の世の果てに、屍城あり。<br>鬼の群、日毎夜毎に押し寄せ、<br>守備の兵、斃れし者の屍を糧として、<br>なお戦い止まず。</div>
-    <button class="primary" id="btn-to-formation" data-reading="しゅつじん">出陣</button>
+    <div class="title-block">
+      <div class="title-orn"><i></i><b>◆</b><i></i></div>
+      <h1>屍城戦記</h1>
+      <div class="title-orn"><i></i><b>◆</b><i></i></div>
+      <div class="world-intro"><span style="--i:0">人の世の果てに、屍城あり。</span><span style="--i:1">鬼の群、日毎夜毎に押し寄せ、</span><span style="--i:2">守備の兵、斃れし者の屍を糧として、</span><span style="--i:3">なお戦い止まず。</span></div>
+      <button class="primary btn-forge" id="btn-to-formation" data-reading="しゅつじん">出陣</button>
+    </div>
   </section>
 
   <!-- 編成 -->
@@ -494,7 +628,7 @@
 
   <!-- ステージ選択 -->
   <section id="screen-stage" class="screen">
-    <div class="topbar" style="width:100%;max-width:420px;">
+    <div class="topbar" style="width:100%;">
       <h2 data-reading="せんせんせんたく">戦線選択</h2>
       <button id="btn-back-formation" data-reading="きじん">帰陣</button>
     </div>
@@ -565,9 +699,11 @@
 
   <!-- 結果 -->
   <section id="screen-result" class="screen">
+    <div class="title-orn result-orn"><i></i><b>◆</b><i></i></div>
     <h2 id="result-title">勝利</h2>
-    <p id="result-sub" style="color:var(--text-dim);font-size:.85rem;"></p>
-    <button class="primary" id="btn-result-continue" style="margin-top:20px;padding:12px 36px;" data-reading="きじん">帰陣</button>
+    <div class="title-orn result-orn"><i></i><b>◆</b><i></i></div>
+    <p id="result-sub"></p>
+    <button class="primary btn-forge" id="btn-result-continue" data-reading="きじん">帰陣</button>
   </section>
 
 </div>
@@ -1736,7 +1872,7 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    ========================================================= */
 const STAGES = [
   // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔野", reading:"まや", art:{ seed:20260921, bg:"plain_bg.jpg", ground:["plain_ground.png","plain_ground.jpg"], castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
+  { id:"plain", name:"魔野", reading:"まや", menu:{ tag:"荒野", thumb:"plain_bg.jpg" }, art:{ seed:20260921, bg:"plain_bg.jpg", ground:["plain_ground.png","plain_ground.jpg"], castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
   // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
   // 城も硬くして、10分ほどで決着がつくようにした(簡易な自動プレイで、約7分で勝てる強さ)。
   startCorpse:1000, corpseGainRate:1.0,
@@ -1818,6 +1954,7 @@ document.querySelectorAll(".screen").forEach(el => screens[el.id] = el);
 function showScreen(id){
   Object.values(screens).forEach(el => el.classList.remove("active"));
   screens[id].classList.add("active");
+  const app = document.getElementById("app"); if (app) app.dataset.screen = id; // 背景の景色・暗さが、画面ごとに変わる
 }
 
 /* =========================================================
@@ -2181,16 +2318,24 @@ function buildStageScreen(){
   const list = document.getElementById("stage-list");
   list.innerHTML = "";
   STAGES.forEach(stage => {
+    const art = stage.art || {};
+    const menu = stage.menu || {};
     const card = document.createElement("div");
     card.className = "stage-card";
+    const thumb = menu.thumb || art.bg;
     card.innerHTML = `
-      <div>
-        <div class="name">${stage.name}</div>
-        <div class="hp">敵城HP ${stage.enemyCastleHp}</div>
+      <div class="sc-thumb"><div class="sc-img"></div><div class="sc-shade"></div><div class="sc-tag">${menu.tag || "戦線"}</div></div>
+      <div class="sc-body">
+        <div class="sc-name">${stage.name}</div>
+        <div class="sc-read">${stage.reading || ""}</div>
+        <div class="title-orn"><i></i><b>◆</b><i></i></div>
+        <div class="sc-intro">${stage.intro || ""}</div>
+        <div class="sc-stats"><span>敵城<b>${stage.enemyCastleHp}</b></span><span>自城<b>${stage.playerCastleHp}</b></span></div>
       </div>
-      <button class="primary">出撃</button>
+      <button class="primary btn-forge sm">出撃</button>
     `;
-    const nameEl = card.querySelector(".name");
+    if (thumb) card.querySelector(".sc-img").style.backgroundImage = "url(" + STAGE_ART_BASE + thumb + ")";
+    const nameEl = card.querySelector(".sc-name");
     nameEl.dataset.reading = stage.reading || "";
     nameEl.dataset.desc = stage.intro || "";
     card.querySelector("button").addEventListener("click", () => {
@@ -2199,6 +2344,70 @@ function buildStageScreen(){
     });
     list.appendChild(card);
   });
+  // 未踏の戦線(今後、戦線が増えたときの枠)
+  for (let i = 0; i < 2; i++){
+    const lk = document.createElement("div");
+    lk.className = "stage-card locked";
+    lk.innerHTML = `
+      <div class="sc-thumb"><div class="sc-shade"></div></div>
+      <div class="sc-body">
+        <div class="sc-name">未踏</div>
+        <div class="sc-read">みとう</div>
+        <div class="title-orn"><i></i><b>◆</b><i></i></div>
+        <div class="sc-intro">いまだ、兵の踏み入れざる地。</div>
+      </div>
+      <button disabled class="btn-forge sm">封</button>
+    `;
+    list.appendChild(lk);
+  }
+}
+
+/* =========================================================
+   メニュー画面の背景(タイトル・布陣・戦線選択・結果)
+   戦線の stage.art.bg の景色と、両城(stage.art.castleEnemy / castlePlayer)を敷き、霧・灰・火の粉・鴉を重ねる。
+   戦線が増えたら、その戦線の stage を渡して呼び直せば、景色が変わる。
+   ========================================================= */
+function buildMenuBackdrop(stage){
+  const root = document.getElementById("menu-backdrop"); if (!root) return;
+  root.innerHTML = "";
+  const art = (stage && stage.art) || {};
+  const rand = seededRand(4242);
+  const R = (a, b) => a + rand() * (b - a);
+  const scene = document.createElement("div"); scene.className = "mb-scene";
+  const img = document.createElement("div"); img.className = "mb-img"; scene.appendChild(img);
+  const addKeep = (file, side) => {
+    if (!file) return;
+    const k = new Image(); k.className = "mb-keep " + side; k.alt = ""; k.draggable = false;
+    k.onload = () => { scene.appendChild(k); requestAnimationFrame(() => k.classList.add("on")); };
+    k.src = STAGE_ART_BASE + file;
+  };
+  if (art.bg){
+    const probe = new Image();
+    probe.onload = () => { img.style.backgroundImage = "url(" + probe.src + ")"; scene.classList.add("loaded"); addKeep(art.castleEnemy, "enemy"); addKeep(art.castlePlayer, "player"); };
+    probe.src = STAGE_ART_BASE + art.bg;
+  }
+  root.appendChild(scene);
+  [[6, 12, .55, 260], [22, 14, .42, 340]].forEach(c => { const cl = document.createElement("div"); cl.className = "mb-cloud"; cl.style.cssText = "top:" + c[0] + "vh;height:" + c[1] + "vh;opacity:" + c[2] + ";animation-duration:" + c[3] + "s;animation-delay:" + (-R(0, 100)) + "s;"; root.appendChild(cl); });
+  ["a", "b"].forEach(c => { const f = document.createElement("div"); f.className = "mb-fog " + c; f.style.animationDelay = (-R(0, 60)) + "s"; root.appendChild(f); });
+  const ash = document.createElement("div"); ash.className = "mb-ash";
+  for (let i = 0; i < 46; i++){
+    const a = document.createElement("i"); const sz = R(2, 5);
+    a.style.cssText = "left:" + R(-5, 100).toFixed(1) + "vw;width:" + sz.toFixed(1) + "px;height:" + sz.toFixed(1) + "px;animation-duration:" + R(18, 34).toFixed(1) + "s;animation-delay:" + (-R(0, 34)).toFixed(1) + "s;";
+    ash.appendChild(a);
+  }
+  for (let i = 0; i < 14; i++){
+    const e = document.createElement("i"); e.className = "ember"; const sz = R(2.5, 5);
+    e.style.cssText = "left:" + R(0, 100).toFixed(1) + "vw;width:" + sz.toFixed(1) + "px;height:" + sz.toFixed(1) + "px;animation-duration:" + R(6, 11).toFixed(1) + "s;animation-delay:" + (-R(0, 11)).toFixed(1) + "s;";
+    ash.appendChild(e);
+  }
+  root.appendChild(ash);
+  for (let i = 0; i < 3; i++){
+    const c = document.createElement("div"); c.className = "mb-crow";
+    c.style.cssText = "top:" + R(4, 26).toFixed(0) + "vh;width:" + R(26, 44).toFixed(0) + "px;animation-duration:" + R(44, 70).toFixed(0) + "s;animation-delay:" + (-R(0, 60)).toFixed(0) + "s;";
+    c.innerHTML = '<svg viewBox="0 0 24 10"><path d="M0 4 Q6 -2 12 5 Q18 -2 24 4 Q18 3 12 8 Q6 3 0 4Z"/></svg>';
+    root.appendChild(c);
+  }
+  ["mb-dim", "mb-vignette"].forEach(c => { const d = document.createElement("div"); d.className = c; root.appendChild(d); });
 }
 
 /* =========================================================
@@ -6263,6 +6472,7 @@ function buildDebugPanel(){
 /* =========================================================
    9. 画面遷移イベント
    ========================================================= */
+buildMenuBackdrop(STAGES[0]);
 document.getElementById("btn-to-formation").addEventListener("click", () => {
   buildFormationScreen();
   showScreen("screen-formation");
