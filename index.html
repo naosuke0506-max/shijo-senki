@@ -2256,6 +2256,7 @@ function spawnUnit(kind, side, xOffset, opts){
     slotIdx: -1,                  // プレイヤーが召喚したキャラが入っていた、布陣の枠の番号(軍令の上下関係に使う)
     slotRole: "foot",             // その枠の役職
     cmd: null,                    // いま従っている軍令
+    advFormed: false,             // 進撃：陣形のマスに着いた
     cmdCd: { guard: 0, hold: 0, advance: 0, retreat: 0, attack: 0 }, // 軍令を出せるまでの残り時間(ms)
     leader: null,                 // 軍令を聞く上官(命令者の兵)。同じ役職の兵が複数いても、配下は特定の1体に着く
     cmdMorale: false, cmdChiefGuard: false, footMorale: false, // 軍令・士気による強化のフラグ
@@ -3176,7 +3177,6 @@ function issueCommand(cmdr, type, branchRole, target, opts){
   members.forEach(u => { u.cmd = cmd; u.guardCell = null; u.cmdLane = null; });
   if (type === "hold" || type === "guard" || type === "retreat") cmdr.cmd = cmd; // 命令者も、その場で止まる(撤退は、命令者も下がる)
   if (type === "guard") assignGuardCells(cmd);
-  if (type === "hold") assignCastleLine(cmd, members);
   if (type === "retreat") assignCastleLine(cmd, members.concat([cmdr]));
   if (type === "attack") assignAttackLanes(cmd);
   if (type === "advance") startAdvance(cmd);
@@ -3238,8 +3238,8 @@ function assignAttackLanes(cmd){
 // 進撃：選んだ陣形の並びで、配下が隊列を組んで、前進する
 function startAdvance(cmd){
   const C = cmd.commander;
-  cmd.anchorX = C.x + bodyWidth(C) / 2;
-  cmd.speed = Math.max(15, Math.min(60, Math.min.apply(null, cmd.members.map(u => u.def.walkSpeed || 40)) * 0.9));
+  cmd.anchorX = C.x + bodyWidth(C) / 2; // 陣形を組む基準点(命令者のいる位置)。組んだあとは、それぞれが自分の速さで前進する
+  cmd.members.forEach(u => { u.advFormed = false; });
   const sorted = cmd.members.slice().sort((a, b) => frontScore(a) - frontScore(b) || b.hp - a.hp);
   const offs = formationOffsets(cmd.formation, sorted.length);
   // 陣形が収まる中心の戦列：戦列のずれが±2まであるので、5戦列に収まる位置(なるべく命令者の戦列に近く)
@@ -3305,19 +3305,7 @@ function updateCommands(dt){
   battle.commands.slice().forEach(c => {
     if (c.commander.dead){ releaseCommand(c); return; }                          // どの軍令も、命令者が倒れたら解除
     if (c.type === "attack" && (!c.target || c.target.dead)){ releaseCommand(c); return; } // 標的は、倒れたら終わり
-    if (c.type === "advance"){
-      // 陣形の基準点を前へ進める。配下のだれかが戦っている間は、止まる
-      const fighting = c.members.some(u => !u.dead && u.motion === (u.def.attackMotionName || "attack"));
-      const fwd = c.commander.side === "player" ? -1 : 1;
-      if (!fighting){
-        const field = document.getElementById("battlefield");
-        const maxA = Math.max.apply(null, Array.from(c.slotOf.values()).map(o => o.a));
-        const limit = c.commander.side === "player" ? 150 + maxA * GRID_CELL : field.clientWidth - 150 - maxA * GRID_CELL; // 敵城の前まで
-        c.anchorX += fwd * c.speed * (dt / 1000);
-        if ((fwd < 0 && c.anchorX <= limit) || (fwd > 0 && c.anchorX >= limit)){ releaseCommand(c); return; } // 敵城の前に着いたら終わり
-      }
-      updateAdvanceCells(c);
-    }
+    if (c.type === "advance" && !c.members.some(u => !u.dead)) releaseCommand(c); // 配下が全員いなくなったら終わり
   });
   updateCommandAuras();
 }
@@ -3355,8 +3343,6 @@ function commandStep(unit, dtMs){
     unit.target = (blocker && edgeDistance(unit, blocker) <= (def.attackRange || 0) + 30) ? blocker : T; // 通り道に敵がいれば、まず倒す
     return false; // あとは、通常のAIが、標的へ向かって進む
   }
-  if (cmd.type === "advance" && isCmdr) return false; // 進撃：命令者は、いつもどおり動く
-
   const speed = getEffectiveSpeed(unit, def.walkSpeed || 40) * (cmd.type === "retreat" ? 1.3 : 1);
   const tryAttack = () => {
     if (def.noCombat || unit.shieldBroken) return false;
@@ -3371,12 +3357,7 @@ function commandStep(unit, dtMs){
     }
     return false;
   };
-  // 進撃の隊列は、戦いながら進む(射程に敵がいれば、まず攻撃する)
-  if (cmd.type === "advance" && tryAttack()) return true;
-
-  // 決められたマスへ移動する(守り・待機・撤退・進撃の配下)。命令者が「その場で待つ」場合は、動かない
-  const stays = isCmdr && (cmd.type === "hold" || cmd.type === "guard");
-  if (!stays && unit.guardCell){
+  const moveToCell = () => {
     const gc = unit.guardCell;
     if (unit.lane !== gc.lane && !unit.laneTween) startLaneStep(unit, gc.lane, 500);
     const dx = gc.x - unit.x;
@@ -3386,7 +3367,24 @@ function commandStep(unit, dtMs){
       applyFrame(unit);
       return true;
     }
+    return false;
+  };
+
+  if (cmd.type === "advance"){
+    // 進撃：命令者は、いつもどおり動く。配下は、陣形のマスに着くまで移動し(途中でも射程に敵がいれば攻撃)、
+    // 着いたあとは、それぞれが自分の速さで、通常どおり前進する
+    if (isCmdr) return false;
+    if (tryAttack()) return true;
+    if (!unit.advFormed && unit.guardCell){
+      if (moveToCell()) return true;
+      unit.advFormed = true;
+    }
+    return false;
   }
+
+  // 守り・待機・撤退。待機は、命令者も配下も、位置に関係なく、その場で止まる
+  const stays = cmd.type === "hold" || (isCmdr && cmd.type === "guard");
+  if (!stays && unit.guardCell && moveToCell()) return true;
   // マスに着いた・その場で待つ：立ち止まり、射程に敵が入れば攻撃する(歩かない)
   if (unit.motion !== "idle") setMotion(unit, "idle", { loop: true });
   tryAttack();
@@ -5764,17 +5762,47 @@ document.getElementById("grid-toggle").addEventListener("click", e => {
 /* ---------- 名前の読み：長押しで表示 ---------- */
 // data-reading を持つ要素(キャラのカード・召喚ボタン・システム名など)を長押しすると、読みをふりがなで表示する。
 // 長押しのあとに指を離しても、その要素のタップ(召喚など)は実行しない。
+// 陣形の形を、図で見せる(進む方向は左。丸が兵1体。nは配下の数で、足りないときは、組める最少の数ぶんを見せる)
+function formationDiagramHTML(id, n){
+  const fm = FORMATIONS.find(f => f.id === id);
+  if (!fm) return "";
+  const need = Math.max(FORMATION_MIN_ALL, fm.min);
+  const N = Math.max(n, need);
+  const offs = formationOffsets(fm, N);
+  const amin = Math.min.apply(null, offs.map(o => o.a)), amax = Math.max.apply(null, offs.map(o => o.a));
+  const cell = 26, cols = amax - amin + 1;
+  const W = cols * cell + 44, H = GRID_LANES * cell + 8;
+  let g = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" style="display:block;margin:6px auto 2px;background:#120e08;border:1px solid #6b5a30;border-radius:3px">';
+  for (let r = 0; r <= GRID_LANES; r++) g += '<line x1="40" y1="' + (4 + r * cell) + '" x2="' + W + '" y2="' + (4 + r * cell) + '" stroke="#3a3020" stroke-width="1"/>';
+  for (let c = 0; c <= cols; c++) g += '<line x1="' + (40 + c * cell) + '" y1="4" x2="' + (40 + c * cell) + '" y2="' + (4 + GRID_LANES * cell) + '" stroke="#3a3020" stroke-width="1"/>';
+  // 中心の戦列は、真ん中(l=0)。下(最左翼)が図の下
+  offs.forEach((o, i) => {
+    const x = 40 + (amax - o.a) * cell + cell / 2;                  // 進む方向(前)が左
+    const y = 4 + (GRID_LANES - 1 - (2 + o.l)) * cell + cell / 2;   // 戦列のずれ(+が上)
+    g += '<circle cx="' + x + '" cy="' + y + '" r="9" fill="#c8a04a" stroke="#3a2a08" stroke-width="1.5"/>';
+    if (i === 0) g += '<circle cx="' + x + '" cy="' + y + '" r="3.5" fill="#3a2a08"/>';
+  });
+  g += '<text x="4" y="' + (H / 2 - 4) + '" fill="#f0cf6a" font-size="12">前</text><text x="4" y="' + (H / 2 + 12) + '" fill="#f0cf6a" font-size="14">←</text>';
+  g += '</svg>';
+  return g + '<div style="font-size:.66rem;color:#b8ac88;text-align:center;">' + N + '体の場合(黒い点が先頭)</div>';
+}
+
 (function setupReadingTips(){
   const tip = document.createElement("div");
   tip.id = "reading-tip";
   document.body.appendChild(tip);
-  let timer = null, hideTimer = null, fired = false, startX = 0, startY = 0;
+  let timer = null, hideTimer = null, fired = false, startX = 0, startY = 0, tipPaused = false;
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
   function show(el){
     const name = el.dataset.rname || el.textContent.trim().replace(/[A-Za-z0-9:\s銭]+$/, "").trim() || el.textContent.trim();
     const reading = el.dataset.reading;
     if (!reading) return;
-    tip.innerHTML = "<ruby>" + esc(name) + "<rt>" + esc(reading) + "</rt></ruby>" + (el.dataset.desc ? '<div class="tip-desc">' + esc(el.dataset.desc) + "</div>" : "");
+    tip.innerHTML = "<ruby>" + esc(name) + "<rt>" + esc(reading) + "</rt></ruby>" + (el.dataset.fm ? formationDiagramHTML(el.dataset.fm, Number(el.dataset.fmN) || 0) : "") + (el.dataset.desc ? '<div class="tip-desc">' + esc(el.dataset.desc) + "</div>" : "");
+    // 陣形の説明を見ている間は、ゲームを一時停止する(見終わったら、もとに戻す)
+    if (el.dataset.pause && battle && !battle.paused){
+      battle.paused = true; tipPaused = true;
+      const pb = document.getElementById("btn-pause"); if (pb) pb.textContent = "▶";
+    }
     const r = el.getBoundingClientRect();
     tip.style.opacity = "1";
     const tw = tip.offsetWidth, th = tip.offsetHeight;
@@ -5785,7 +5813,13 @@ document.getElementById("grid-toggle").addEventListener("click", e => {
     tip.style.left = left + "px";
     tip.style.top = top + "px";
   }
-  function hide(){ tip.style.opacity = "0"; }
+  function hide(){
+    tip.style.opacity = "0";
+    if (tipPaused && battle){
+      battle.paused = false; tipPaused = false;
+      const pb = document.getElementById("btn-pause"); if (pb) pb.textContent = "Ⅱ";
+    }
+  }
   document.addEventListener("pointerdown", e => {
     fired = false;
     clearTimeout(timer); clearTimeout(hideTimer); hide();
@@ -5902,6 +5936,7 @@ function renderCmdPanel(){
         renderCmdPanel();
       }, members.length < need);
       b.dataset.rname = f.name; b.dataset.reading = f.reading; b.dataset.desc = f.desc + "(配下" + need + "体以上)";
+      b.dataset.fm = f.id; b.dataset.fmN = members.length; b.dataset.pause = "1"; // 長押しで、陣形の形を図で見せて、ゲームを一時停止する
       r6.appendChild(b);
     });
     panel.appendChild(r6);
