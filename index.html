@@ -201,7 +201,8 @@
   #lane-buttons button.selected{ background-color:#8a6a1e; border-color:#f0cf6a; color:#fff; font-weight:bold; }
   #lane-buttons.flash button{ animation:lanepulse .35s 3; }
   @keyframes lanepulse{ 0%,100%{ box-shadow:0 0 0 rgba(240,207,106,0); } 50%{ box-shadow:0 0 10px 3px rgba(240,207,106,.95); } }
-  #battlefield-frame > button[id^="cheat-"]{ left:60px !important; } /* 検証用ボタンは、レーンボタンの右にずらす */
+  #battlefield-frame > button[id^="cheat-"]{ left:74px !important; display:none; } /* 検証用ボタンは、動作確認を押したときだけ出す */
+  #battlefield-frame.debug-on > button[id^="cheat-"]{ display:block; }
   #lane-hint{ position:absolute; left:50%; top:6px; transform:translateX(-50%); z-index:9; pointer-events:none;
     background:rgba(0,0,0,.82); color:#f0cf6a; border:1px solid #8a6a1e; padding:6px 14px; border-radius:4px; font-size:.75rem;
     opacity:0; transition:opacity .25s; white-space:nowrap; }
@@ -271,19 +272,25 @@
   #grid-toggle{ position:absolute; right:92px; top:8px; z-index:6; font-size:.62rem; padding:8px 10px; color:var(--text-dim); }
   #ground-line{ position:absolute; left:0; right:0; bottom:74px; height:2px; background-color:#000000; }
 
-  .castle{
-    position:absolute; bottom:74px; width:70px; height:150px;
-    background:repeating-linear-gradient(0deg,#6b6248,#6b6248 8px,#544c38 8px,#544c38 16px);
-    border:2px solid #2a2618; border-radius:2px 2px 0 0;
-    box-shadow:0 0 18px rgba(0,0,0,.6);
-  }
-  .castle.enemy{ left:12px; box-shadow:0 0 22px rgba(154,50,30,.35); }
-  .castle.player{ right:12px; box-shadow:0 0 22px rgba(120,130,70,.3); }
-  .castle .flag{ position:absolute; top:-22px; left:50%; transform:translateX(-50%); font-size:18px; }
-  .castle .battlements{
-    position:absolute; top:-10px; left:0; right:0; height:10px;
-    background:repeating-linear-gradient(90deg,#6b6248 0 10px,transparent 10px 14px);
-  }
+  /* 城：戦列が5本あるので、塔を1つ置くのではなく、全戦列に沿う城壁として描く。壁の手前(戦場側)に兵が立つ。壁の奥の遠い角に、城の本体が見える */
+  .castle{ position:absolute; top:26px; bottom:0; width:64px; z-index:4; pointer-events:none; }
+  .castle.enemy{ left:0; box-shadow:10px 0 18px rgba(0,0,0,.6); }
+  .castle.player{ right:0; box-shadow:-10px 0 18px rgba(0,0,0,.55); }
+  .castle .w-body{ position:absolute; inset:0; }
+  .castle.enemy .w-body{ background:linear-gradient(90deg,rgba(0,0,0,.62) 0%,rgba(0,0,0,0) 46%,rgba(0,0,0,.34) 100%), repeating-linear-gradient(180deg,#4d3824 0 13px,#251a10 13px 15px); }
+  .castle.player .w-body{ background:linear-gradient(270deg,rgba(0,0,0,.62) 0%,rgba(0,0,0,0) 46%,rgba(0,0,0,.34) 100%), repeating-linear-gradient(180deg,#6b6556 0 18px,#2d2922 18px 20px); }
+  .castle .w-teeth{ position:absolute; top:0; bottom:0; }
+  .castle.enemy .w-teeth{ right:0; width:9px; background:repeating-linear-gradient(180deg,#bfae8c 0 7px,transparent 7px 20px); opacity:.85; }
+  .castle.player .w-teeth{ left:0; width:13px; background:repeating-linear-gradient(180deg,#8d8471 0 13px,transparent 13px 25px); }
+  .castle .w-gate{ position:absolute; width:30px; height:60px; border-radius:15px 15px 2px 2px; }
+  .castle.enemy .w-gate{ right:7px; background:radial-gradient(ellipse at 50% 72%,rgba(210,64,32,.8),rgba(44,8,6,.96) 72%); box-shadow:inset 0 0 10px #000, 0 0 14px rgba(190,50,30,.4); }
+  .castle.player .w-gate{ left:7px; background:linear-gradient(180deg,#17100a,#33261a); border:2px solid #12100c; box-sizing:border-box; box-shadow:inset 0 0 8px #000; }
+  .castle .w-torch{ position:absolute; width:8px; height:8px; border-radius:50%; background:#ffc36a; box-shadow:0 0 14px 6px rgba(255,130,40,.6); animation:torchFlicker 1.3s ease-in-out infinite alternate; }
+  .castle.enemy .w-torch{ right:20px; } .castle.player .w-torch{ left:22px; }
+  .castle .w-banner{ position:absolute; width:12px; height:38px; background:linear-gradient(180deg,#7a1f18,#43100c); clip-path:polygon(0 0,100% 0,100% 100%,50% 82%,0 100%); }
+  .castle.player .w-banner{ left:30px; }
+  .castle .w-skull{ position:absolute; right:24px; width:12px; height:12px; border-radius:50% 50% 42% 42%; background:#c8b898; box-shadow:inset -2px -2px 0 rgba(0,0,0,.28); }
+  @keyframes torchFlicker{ from{ opacity:.72; transform:scale(.9);} to{ opacity:1; transform:scale(1.1);} }
 
   /* ===== ステージの背景・大気・城の画像(魔野ほか) ===== */
   #stage-art{ position:absolute; left:0; top:0; width:2000px; height:600px; z-index:0; pointer-events:none; overflow:hidden; }
@@ -297,10 +304,17 @@
       radial-gradient(ellipse 300px 32px at 1500px 70px, rgba(30,12,10,.7), transparent 72%);
     background-size:2000px 100%; background-repeat:repeat-x; }
   #stage-art svg.art-svg{ position:absolute; left:0; top:0; width:2000px; height:600px; }
-  #stage-art .art-ground-base{ position:absolute; left:0; top:92px; width:100%; height:508px;
-    background:linear-gradient(180deg,#5a4028 0%,#3b2c1d 16%,#2f2318 55%,#1f1710 100%); }
-  #stage-art .art-grain{ position:absolute; left:0; top:92px; width:100%; height:508px; opacity:.7; }
-  #stage-art .art-haze{ position:absolute; left:0; top:60px; width:100%; height:120px; background:linear-gradient(180deg,rgba(130,70,44,0) 0%,rgba(140,80,50,.42) 55%,rgba(90,50,34,0) 100%); }
+  #stage-art .art-floor{ position:absolute; left:0; top:26px; width:100%; height:574px; overflow:visible;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 44px); mask-image:linear-gradient(180deg,transparent 0,#000 44px); }
+  #stage-art .art-floor > svg{ position:absolute; left:0; top:-26px; width:2000px; height:600px; }
+  #stage-art .art-ground-base{ position:absolute; left:0; top:0; width:100%; height:100%;
+    background:linear-gradient(180deg,#3d3129 0%,#33291f 18%,#2b2118 58%,#1d1610 100%); }
+  #stage-art .art-ground-img{ position:absolute; left:0; top:26px; width:2000px; height:574px; object-fit:cover; display:none;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 44px); mask-image:linear-gradient(180deg,transparent 0,#000 44px); }
+  #stage-art.has-ground .art-ground-img{ display:block; }
+  #stage-art.has-ground .code-ground{ display:none; }
+  #stage-art .art-grain{ position:absolute; left:0; top:0; width:100%; height:100%; opacity:.6; }
+  #stage-art .art-haze{ position:absolute; left:0; top:-30px; width:100%; height:150px; background:linear-gradient(180deg,rgba(96,78,78,0) 0%,rgba(104,86,86,.62) 40%,rgba(80,62,58,0) 100%); }
   #stage-art .art-lane{ position:absolute; left:0; width:100%; height:100px; background:rgba(0,0,0,.09); }
   #stage-art .art-bg-img{ position:absolute; left:0; top:0; width:100%; height:100%; object-fit:cover; display:none; }
   #stage-art.has-bg .art-bg-img{ display:block; }
@@ -312,11 +326,14 @@
   #stage-backdrop{ position:absolute; left:0; top:0; width:2000px; height:600px; z-index:0; pointer-events:none;
     transform-origin:0 0; transform:translate(var(--stage-offx), var(--stage-offy)) scale(var(--stage-scale)); }
   #stage-backdrop .bd-sky{ position:absolute; left:-4000px; width:10000px; top:-1600px; height:1800px;
-    background:linear-gradient(0deg,#3a1617 0%,#2d1215 20%,#1b0b0e 58%,#0b0508 100%); }
+    background:linear-gradient(0deg,#42383a 0%,#42383a 13%,#341a1c 22.5%,#180a0d 56%,#0b0508 100%); }
+  #stage-backdrop .bd-floor{ position:absolute; left:-4000px; width:10000px; top:30px; height:700px; background:#3d3129; }
   #battlefield-frame.bd-on{ background-color:#0b0508; }
-  #stage-backdrop img.bd-img{ position:absolute; top:-101px; width:2000px; height:857px; display:block;
-    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 150px); mask-image:linear-gradient(180deg,transparent 0,#000 150px); }
-  #stage-backdrop img.bd-img.mirror{ transform:scaleX(-1); }
+  #stage-backdrop .bd-horizon{ position:absolute; top:-204px; width:2000px; height:240px; background-repeat:no-repeat; background-size:2000px auto; background-position:0 0;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 110px,#000 170px,transparent 100%); mask-image:linear-gradient(180deg,transparent 0,#000 110px,#000 170px,transparent 100%); }
+  #stage-backdrop .bd-horizon.mirror{ transform:scaleX(-1); }
+  #stage-backdrop img.bd-keep{ position:absolute; top:-298px; height:330px; width:auto; display:block; filter:brightness(.8) drop-shadow(0 4px 10px rgba(0,0,0,.5));
+    -webkit-mask-image:linear-gradient(180deg,#000 82%,transparent 100%); mask-image:linear-gradient(180deg,#000 82%,transparent 100%); }
   #stage-backdrop .bd-cloud{ position:absolute; left:0; width:4000px; opacity:.5; animation:cloudDrift 200s linear infinite;
     background-repeat:repeat-x; background-size:2000px 100%;
     background-image:
@@ -334,7 +351,7 @@
   #stage-fog{ z-index:3; overflow:hidden; }
   #stage-atmo{ z-index:120; overflow:hidden; }
   #stage-fog .fog{ position:absolute; left:0; width:3000px; background-repeat:repeat-x; background-size:1000px 100%; }
-  #stage-fog .fog.far{ top:70px; height:150px; opacity:.55; animation:fogDrift 150s linear infinite;
+  #stage-fog .fog.far{ top:-40px; height:170px; opacity:.55; animation:fogDrift 150s linear infinite;
     background-image:
       radial-gradient(ellipse 380px 42px at 180px 55%, rgba(150,96,70,.5), transparent 72%),
       radial-gradient(ellipse 300px 34px at 700px 38%, rgba(140,90,66,.42), transparent 72%); }
@@ -352,11 +369,6 @@
   @keyframes emberRise{ 0%{ transform:translate(0,0) scale(1); opacity:0;} 14%{ opacity:1;} 100%{ transform:translate(140px,-330px) scale(.25); opacity:0;} }
   @keyframes crowFly{ from{ transform:translate(-120px,0);} to{ transform:translate(2150px,-46px);} }
   @keyframes crowFlap{ from{ transform:scaleY(1);} to{ transform:scaleY(.45);} }
-  .castle.has-img{ width:auto; height:390px; bottom:58px; z-index:4; background:none; border:none; border-radius:0; box-shadow:none; }
-  .castle.has-img .flag, .castle.has-img .battlements{ display:none; }
-  .castle.has-img img{ display:block; height:100%; width:auto; filter:drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
-  .castle.enemy.has-img{ left:-66px; }
-  .castle.player.has-img{ right:-66px; }
 
   .unit-sprite{ position:absolute; bottom:74px; transform-origin:bottom center; }
   .unit-sprite img{ display:block; image-rendering:-webkit-optimize-contrast; filter:drop-shadow(0 4px 4px rgba(0,0,0,.5)); }
@@ -475,7 +487,7 @@
       <div class="castle enemy"><div class="battlements"></div><div class="flag">🏴</div></div>
       <div class="castle player"><div class="battlements"></div><div class="flag">🚩</div></div>
     </div>
-      <button id="grid-toggle" data-rname="区画表示" data-reading="くかくひょうじ">区画表示: 有</button>
+      <button id="grid-toggle" data-rname="区画表示" data-reading="くかくひょうじ">区画表示: 無</button>
       <button id="debug-tab">動作確認</button>
       <div id="debug-panel"></div>
       <button id="cheat-corpse-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000屍(検証用)</button>
@@ -1677,7 +1689,7 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    ========================================================= */
 const STAGES = [
   // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔野", reading:"まや", art:{ seed:20260921, bg:"plain_bg.jpg", castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
+  { id:"plain", name:"魔野", reading:"まや", art:{ seed:20260921, bg:"plain_bg.jpg", ground:"plain_ground.jpg", castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
   // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
   // 城も硬くして、10分ほどで決着がつくようにした(簡易な自動プレイで、約7分で勝てる強さ)。
   startCorpse:1000, corpseGainRate:1.0,
@@ -2165,131 +2177,130 @@ function buildStageArt(stage){
   const art = stage.art || {};
   const rand = seededRand(art.seed || 20260921);
   const R = (a, b) => a + rand() * (b - a);
-  const W = 2000, H = 600, HORIZON = 96;
+  const W = 2000, H = 600;
+  const GT = H - GRID_GROUND - GRID_CELL * GRID_LANES; // 地面の上端(=最奥の戦列の上端)＝26
 
-  // ---- 背景(空・遠景・地面) ----
   const root = document.createElement("div"); root.id = "stage-art";
-  const codeLayer = (cls) => { const d = document.createElement("div"); d.className = cls + " code-layer"; root.appendChild(d); return d; };
-  codeLayer("art-sky"); codeLayer("art-sun"); codeLayer("art-cloud");
+  const codeLayer = (cls, parent, extra) => { const d = document.createElement("div"); d.className = cls + " " + (extra || "code-layer"); (parent || root).appendChild(d); return d; };
 
-  const svg = svgEl("svg", { "class": "art-svg code-layer", viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none" });
-  // 遠景の山並み(2層)
-  const ridge = (base, amp, fill, op) => {
-    let d = "M0," + (HORIZON + 30);
-    const ph = [R(0,6), R(0,6), R(0,6)];
+  // ---- 背景画像がないときの、コード描きの空と遠景(背景画像があれば隠れる) ----
+  codeLayer("art-sky"); codeLayer("art-sun"); codeLayer("art-cloud");
+  const skySvg = svgEl("svg", { "class": "art-svg code-layer", viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none" });
+  const ridge = (base, amp, fill) => {
+    let d = "M0," + (GT + 20); const ph = [R(0,6), R(0,6), R(0,6)];
     for (let x = 0; x <= W; x += 36){
       const n = Math.sin(x/210 + ph[0]) * .5 + Math.sin(x/95 + ph[1]) * .3 + Math.sin(x/41 + ph[2]) * .2 + (rand() - .5) * .25;
       d += " L" + x + "," + (base - amp * (n * .5 + .5)).toFixed(1);
     }
-    d += " L" + W + "," + (HORIZON + 30) + " Z";
-    svg.appendChild(svgEl("path", { d, fill, opacity: op }));
+    skySvg.appendChild(svgEl("path", { d: d + " L" + W + "," + (GT + 20) + " Z", fill }));
   };
-  ridge(HORIZON - 4, 58, "#2c1613", ".95");
-  ridge(HORIZON + 4, 34, "#1b0f0d", "1");
-  // 地平の枯れ木・崩れた望楼
-  const tree = (x, y, h) => {
-    let d = "M" + x + "," + y + " L" + (x + R(-4,4)) + "," + (y - h);
-    for (let i = 0; i < 5; i++){
-      const by = y - h * R(.35, .95), dir = rand() < .5 ? -1 : 1, len = h * R(.25, .5);
-      d += " M" + x + "," + by + " L" + (x + dir * len) + "," + (by - len * R(.3, .8));
-    }
-    svg.appendChild(svgEl("path", { d, stroke: "#120a09", "stroke-width": R(2, 3.6), fill: "none", "stroke-linecap": "round" }));
-  };
-  for (let i = 0; i < 26; i++) tree(R(60, W - 60), HORIZON + R(8, 24), R(26, 62));
-  const ruin = (x, y, w, h) => {
-    const top = y - h; let d = "M" + x + "," + y + " L" + x + "," + top;
-    const n = 4 + Math.floor(rand() * 3), seg = w / n;
-    for (let i = 1; i <= n; i++) d += " L" + (x + seg * i - seg * .5) + "," + (top - R(0, 10)) + " L" + (x + seg * i) + "," + (top + R(0, 12));
-    d += " L" + (x + w) + "," + y + " Z";
-    svg.appendChild(svgEl("path", { d, fill: "#140b0a" }));
-    svg.appendChild(svgEl("rect", { x: x + w * .4, y: top + h * .32, width: w * .14, height: h * .22, fill: "#5a2a14", opacity: .8 }));
-  };
-  [420, 1010, 1560].forEach((x, i) => ruin(x + R(-60, 60), HORIZON + R(14, 26), R(34, 52), R(58, 90)));
-  root.appendChild(svg);
+  ridge(GT + 2, 26, "#2c1613"); ridge(GT + 8, 14, "#1b0f0d");
+  root.appendChild(skySvg);
 
-  // 地面
-  codeLayer("art-ground-base");
-  // ざらつき(ランタイムで作る)
+  // ---- 地面(コード描き。地面の画像があれば隠れる)。遠近をつけず、どこでも同じ縮尺で描く ----
+  const floor = document.createElement("div"); floor.className = "art-floor code-ground"; root.appendChild(floor);
+  codeLayer("art-ground-base", floor, "");
   const gc = document.createElement("canvas"); gc.width = gc.height = 160;
-  const gx = gc.getContext("2d"), id = gx.createImageData(160, 160);
-  for (let i = 0; i < id.data.length; i += 4){ const v = rand() < .5 ? 0 : 255; id.data[i] = id.data[i+1] = id.data[i+2] = v; id.data[i+3] = Math.floor(rand() * 26); }
-  gx.putImageData(id, 0, 0);
-  const grain = codeLayer("art-grain"); grain.style.backgroundImage = "url(" + gc.toDataURL() + ")"; grain.style.backgroundSize = "160px 160px";
-  // 戦列の帯(奥の戦列ほど上)。奥行きが見えるように、1つおきに少し暗く
-  for (let k = 0; k < GRID_LANES; k += 2){
-    const b = document.createElement("div"); b.className = "art-lane code-layer";
-    b.style.top = (H - GRID_GROUND - GRID_CELL * (k + 1)) + "px"; root.appendChild(b);
-  }
-  codeLayer("art-haze");
+  const gx = gc.getContext("2d"), idt = gx.createImageData(160, 160);
+  for (let i = 0; i < idt.data.length; i += 4){ const v = rand() < .5 ? 0 : 255; idt.data[i] = idt.data[i+1] = idt.data[i+2] = v; idt.data[i+3] = Math.floor(rand() * 26); }
+  gx.putImageData(idt, 0, 0);
+  const grain = codeLayer("art-grain", floor, ""); grain.style.backgroundImage = "url(" + gc.toDataURL() + ")"; grain.style.backgroundSize = "160px 160px";
 
-  // 地面の小物(遠いものは小さく、手前のものは大きく。y の小さい順に描く)
-  const gsvg = svgEl("svg", { "class": "art-svg code-layer", viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none" });
+  const gsvg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none" });
   const items = [];
-  const add = (type, n) => { for (let i = 0; i < n; i++){ const y = HORIZON + 8 + Math.pow(rand(), .85) * (H - HORIZON - 14); items.push({ type, x: R(20, W - 20), y, sc: .75 + .5 * (y - HORIZON) / (H - HORIZON) }); } };
-  add("stain", 30); add("crack", 36); add("rock", 44); add("grass", 70); add("bone", 34); add("skull", 20); add("spear", 14); add("banner", 4);
+  const add = (type, n) => { for (let i = 0; i < n; i++){ const y = GT + 14 + rand() * (H - GT - 22); items.push({ type, x: R(80, W - 80), y, sc: .85 + .3 * (y - GT) / (H - GT) }); } };
+  add("stain", 16); add("crack", 22); add("rock", 26); add("grass", 36); add("bone", 16); add("skull", 8); add("spear", 8); add("banner", 2);
   items.sort((a, b) => a.y - b.y);
   items.forEach(it => {
-    const { x, y, sc, type } = it, g = svgEl("g", {});
+    const { x, y, sc, type } = it, g = svgEl("g", { opacity: .8 });
     if (type === "stain"){
-      g.appendChild(svgEl("ellipse", { cx: x, cy: y, rx: R(24, 58) * sc, ry: R(6, 14) * sc, fill: "#3a0c0a", opacity: R(.25, .45) }));
+      g.appendChild(svgEl("ellipse", { cx: x, cy: y, rx: R(24, 58) * sc, ry: R(8, 16) * sc, fill: "#3a0c0a", opacity: R(.22, .4) }));
     } else if (type === "crack"){
       let d = "M" + x + "," + y, cx = x, cy = y;
       for (let i = 0; i < 6; i++){ cx += R(6, 20) * sc * (rand() < .5 ? -1 : 1); cy += R(-4, 6) * sc; d += " L" + cx + "," + cy; }
-      g.appendChild(svgEl("path", { d, stroke: "#0f0a07", "stroke-width": 1.6 * sc, fill: "none", opacity: .55 }));
+      g.appendChild(svgEl("path", { d, stroke: "#0f0a07", "stroke-width": 1.6 * sc, fill: "none", opacity: .5 }));
     } else if (type === "rock"){
-      const rx = R(8, 22) * sc, ry = rx * R(.45, .7);
+      const rx = R(8, 20) * sc, ry = rx * R(.45, .7);
       g.appendChild(svgEl("ellipse", { cx: x, cy: y, rx, ry, fill: "#2b2119", stroke: "#100b08", "stroke-width": 1.4 }));
-      g.appendChild(svgEl("ellipse", { cx: x - rx * .25, cy: y - ry * .3, rx: rx * .5, ry: ry * .35, fill: "#4a3b2c", opacity: .6 }));
+      g.appendChild(svgEl("ellipse", { cx: x - rx * .25, cy: y - ry * .3, rx: rx * .5, ry: ry * .35, fill: "#4a3b2c", opacity: .55 }));
     } else if (type === "grass"){
       let d = ""; const n = 4 + Math.floor(rand() * 3);
       for (let i = 0; i < n; i++){ const a = (i - (n - 1) / 2) * .32 + R(-.1, .1), l = R(10, 22) * sc; d += "M" + x + "," + y + " L" + (x + Math.sin(a) * l) + "," + (y - Math.cos(a) * l) + " "; }
-      g.appendChild(svgEl("path", { d, stroke: "#5b4c26", "stroke-width": 1.6 * sc, fill: "none", "stroke-linecap": "round", opacity: .85 }));
+      g.appendChild(svgEl("path", { d, stroke: "#5b4c26", "stroke-width": 1.6 * sc, fill: "none", "stroke-linecap": "round", opacity: .8 }));
     } else if (type === "bone"){
-      const l = R(12, 26) * sc, a = R(-.6, .6);
-      const dx = Math.cos(a) * l / 2, dy = Math.sin(a) * l / 2;
-      g.appendChild(svgEl("line", { x1: x - dx, y1: y - dy, x2: x + dx, y2: y + dy, stroke: "#b8a888", "stroke-width": 2.6 * sc, "stroke-linecap": "round", opacity: .6 }));
-      g.appendChild(svgEl("circle", { cx: x + dx, cy: y + dy, r: 2.6 * sc, fill: "#b8a888", opacity: .6 }));
-      g.appendChild(svgEl("circle", { cx: x - dx, cy: y - dy, r: 2.6 * sc, fill: "#b8a888", opacity: .6 }));
+      const l = R(12, 26) * sc, a = R(-.6, .6), dx = Math.cos(a) * l / 2, dy = Math.sin(a) * l / 2;
+      g.appendChild(svgEl("line", { x1: x - dx, y1: y - dy, x2: x + dx, y2: y + dy, stroke: "#b8a888", "stroke-width": 2.6 * sc, "stroke-linecap": "round", opacity: .55 }));
+      g.appendChild(svgEl("circle", { cx: x + dx, cy: y + dy, r: 2.6 * sc, fill: "#b8a888", opacity: .55 }));
+      g.appendChild(svgEl("circle", { cx: x - dx, cy: y - dy, r: 2.6 * sc, fill: "#b8a888", opacity: .55 }));
     } else if (type === "skull"){
       g.appendChild(svgEl("ellipse", { cx: x, cy: y + 2 * sc, rx: 8 * sc, ry: 3 * sc, fill: "#000", opacity: .35 }));
-      g.appendChild(svgEl("circle", { cx: x, cy: y - 3 * sc, r: 6.5 * sc, fill: "#a99a7a", opacity: .7 }));
+      g.appendChild(svgEl("circle", { cx: x, cy: y - 3 * sc, r: 6.5 * sc, fill: "#a99a7a", opacity: .65 }));
       g.appendChild(svgEl("circle", { cx: x - 2.4 * sc, cy: y - 3.4 * sc, r: 1.6 * sc, fill: "#120b08" }));
       g.appendChild(svgEl("circle", { cx: x + 2.4 * sc, cy: y - 3.4 * sc, r: 1.6 * sc, fill: "#120b08" }));
     } else if (type === "spear"){
-      const l = R(40, 64) * sc, a = R(-.5, .5) + (rand() < .5 ? 0 : Math.PI * .22);
-      const ex = x + Math.sin(a) * l, ey = y - Math.cos(a) * l;
+      const l = R(40, 64) * sc, a = R(-.5, .5) + (rand() < .5 ? 0 : Math.PI * .22), ex = x + Math.sin(a) * l, ey = y - Math.cos(a) * l;
       g.appendChild(svgEl("line", { x1: x, y1: y, x2: ex, y2: ey, stroke: "#4b3a27", "stroke-width": 2.6 * sc, "stroke-linecap": "round" }));
-      if (rand() < .6) g.appendChild(svgEl("path", { d: "M" + ex + "," + ey + " l" + (Math.sin(a) * 12 * sc) + "," + (-Math.cos(a) * 12 * sc) + " l" + (-3 * sc) + ",0 z", fill: "#8b9093" }));
     } else if (type === "banner"){
-      const h = R(50, 74) * sc;
+      const h = R(50, 70) * sc;
       g.appendChild(svgEl("line", { x1: x, y1: y, x2: x + 3, y2: y - h, stroke: "#3c2d1f", "stroke-width": 3 * sc }));
-      g.appendChild(svgEl("path", { d: "M" + (x + 3) + "," + (y - h) + " l" + (26 * sc) + ",4 l" + (-6 * sc) + "," + (8 * sc) + " l" + (8 * sc) + "," + (9 * sc) + " l" + (-28 * sc) + ",-2 z", fill: "#5a1a14", opacity: .85 }));
+      g.appendChild(svgEl("path", { d: "M" + (x + 3) + "," + (y - h) + " l" + (26 * sc) + ",4 l" + (-6 * sc) + "," + (8 * sc) + " l" + (8 * sc) + "," + (9 * sc) + " l" + (-28 * sc) + ",-2 z", fill: "#5a1a14", opacity: .8 }));
     }
     gsvg.appendChild(g);
   });
-  root.appendChild(gsvg);
+  floor.appendChild(gsvg);
 
-  // 背景画像(あれば、コードの絵の代わりに使う)。戦場の上に余る画面まで、同じ絵を延ばす
+  // ---- 地面の画像(あれば、コード描きの地面の代わりに使う) ----
+  if (art.ground){
+    const gi = document.createElement("img"); gi.className = "art-ground-img"; gi.alt = ""; gi.draggable = false;
+    gi.onload = () => root.classList.add("has-ground"); gi.onerror = () => gi.remove();
+    gi.src = STAGE_ART_BASE + art.ground; root.appendChild(gi);
+  }
+
+  // ---- 戦列：床をマス目にはせず、うっすらとした畝(うね)だけで分ける。よく見ればわかる程度 ----
+  const lsvg = svgEl("svg", { "class": "art-svg", viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none" });
+  for (let k = 0; k < GRID_LANES; k += 2){
+    lsvg.appendChild(svgEl("rect", { x: 0, y: H - GRID_GROUND - GRID_CELL * (k + 1), width: W, height: GRID_CELL, fill: "rgba(0,0,0,.05)" }));
+  }
+  for (let k = 0; k <= GRID_LANES; k++){
+    const y = H - GRID_GROUND - GRID_CELL * k; let d = "M0," + y;
+    for (let x = 40; x <= W; x += 40) d += " L" + x + "," + (y + (rand() - .5) * 3).toFixed(1);
+    lsvg.appendChild(svgEl("path", { d, stroke: "rgba(6,3,2,.34)", "stroke-width": 3, fill: "none" }));
+    lsvg.appendChild(svgEl("path", { d: d.replace(/,(-?[\d.]+)/g, (m, v) => "," + (parseFloat(v) + 3)), stroke: "rgba(226,188,150,.05)", "stroke-width": 1.6, fill: "none" }));
+  }
+  root.appendChild(lsvg);
+  const haze = document.createElement("div"); haze.className = "art-haze"; root.appendChild(haze);
+
+  field.insertBefore(root, field.firstChild);
+  field.classList.add("themed");
+
+  // ---- 背景画像(あれば)：地平線より上の景色を、戦場の上に余る画面まで延ばす ----
   if (art.bg){
     const probe = new Image();
     probe.onload = () => {
       if (!document.body.contains(root)) return; // 別の戦闘に入り直していたら捨てる
       const bd = document.createElement("div"); bd.id = "stage-backdrop";
       const sky = document.createElement("div"); sky.className = "bd-sky"; bd.appendChild(sky);
-      // 上に余る空：雲を流し、鴉を飛ばす
       [[-300,150,.5,200],[-520,170,.42,260],[-760,190,.34,320],[-1000,200,.28,380]].forEach(c => {
         const cl = document.createElement("div"); cl.className = "bd-cloud"; cl.style.top = c[0] + "px"; cl.style.height = c[1] + "px"; cl.style.opacity = c[2]; cl.style.animationDuration = c[3] + "s"; cl.style.animationDelay = (-R(0, 100)) + "s"; bd.appendChild(cl);
       });
+      const fl = document.createElement("div"); fl.className = "bd-floor"; bd.appendChild(fl);
       [-2000, 0, 2000].forEach((x, i) => {
-        const im = document.createElement("img"); im.className = "bd-img" + (i === 1 ? "" : " mirror"); im.alt = ""; im.draggable = false;
-        im.style.left = x + "px"; im.src = probe.src; bd.appendChild(im);
+        const h = document.createElement("div"); h.className = "bd-horizon" + (i === 1 ? "" : " mirror"); h.style.left = x + "px"; h.style.backgroundImage = "url(" + probe.src + ")"; bd.appendChild(h);
       });
       for (let i = 0; i < 4; i++){
         const c = document.createElement("div"); c.className = "crow";
-        c.style.cssText = "top:" + R(-700, 40).toFixed(0) + "px;width:" + R(36, 64).toFixed(0) + "px;animation-duration:" + R(40, 70).toFixed(0) + "s;animation-delay:" + (-R(0, 60)).toFixed(0) + "s;";
+        c.style.cssText = "top:" + R(-700, 0).toFixed(0) + "px;width:" + R(36, 64).toFixed(0) + "px;animation-duration:" + R(40, 70).toFixed(0) + "s;animation-delay:" + (-R(0, 60)).toFixed(0) + "s;";
         c.innerHTML = '<svg viewBox="0 0 24 10"><path d="M0 4 Q6 -2 12 5 Q18 -2 24 4 Q18 3 12 8 Q6 3 0 4Z"/></svg>';
         bd.appendChild(c);
       }
+      // 城の本体：壁の奥、遠い角にそびえる
+      const keep = (file, side) => {
+        if (!file) return;
+        const im = new Image(); im.className = "bd-keep"; im.alt = ""; im.draggable = false;
+        im.onload = () => { const w = 330 * im.naturalWidth / im.naturalHeight; im.style.left = (side === "enemy" ? -14 : W - w + 14) + "px"; bd.appendChild(im); };
+        im.src = STAGE_ART_BASE + file;
+      };
+      keep(art.castleEnemy, "enemy"); keep(art.castlePlayer, "player");
       frame.insertBefore(bd, frame.firstChild);
       field.classList.add("bd-on"); frame.classList.add("bd-on");
       root.classList.add("has-bg");
@@ -2297,15 +2308,13 @@ function buildStageArt(stage){
     probe.onerror = () => {};
     probe.src = STAGE_ART_BASE + art.bg;
   }
-  field.insertBefore(root, field.firstChild);
-  field.classList.add("themed");
 
   // ---- 流れる霧(ユニットの後ろ) ----
   const fog = document.createElement("div"); fog.id = "stage-fog";
   ["far", "low"].forEach(c => { const f = document.createElement("div"); f.className = "fog " + c; f.style.animationDelay = (-rand() * 60) + "s"; fog.appendChild(f); });
   field.appendChild(fog);
 
-  // ---- 灰・火の粉・鴉・暗がり(ユニットの前) ----
+  // ---- 灰・火の粉・暗がり(ユニットの前) ----
   const atmo = document.createElement("div"); atmo.id = "stage-atmo";
   const vg = document.createElement("div"); vg.id = "stage-vignette"; frame.appendChild(vg);
   for (let i = 0; i < 60; i++){
@@ -2320,17 +2329,22 @@ function buildStageArt(stage){
   }
   field.appendChild(atmo);
 
-  // ---- 城(画像があれば差し替え。なければ、四角い城のまま) ----
-  const setCastle = (sel, file) => {
-    const box = field.querySelector(sel); if (!box) return;
-    box.classList.remove("has-img"); const old = box.querySelector("img.castle-img"); if (old) old.remove();
-    if (!file) return;
-    const im = new Image(); im.className = "castle-img"; im.alt = ""; im.draggable = false;
-    im.onload = () => { box.appendChild(im); box.classList.add("has-img"); };
-    im.src = STAGE_ART_BASE + file;
-  };
-  setCastle(".castle.enemy", art.castleEnemy);
-  setCastle(".castle.player", art.castlePlayer);
+  // ---- 城壁(全戦列に沿う。兵は壁の手前に立つ) ----
+  field.querySelectorAll(".castle").forEach(c => {
+    const side = c.classList.contains("enemy") ? "enemy" : "player";
+    c.innerHTML = "";
+    const add2 = (cls, top) => { const d = document.createElement("div"); d.className = cls; if (top != null) d.style.top = top + "px"; c.appendChild(d); return d; };
+    add2("w-body"); add2("w-teeth");
+    for (let k = 0; k < GRID_LANES; k++){
+      const cy = 450 - GRID_CELL * k; // このレーンの中央(壁の上端から)
+      add2("w-gate", cy - 30);
+      if (side === "enemy") add2("w-skull", cy - 44);
+    }
+    for (let k = 0; k <= GRID_LANES; k++){
+      add2("w-torch", GRID_CELL * k - 4);
+      if (side === "player" && k % 2 === 1 && k < GRID_LANES) add2("w-banner", GRID_CELL * k + 8);
+    }
+  });
 }
 
 function startBattle(stage){
@@ -6070,6 +6084,7 @@ let debugMode = false;
 
 document.getElementById("debug-tab").addEventListener("click", () => {
   debugMode = !debugMode;
+  document.getElementById("battlefield-frame").classList.toggle("debug-on", debugMode);
   const panel = document.getElementById("debug-panel");
   panel.style.display = debugMode ? "flex" : "none";
   if (debugMode){
@@ -6127,19 +6142,21 @@ document.getElementById("btn-result-continue").addEventListener("click", () => {
 // ゲーム内の広さ：横2000 x 縦600。1マスは正方形(GRID_CELL)で、横に20マス・縦に5レーン。
 // 縦は、いまの地面(下から74px)を最下段のレーンの足元とし、その上に4レーンを重ねる。兵士(高さ約92px)がほぼ1マスの大きさ。
 const STAGE_W = 2000, STAGE_H = 600;
+const LANE_GUTTER = 62;
 const GRID_CELL = 100, GRID_LANES = 5, GRID_GROUND = 74;
 const LANE_LABELS = ["最左翼", "左翼", "中央", "右翼", "最右翼"]; // 下から上の順(仮)
 const LANE_READINGS = ["さいさよく", "さよく", "ちゅうおう", "うよく", "さいうよく"];
-let gridVisible = true;
+let gridVisible = false;
 
 // 画面(枠)の大きさに合わせて、ステージ全体を縮小して表示する
 function fitStage(){
   const frame = document.getElementById("battlefield-frame");
   if (!frame || !frame.clientWidth || !frame.clientHeight) return;
-  const scale = Math.min(frame.clientWidth / STAGE_W, frame.clientHeight / STAGE_H);
+  const availW = frame.clientWidth - LANE_GUTTER; // 左はレーンボタンの置き場(城を隠さないよう、戦場はその右から)
+  const scale = Math.min(availW / STAGE_W, frame.clientHeight / STAGE_H);
   const root = document.documentElement.style;
   root.setProperty("--stage-scale", scale);
-  root.setProperty("--stage-offx", ((frame.clientWidth - STAGE_W * scale) / 2) + "px");
+  root.setProperty("--stage-offx", (LANE_GUTTER + (availW - STAGE_W * scale) / 2) + "px");
   root.setProperty("--stage-offy", (frame.clientHeight - STAGE_H * scale) + "px"); // 下に揃える
 }
 
@@ -6522,7 +6539,7 @@ function layoutLaneButtons(){
   const frame = document.getElementById("battlefield-frame");
   const box = document.getElementById("lane-buttons");
   if (!frame || !box || !frame.clientHeight) return;
-  const scale = Math.min(frame.clientWidth / STAGE_W, frame.clientHeight / STAGE_H);
+  const scale = Math.min((frame.clientWidth - LANE_GUTTER) / STAGE_W, frame.clientHeight / STAGE_H);
   const offy = frame.clientHeight - STAGE_H * scale;
   Array.from(box.children).forEach(b => {
     if (b.id === "lane-all-btn"){
