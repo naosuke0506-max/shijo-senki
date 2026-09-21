@@ -522,7 +522,7 @@
    ========================================================= */
 // @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
 // コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
-const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@a5cd397/";
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@98a8399/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
@@ -2153,7 +2153,7 @@ let battle = null;
    画像がなくても、コードで描いた荒野が出る。stage.art に画像名があり、STAGE_ART_BASE に置いてあれば、そちらを使う。
    画像の置き場：GitHubの stages/ フォルダ(REPO_BASE のコミットを更新すること)
    ========================================================= */
-const STAGE_ART_BASE = REPO_BASE + "stages/";
+const STAGE_ART_BASE = REPO_BASE + "images/stages/";
 function seededRand(seed){ let a = seed >>> 0; return function(){ a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; }
 function svgEl(name, attrs){ const e = document.createElementNS("http://www.w3.org/2000/svg", name); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 
