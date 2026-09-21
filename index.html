@@ -292,6 +292,50 @@
   .castle .w-skull{ position:absolute; right:24px; width:12px; height:12px; border-radius:50% 50% 42% 42%; background:#c8b898; box-shadow:inset -2px -2px 0 rgba(0,0,0,.28); }
   @keyframes torchFlicker{ from{ opacity:.72; transform:scale(.9);} to{ opacity:1; transform:scale(1.1);} }
 
+
+  /* ===== 城の損傷・命中・陥落の演出 ===== */
+  .castle .w-cracks{ position:absolute; inset:0; opacity:0; transition:opacity .6s; background-repeat:repeat-y; background-size:64px 240px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='240'><g fill='none' stroke='%230a0605' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 10 L18 38 L12 62 L30 96 L24 120'/><path d='M52 28 L40 58 L52 84 L44 116'/><path d='M14 150 L30 176 L22 204 L40 232'/><path d='M58 168 L46 196 L58 226'/></g><g fill='none' stroke='%230a0605' stroke-width='1.1' opacity='.7'><path d='M18 38 L36 44'/><path d='M40 58 L26 66'/><path d='M30 176 L50 184'/><path d='M12 62 L2 72'/></g></svg>"); }
+  .castle.d1 .w-cracks{ opacity:.5; } .castle.d2 .w-cracks{ opacity:.85; } .castle.d3 .w-cracks{ opacity:1; }
+  .castle.d3 .w-body{ filter:brightness(.7) saturate(.8); }
+  .castle.d2 .w-teeth, .castle.d3 .w-teeth{ opacity:.45; }
+  .castle .w-fire, .castle .w-smoke{ display:none; position:absolute; pointer-events:none; }
+  .castle.enemy .w-fire, .castle.enemy .w-smoke{ right:14px; } .castle.player .w-fire, .castle.player .w-smoke{ left:14px; }
+  .castle .w-fire{ width:24px; height:38px; border-radius:50% 50% 40% 40%; transform-origin:50% 100%;
+    background:radial-gradient(ellipse at 50% 82%,#ffe08a 0%,#ff8a2a 40%,rgba(200,44,10,0) 74%); filter:blur(1px); animation:fireFlick .45s ease-in-out infinite alternate; }
+  .castle .w-smoke{ width:34px; height:60px; border-radius:50%; background:radial-gradient(ellipse at 50% 70%,rgba(70,60,56,.75),rgba(30,26,24,0) 70%); animation:smokeRise 2.6s ease-out infinite; }
+  .castle.d2 .w-fire[data-lv="2"], .castle.d2 .w-smoke[data-lv="2"], .castle.d3 .w-fire, .castle.d3 .w-smoke{ display:block; }
+  @keyframes fireFlick{ from{ transform:scale(.85,.9) rotate(-3deg); opacity:.85;} to{ transform:scale(1.1,1.15) rotate(3deg); opacity:1;} }
+  @keyframes smokeRise{ 0%{ transform:translateY(-30px) scale(.6); opacity:0;} 25%{ opacity:.9;} 100%{ transform:translateY(-190px) translateX(24px) scale(1.7); opacity:0;} }
+  .castle.hit{ animation:castleHit .22s ease-out; }
+  @keyframes castleHit{ 0%{ transform:translateX(0); filter:brightness(1.9);} 30%{ transform:translateX(var(--kick,3px)); } 60%{ transform:translateX(calc(var(--kick,3px) * -.5)); filter:brightness(1.2);} 100%{ transform:translateX(0); filter:none;} }
+  .castle.enemy{ --kick:-3px; } .castle.player{ --kick:3px; }
+  .castle-chip{ position:absolute; width:7px; height:6px; z-index:150; pointer-events:none; opacity:1; animation:chipFly .75s ease-out forwards; }
+  @keyframes chipFly{ 0%{ transform:translate(0,0) rotate(0); opacity:1;} 55%{ transform:translate(var(--dx),var(--dy)) rotate(200deg); opacity:1;} 100%{ transform:translate(calc(var(--dx) * 1.3),calc(var(--dy) + 110px)) rotate(340deg); opacity:0;} }
+  .castle-flash{ position:absolute; width:90px; height:90px; margin:-45px 0 0 -45px; z-index:149; pointer-events:none; border-radius:50%;
+    background:radial-gradient(circle,rgba(255,224,150,.95),rgba(255,120,40,.55) 40%,rgba(255,80,20,0) 72%); animation:flashOut .28s ease-out forwards; }
+  @keyframes flashOut{ from{ transform:scale(.4); opacity:1;} to{ transform:scale(1.5); opacity:0;} }
+  /* 陥落 */
+  .castle.collapse{ transform-origin:50% 100%; animation:wallFall 2.3s cubic-bezier(.5,0,.9,.6) forwards; }
+  @keyframes wallFall{ 0%{ transform:none; opacity:1; filter:none;} 12%{ transform:translateX(var(--kick,3px)) skewY(1deg); filter:brightness(1.7);} 30%{ transform:translateX(calc(var(--kick,3px) * -1)) skewY(-1.5deg); filter:brightness(1);} 100%{ transform:translateY(60px) scaleY(.06) skewY(3deg); opacity:0; filter:brightness(.4);} }
+  #stage-backdrop img.bd-keep.collapse{ transform-origin:50% 100%; animation:keepFall 2.5s cubic-bezier(.55,0,.9,.55) forwards; }
+  @keyframes keepFall{ 0%{ transform:none;} 15%{ transform:translateX(3px) rotate(.6deg);} 30%{ transform:translateX(-3px) rotate(-.6deg);} 100%{ transform:translateY(230px) rotate(var(--tilt,3deg)); opacity:.2;} }
+  #stage-backdrop .bd-dust{ position:absolute; width:300px; height:220px; margin:-110px 0 0 -150px; border-radius:50%; pointer-events:none;
+    background:radial-gradient(ellipse,rgba(150,132,120,.8),rgba(90,78,70,.5) 45%,rgba(60,50,46,0) 72%); opacity:0; animation:dustPuff 2.4s ease-out forwards; }
+  @keyframes dustPuff{ 0%{ transform:translateY(20px) scale(.3); opacity:0;} 20%{ opacity:.9;} 100%{ transform:translateY(-70px) scale(1.9); opacity:0;} }
+  #stage-backdrop.e-d2 img.bd-keep[data-side="enemy"], #stage-backdrop.e-d3 img.bd-keep[data-side="enemy"],
+  #stage-backdrop.p-d2 img.bd-keep[data-side="player"], #stage-backdrop.p-d3 img.bd-keep[data-side="player"]{ filter:brightness(.58) saturate(.8) drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+  #stage-backdrop .bd-smoke{ display:none; position:absolute; top:-300px; width:110px; height:250px; margin-left:-55px; pointer-events:none; border-radius:50%;
+    background:radial-gradient(ellipse at 50% 80%,rgba(40,32,30,.8),rgba(30,24,24,0) 70%); animation:keepSmoke 5s ease-out infinite; }
+  #stage-backdrop.e-d2 .bd-smoke.enemy, #stage-backdrop.e-d3 .bd-smoke.enemy, #stage-backdrop.p-d2 .bd-smoke.player, #stage-backdrop.p-d3 .bd-smoke.player{ display:block; }
+  @keyframes keepSmoke{ 0%{ transform:translateY(60px) scale(.5); opacity:0;} 20%{ opacity:.85;} 100%{ transform:translateY(-240px) translateX(50px) scale(1.8); opacity:0;} }
+  #battlefield-frame.quake{ animation:frameQuake .9s linear; }
+  @keyframes frameQuake{ 0%,100%{ transform:translate(0,0);} 10%{ transform:translate(-5px,3px);} 25%{ transform:translate(5px,-3px);} 40%{ transform:translate(-4px,-2px);} 55%{ transform:translate(4px,3px);} 70%{ transform:translate(-2px,2px);} 85%{ transform:translate(2px,-1px);} }
+  #fall-banner{ position:absolute; left:0; right:0; top:34%; z-index:99989; pointer-events:none; text-align:center; font-size:2.4rem; letter-spacing:.4em; padding-left:.4em; font-weight:bold;
+    text-shadow:0 0 18px #000,0 0 6px #000,0 2px 0 #000; opacity:0; animation:bannerIn 2.4s ease-out forwards; }
+  #fall-banner.win{ color:#f0cf6a; } #fall-banner.lose{ color:#c8382a; }
+  @keyframes bannerIn{ 0%{ opacity:0; transform:scale(1.25);} 22%{ opacity:1; transform:scale(1);} 80%{ opacity:1;} 100%{ opacity:0;} }
+
   /* ===== ステージの背景・大気・城の画像(魔野ほか) ===== */
   #stage-art{ position:absolute; left:0; top:0; width:2000px; height:600px; z-index:0; pointer-events:none; overflow:hidden; }
   #stage-art .art-sky{ position:absolute; left:0; top:0; width:100%; height:180px; background:linear-gradient(180deg,#0d0709 0%,#25100f 38%,#4d2416 72%,#7a4526 100%); }
@@ -2298,11 +2342,14 @@ function buildStageArt(stage){
       // 城の本体：壁の奥、遠い角にそびえる
       const keep = (file, side) => {
         if (!file) return;
-        const im = new Image(); im.className = "bd-keep"; im.alt = ""; im.draggable = false;
+        const im = new Image(); im.className = "bd-keep"; im.alt = ""; im.draggable = false; im.dataset.side = side;
         im.onload = () => { const w = 330 * im.naturalWidth / im.naturalHeight; im.style.left = (side === "enemy" ? -14 : W - w + 14) + "px"; bd.appendChild(im); };
         im.src = STAGE_ART_BASE + file;
       };
       keep(art.castleEnemy, "enemy"); keep(art.castlePlayer, "player");
+      [["enemy", 60], ["enemy", 130], ["player", W - 130], ["player", W - 60]].forEach((sm, i) => { // 損傷したときに、城の上から上がる煙
+        const d = document.createElement("div"); d.className = "bd-smoke " + sm[0]; d.style.left = sm[1] + "px"; d.style.animationDelay = (-i * 1.3) + "s"; bd.appendChild(d);
+      });
       frame.insertBefore(bd, frame.firstChild);
       field.classList.add("bd-on"); frame.classList.add("bd-on");
       root.classList.add("has-bg");
@@ -2334,14 +2381,19 @@ function buildStageArt(stage){
   // ---- 城壁(全戦列に沿う。兵は壁の手前に立つ) ----
   field.querySelectorAll(".castle").forEach(c => {
     const side = c.classList.contains("enemy") ? "enemy" : "player";
+    c.className = "castle " + side; // 前の戦闘の損傷・崩壊の表示を消す
     c.innerHTML = "";
     const add2 = (cls, top) => { const d = document.createElement("div"); d.className = cls; if (top != null) d.style.top = top + "px"; c.appendChild(d); return d; };
-    add2("w-body"); add2("w-teeth");
+    add2("w-body"); add2("w-cracks"); add2("w-teeth");
     for (let k = 0; k < GRID_LANES; k++){
       const cy = 450 - GRID_CELL * k; // このレーンの中央(壁の上端から)
       add2("w-gate", cy - 30);
       if (side === "enemy") add2("w-skull", cy - 44);
     }
+    [[70, 2], [200, 3], [330, 2], [460, 3]].forEach(f => { // 燃え上がる場所(損傷が進むと出る。lv=出はじめる段階)
+      const sm = add2("w-smoke", f[0] - 40); sm.dataset.lv = f[1]; sm.style.animationDelay = (-Math.random() * 2.6) + "s";
+      const fr = add2("w-fire", f[0]); fr.dataset.lv = f[1];
+    });
     for (let k = 0; k <= GRID_LANES; k++){
       add2("w-torch", GRID_CELL * k - 4);
       if (side === "player" && k % 2 === 1 && k < GRID_LANES) add2("w-banner", GRID_CELL * k + 8);
@@ -2402,7 +2454,13 @@ function updateCastleBars(){
     const dmg = Math.max(0, battle.castlePrev.enemy - battle.enemyCastleHp) + Math.max(0, battle.castlePrev.player - battle.playerCastleHp);
     if (dmg > 0){ battle.corpse += dmg * CASTLE_CORPSE_RATE; updateWalletUI(); }
   }
+  if (battle.castlePrev){
+    if (battle.castlePrev.enemy > battle.enemyCastleHp) castleHitFx("enemy");
+    if (battle.castlePrev.player > battle.playerCastleHp) castleHitFx("player");
+  }
   battle.castlePrev = { enemy: battle.enemyCastleHp, player: battle.playerCastleHp };
+  applyCastleDamageState("enemy", battle.enemyCastleHp / battle.enemyCastleHpMax);
+  applyCastleDamageState("player", battle.playerCastleHp / battle.playerCastleHpMax);
   document.getElementById("enemy-hp-num").textContent =
     Math.max(0,Math.ceil(battle.enemyCastleHp)) + "/" + battle.enemyCastleHpMax;
   document.getElementById("enemy-hp-fill").style.width =
@@ -6003,20 +6061,99 @@ function battleStep(dt){
 
 }
 
-function endBattle(win){
+
+/* =========================================================
+   城の損傷・命中・陥落の演出
+   損傷：HPが75%・50%・25%を切るたびに、壁のひび・炎・煙が増える
+   命中：壁が揺れて光り、破片が飛ぶ
+   陥落：壁が崩れ、奥の城も沈み、土煙と揺れのあとに結果の画面へ
+   ========================================================= */
+function castleSide(side){ return document.querySelector("#battlefield .castle." + side); }
+function applyCastleDamageState(side, ratio){
+  const w = castleSide(side); if (!w || w.classList.contains("collapse")) return;
+  const lv = ratio <= .25 ? 3 : ratio <= .5 ? 2 : ratio <= .75 ? 1 : 0;
+  ["d1","d2","d3"].forEach(c => w.classList.remove(c));
+  if (lv) w.classList.add("d" + lv);
+  const bd = document.getElementById("stage-backdrop");
+  if (bd){ ["d1","d2","d3"].forEach(c => bd.classList.remove(side[0] + "-" + c)); if (lv) bd.classList.add(side[0] + "-d" + lv); }
+}
+function castleHitFx(side){
+  if (!battle) return;
+  const now = performance.now();
+  battle.hitFxAt = battle.hitFxAt || {};
+  if (now - (battle.hitFxAt[side] || 0) < 260) return;
+  battle.hitFxAt[side] = now;
+  const w = castleSide(side); if (!w) return;
+  w.classList.remove("hit"); void w.offsetWidth; w.classList.add("hit");
+  const field = document.getElementById("battlefield");
+  const dir = side === "enemy" ? 1 : -1;
+  const x = side === "enemy" ? 62 : STAGE_W - 62;
+  const y = 26 + 40 + Math.random() * 420;
+  const fl = document.createElement("div"); fl.className = "castle-flash"; fl.style.left = x + "px"; fl.style.top = y + "px"; field.appendChild(fl);
+  setTimeout(() => fl.remove(), 320);
+  const col = side === "enemy" ? ["#5b4128", "#8a7048", "#bfae8c"] : ["#8a8170", "#5f584b", "#a89f8a"];
+  for (let i = 0; i < 6; i++){
+    const c = document.createElement("i"); c.className = "castle-chip";
+    c.style.left = x + "px"; c.style.top = (y + (Math.random() - .5) * 30) + "px"; c.style.background = col[i % 3];
+    c.style.setProperty("--dx", (dir * (20 + Math.random() * 70)) + "px"); c.style.setProperty("--dy", (-(20 + Math.random() * 50)) + "px");
+    c.style.animationDuration = (.55 + Math.random() * .3) + "s";
+    field.appendChild(c); setTimeout(() => c.remove(), 950);
+  }
+}
+function playCastleFall(side, win){
+  const w = castleSide(side), field = document.getElementById("battlefield"), frame = document.getElementById("battlefield-frame");
+  frame.classList.remove("quake"); void frame.offsetWidth; frame.classList.add("quake");
+  setTimeout(() => frame.classList.remove("quake"), 1000);
+  if (w){ w.classList.add("d3", "collapse"); }
+  // 壁に沿って、破片と閃光をまき散らす
+  const dir = side === "enemy" ? 1 : -1, x = side === "enemy" ? 62 : STAGE_W - 62;
+  for (let i = 0; i < 26; i++){
+    setTimeout(() => {
+      const y = 40 + Math.random() * 520;
+      const c = document.createElement("i"); c.className = "castle-chip"; c.style.left = x + "px"; c.style.top = y + "px";
+      c.style.background = side === "enemy" ? "#6a4d2e" : "#8a8170"; c.style.width = c.style.height = (5 + Math.random() * 8) + "px";
+      c.style.setProperty("--dx", (dir * (30 + Math.random() * 130)) + "px"); c.style.setProperty("--dy", (-(30 + Math.random() * 90)) + "px");
+      c.style.animationDuration = (.7 + Math.random() * .5) + "s";
+      field.appendChild(c); setTimeout(() => c.remove(), 1400);
+      if (i % 4 === 0){ const fl = document.createElement("div"); fl.className = "castle-flash"; fl.style.left = x + "px"; fl.style.top = y + "px"; field.appendChild(fl); setTimeout(() => fl.remove(), 320); }
+    }, i * 70);
+  }
+  // 奥の城：沈み、土煙を上げる
+  const bd = document.getElementById("stage-backdrop");
+  if (bd){
+    const keep = bd.querySelector('img.bd-keep[data-side="' + side + '"]');
+    if (keep){ keep.style.setProperty("--tilt", (side === "enemy" ? 3 : -3) + "deg"); keep.classList.add("collapse"); }
+    for (let i = 0; i < 6; i++){
+      const d = document.createElement("div"); d.className = "bd-dust";
+      d.style.left = ((side === "enemy" ? 110 : STAGE_W - 110) + (Math.random() - .5) * 220) + "px"; d.style.top = (-40 + Math.random() * 80) + "px";
+      d.style.animationDelay = (i * .18) + "s"; bd.appendChild(d);
+    }
+  }
+  const bn = document.createElement("div"); bn.id = "fall-banner"; bn.className = win ? "win" : "lose"; bn.textContent = win ? "敵城、陥落" : "自城、陥落";
+  document.getElementById("screen-battle").appendChild(bn);
+  setTimeout(() => bn.remove(), 2600);
+}
+function endBattle(win, instant){
   if (!battle || battle.ended) return;
   battle.ended = true;
-  const resultScreen = document.getElementById("screen-result");
-  resultScreen.classList.remove("win","lose");
-  resultScreen.classList.add(win ? "win" : "lose");
-  document.getElementById("result-title").textContent = win ? "勝利" : "敗北";
-  document.getElementById("result-sub").textContent =
-    win ? "敵城、陥落。" : "自城、陥落。";
-  showScreen("screen-result");
+  const b = battle;
+  const showResult = () => {
+    if (battle !== b) return; // その間に別の戦闘に入っていたら出さない
+    const resultScreen = document.getElementById("screen-result");
+    resultScreen.classList.remove("win","lose");
+    resultScreen.classList.add(win ? "win" : "lose");
+    document.getElementById("result-title").textContent = win ? "勝利" : "敗北";
+    document.getElementById("result-sub").textContent =
+      win ? "敵城、陥落。" : "自城、陥落。";
+    showScreen("screen-result");
+  };
+  if (instant){ showResult(); return; }
+  playCastleFall(win ? "enemy" : "player", win); // 城が崩れる間、戦場は止まって見せる
+  setTimeout(showResult, 2700);
 }
 
 document.getElementById("btn-surrender").addEventListener("click", () => {
-  if (battle && !battle.ended) endBattle(false);
+  if (battle && !battle.ended) endBattle(false, true); // 投降は、崩れる演出を飛ばして結果へ
 });
 document.getElementById("cheat-enemy-btn").addEventListener("click", () => {
   if (!battle) return;
