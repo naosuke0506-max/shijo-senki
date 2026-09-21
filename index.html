@@ -428,6 +428,19 @@
   @keyframes torchFlicker{ from{ opacity:.72; transform:scale(.9);} to{ opacity:1; transform:scale(1.1);} }
 
 
+
+  /* ===== 使えない戦列(闇に沈む)・導き ===== */
+  .lane-block{ position:absolute; left:-2000px; width:6000px; z-index:8; pointer-events:none; overflow:hidden; }
+  .lane-block::after{ content:""; position:absolute; left:0; top:0; width:3000px; height:100%; opacity:.5; animation:fogDrift 70s linear infinite; background-repeat:repeat-x; background-size:1000px 100%;
+    background-image:radial-gradient(ellipse 380px 60px at 200px 50%,rgba(80,64,60,.55),transparent 72%),radial-gradient(ellipse 300px 50px at 700px 40%,rgba(70,56,52,.45),transparent 72%); }
+  .castle .w-gate.off{ background:#0b0806; box-shadow:inset 0 0 8px #000; border-color:#0b0806; }
+  #guide-bar{ position:absolute; left:50%; top:74px; transform:translate(-50%,-8px); z-index:9; max-width:min(600px,82vw); padding:9px 26px; text-align:center; font-family:var(--mincho); font-size:.95rem; letter-spacing:.16em; color:#efe0b8;
+    background:linear-gradient(180deg,rgba(38,30,20,.95),rgba(14,11,8,.95)); border:1px solid #8c6b32; box-shadow:0 0 0 1px #000, 0 6px 18px rgba(0,0,0,.75); text-shadow:0 1px 0 #000;
+    opacity:0; pointer-events:none; transition:opacity .5s, transform .5s; }
+  #guide-bar.on{ opacity:1; transform:translate(-50%,0); }
+  .deploy-btn.guide-pulse{ animation:guidePulse 1s ease-in-out infinite; }
+  @keyframes guidePulse{ 0%,100%{ box-shadow:0 0 0 1px #c9a24a, 0 0 6px rgba(240,207,106,.4);} 50%{ box-shadow:0 0 0 2px #f0cf6a, 0 0 20px rgba(240,207,106,.95);} }
+
   /* ===== 城の損傷・命中・陥落の演出 ===== */
   .castle .w-cracks{ position:absolute; inset:0; opacity:0; transition:opacity .6s; background-repeat:repeat-y; background-size:64px 240px;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='240'><g fill='none' stroke='%230a0605' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 10 L18 38 L12 62 L30 96 L24 120'/><path d='M52 28 L40 58 L52 84 L44 116'/><path d='M14 150 L30 176 L22 204 L40 232'/><path d='M58 168 L46 196 L58 226'/></g><g fill='none' stroke='%230a0605' stroke-width='1.1' opacity='.7'><path d='M18 38 L36 44'/><path d='M40 58 L26 66'/><path d='M30 176 L50 184'/><path d='M12 62 L2 72'/></g></svg>"); }
@@ -630,7 +643,7 @@
   <section id="screen-stage" class="screen">
     <div class="topbar" style="width:100%;">
       <h2 data-reading="せんせんせんたく">戦線選択</h2>
-      <button id="btn-back-formation" data-reading="きじん">帰陣</button>
+      <div style="display:flex;gap:10px;align-items:center;"><button id="btn-unlock-all" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">全解放(検証用)</button><button id="btn-back-formation" data-reading="きじん">帰陣</button></div>
     </div>
     <div class="stage-list" id="stage-list"></div>
   </section>
@@ -638,6 +651,7 @@
   <!-- 戦闘 -->
   <section id="screen-battle" class="screen">
 
+    <div id="guide-bar"></div>
     <div id="battle-topbar">
       <div id="top-left-controls">
         <div class="stage-plate" id="stage-name-plate" data-reading="まや">魔野</div>
@@ -1870,9 +1884,69 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
 /* =========================================================
    2. ステージ定義
    ========================================================= */
+// 戦線ごとの設定
+//   lanes  : 使える戦列(0=最左翼〜4=最右翼)。省略すると全5戦列。使えない戦列は、闇に沈んで進めない
+//   units  : この戦線で使える味方(布陣の歩兵枠に、この兵だけを入れる)。省略すると、自分の布陣
+//   guide  : 戦闘中に出す導き { t:出す秒, dur:出す長さ(秒), text, pulse:光らせる召喚ボタンのキャラ, untilDeploy:最初に兵を出すまで出し続ける }
+//   castleDmgTaken : 城が受けるダメージの倍率 { player, enemy }
+const ART_PLAIN = { seed:20260921, bg:"plain_bg.jpg", ground:["plain_ground.png","plain_ground.jpg"], castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" };
 const STAGES = [
-  // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔野", reading:"まや", menu:{ tag:"荒野", thumb:"plain_bg.jpg" }, art:{ seed:20260921, bg:"plain_bg.jpg", ground:["plain_ground.png","plain_ground.jpg"], castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
+  // ---- 第一戦線：何も知らない者の、初めての戦。真ん中の1戦列だけ、味方は戍卒だけ、敵は餓鬼だけ。約3分 ----
+  { id:"plain", name:"魔野", reading:"まや", menu:{ tag:"初陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+    intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。",
+    lanes:[2], units:{ foot:["soldier"] },
+    enemyCastleHp:1500, playerCastleHp:3000, startCorpse:1000, corpseGainRate:1.0,
+    guide:[
+      { t:0.5, dur:60, untilDeploy:true, pulse:"soldier", text:"「戍卒」の札を押し、兵を呼べ" },
+      { t:14, dur:8, text:"鬼が寄せ来る。戍卒に迎え撃たせよ" },
+      { t:38, dur:9, text:"倒れし者の屍が、次の兵を呼ぶ糧となる" },
+      { t:80, dur:9, text:"鬼を退けつつ、敵の城へ迫れ" }
+    ],
+    enemyWaves:[
+      { t:12, kind:"goblin", lane:2, msg:"鬼、寄せ来たる" },
+      { t:28, kind:"goblin", lane:2 },
+      { t:44, kind:"goblin", lane:2 },
+      { t:60, kind:"goblin", lane:2 },
+      { t:76, kind:"goblin", lane:2 },
+      { t:92, kind:"goblin", lane:2 },
+      { t:108, kind:"goblin", lane:2 },
+      { t:122, kind:"goblin", lane:2 }
+    ] },
+  // ---- 第二戦線：真ん中と両隣の3戦列。楯衛が使える。敵は餓鬼と弓鬼。楯で矢を防ぐこと、餓鬼が横へ身をかわすことを知る ----
+  { id:"bone", name:"骸原", reading:"むくろはら", menu:{ tag:"二陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+    intro:"斃れし者の骸、野に連なる。鬼の弓、闇より矢を放つ。",
+    lanes:[1,2,3], units:{ foot:["soldier","shieldman"] },
+    enemyCastleHp:2200, playerCastleHp:5000, startCorpse:1000, corpseGainRate:1.0, castleDmgTaken:{ player:0.7 },
+    guide:[
+      { t:0.5, dur:9, text:"戦列は三つ。鬼の来る戦列へ、兵を送れ" },
+      { t:30, dur:10, pulse:"shieldman", text:"弓鬼の矢は、「楯衛」を前に立てて防げ" },
+      { t:54, dur:10, text:"餓鬼は、横の戦列へ身をかわす。逃さず追え" }
+    ],
+    enemyWaves:[
+      { t:8, kind:"goblin", lane:2, msg:"鬼、寄せ来たる" },
+      { t:20, kind:"goblin", lane:1 },
+      { t:31, kind:"goblin", lane:3 },
+      { t:42, kind:"archer", lane:2, msg:"弓鬼、現る" },
+      { t:49, kind:"goblin", lane:2 },
+      { t:56, kind:"goblin", lane:1 },
+      { t:65, kind:"archer", lane:1 },
+      { t:71, kind:"goblin", lane:3 },
+      { t:76, kind:"goblin", lane:2 },
+      { t:85, kind:"archer", lane:3 },
+      { t:92, kind:"goblin", lane:1 },
+      { t:99, kind:"goblin", lane:2 },
+      { t:105, kind:"archer", lane:2 },
+      { t:112, kind:"goblin", lane:3 },
+      { t:119, kind:"goblin", lane:1 },
+      { t:126, kind:"archer", lane:1 },
+      { t:133, kind:"goblin", lane:2 },
+      { t:139, kind:"goblin", lane:3 },
+      { t:146, kind:"archer", lane:3 },
+      { t:153, kind:"goblin", lane:2 }
+    ] },
+  // ---- 第三戦線：全5戦列、自分の布陣。役職・鬼獣・大鬼を含む、長い戦(旧・魔野) ----
+  { id:"plain3", name:"鬼哭野", reading:"きこくの", menu:{ tag:"荒野", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+    intro:"鬼の哭く声、風に乗りて聞こゆ。押し寄せる群は、いよいよ厚し。", enemyCastleHp:6000, playerCastleHp:6000,
   // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
   // 城も硬くして、10分ほどで決着がつくようにした(簡易な自動プレイで、約7分で勝てる強さ)。
   startCorpse:1000, corpseGainRate:1.0,
@@ -2054,6 +2128,12 @@ const state = {
   formationCategory: "all",
   stage: null
 };
+// 制した戦線の記録(端末に保存する。保存できない環境では、その場かぎり)
+const PROGRESS_KEY = "shijoSenkiCleared";
+function loadCleared(){ try { return new Set(JSON.parse(localStorage.getItem(PROGRESS_KEY) || "[]")); } catch (e) { return new Set(); } }
+function saveCleared(){ try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(Array.from(state.cleared))); } catch (e) {} }
+state.cleared = loadCleared();
+function stageUnlocked(i){ return i === 0 || state.cleared.has(STAGES[i - 1].id); }
 // 上官の指定が、いまの役職・キャラの状態と合っているかを確認して、合わないものは外す
 function sanitizeFormation(){
   const slots = state.formationSlots;
@@ -2317,50 +2397,53 @@ function buildUnitGrid(){
 function buildStageScreen(){
   const list = document.getElementById("stage-list");
   list.innerHTML = "";
-  STAGES.forEach(stage => {
+  STAGES.forEach((stage, idx) => {
     const art = stage.art || {};
     const menu = stage.menu || {};
+    const open = stageUnlocked(idx);
     const card = document.createElement("div");
-    card.className = "stage-card";
+    card.className = "stage-card" + (open ? "" : " locked");
     const thumb = menu.thumb || art.bg;
+    const nLanes = stage.lanes ? stage.lanes.length : GRID_LANES;
     card.innerHTML = `
       <div class="sc-thumb"><div class="sc-img"></div><div class="sc-shade"></div><div class="sc-tag">${menu.tag || "戦線"}</div></div>
       <div class="sc-body">
         <div class="sc-name">${stage.name}</div>
         <div class="sc-read">${stage.reading || ""}</div>
         <div class="title-orn"><i></i><b>◆</b><i></i></div>
-        <div class="sc-intro">${stage.intro || ""}</div>
-        <div class="sc-stats"><span>敵城<b>${stage.enemyCastleHp}</b></span><span>自城<b>${stage.playerCastleHp}</b></span></div>
+        <div class="sc-intro">${open ? (stage.intro || "") : "先の戦線を制せば、道は開く。"}</div>
+        <div class="sc-stats"><span>戦列<b>${nLanes}</b></span><span>敵城<b>${stage.enemyCastleHp}</b></span><span>自城<b>${stage.playerCastleHp}</b></span></div>
       </div>
-      <button class="primary btn-forge sm">出撃</button>
+      <button class="${open ? "primary " : ""}btn-forge sm"${open ? "" : " disabled"}>${open ? "出撃" : "封"}</button>
     `;
     if (thumb) card.querySelector(".sc-img").style.backgroundImage = "url(" + STAGE_ART_BASE + thumb + ")";
     const nameEl = card.querySelector(".sc-name");
     nameEl.dataset.reading = stage.reading || "";
-    nameEl.dataset.desc = stage.intro || "";
-    card.querySelector("button").addEventListener("click", () => {
+    nameEl.dataset.desc = open ? (stage.intro || "") : "";
+    if (open) card.querySelector("button").addEventListener("click", () => {
       state.stage = stage;
       startBattle(stage);
     });
     list.appendChild(card);
   });
   // 未踏の戦線(今後、戦線が増えたときの枠)
-  for (let i = 0; i < 2; i++){
-    const lk = document.createElement("div");
-    lk.className = "stage-card locked";
-    lk.innerHTML = `
-      <div class="sc-thumb"><div class="sc-shade"></div></div>
-      <div class="sc-body">
-        <div class="sc-name">未踏</div>
-        <div class="sc-read">みとう</div>
-        <div class="title-orn"><i></i><b>◆</b><i></i></div>
-        <div class="sc-intro">いまだ、兵の踏み入れざる地。</div>
-      </div>
-      <button disabled class="btn-forge sm">封</button>
-    `;
-    list.appendChild(lk);
-  }
+  const lk = document.createElement("div");
+  lk.className = "stage-card locked";
+  lk.innerHTML = `
+    <div class="sc-thumb"><div class="sc-shade"></div></div>
+    <div class="sc-body">
+      <div class="sc-name">未踏</div>
+      <div class="sc-read">みとう</div>
+      <div class="title-orn"><i></i><b>◆</b><i></i></div>
+      <div class="sc-intro">いまだ、兵の踏み入れざる地。</div>
+    </div>
+    <button disabled class="btn-forge sm">封</button>
+  `;
+  list.appendChild(lk);
 }
+document.getElementById("btn-unlock-all").addEventListener("click", () => {
+  STAGES.forEach(st => state.cleared.add(st.id)); saveCleared(); buildStageScreen();
+});
 
 /* =========================================================
    メニュー画面の背景(タイトル・布陣・戦線選択・結果)
@@ -2613,6 +2696,71 @@ function buildStageArt(stage){
   });
 }
 
+
+/* =========================================================
+   戦線の規則：使える戦列・使える兵・導き
+   ========================================================= */
+function applyStageLanes(stage){
+  const field = document.getElementById("battlefield");
+  field.querySelectorAll(".lane-block").forEach(e => e.remove());
+  const allowed = stage.lanes || null;
+  const box = document.getElementById("lane-buttons");
+  Array.from(box.children).forEach(b => {
+    if (b.id === "lane-all-btn") b.style.display = (allowed && allowed.length <= 1) ? "none" : "";
+    else b.style.display = (allowed && allowed.indexOf(Number(b.dataset.lane)) === -1) ? "none" : "";
+  });
+  if (!allowed) return;
+  if (allowed.length === 1) battle.selectedLanes = new Set(allowed); // 戦列が1つなら、最初から選んでおく
+  const ok = k => allowed.indexOf(k) !== -1;
+  for (let k = 0; k < GRID_LANES; ){
+    if (ok(k)){ k++; continue; }
+    let j = k; while (j + 1 < GRID_LANES && !ok(j + 1)) j++;
+    const d = document.createElement("div"); d.className = "lane-block";
+    const top = STAGE_H - GRID_GROUND - GRID_CELL * (j + 1);
+    const h = GRID_CELL * (j - k + 1) + (k === 0 ? GRID_GROUND : 0);
+    d.style.top = top + "px"; d.style.height = h + "px";
+    const fadeTop = j + 1 < GRID_LANES && ok(j + 1), fadeBottom = k - 1 >= 0 && ok(k - 1);
+    const dk = "rgba(5,3,3,.86)";
+    d.style.background = "linear-gradient(180deg," + (fadeTop ? "rgba(5,3,3,0)" : dk) + " 0," + dk + " 26px," + dk + " calc(100% - 26px)," + (fadeBottom ? "rgba(5,3,3,0)" : dk) + " 100%)";
+    field.appendChild(d);
+    k = j + 1;
+  }
+  // 城壁の門も、使えない戦列は闇に沈める
+  field.querySelectorAll(".castle").forEach(c => {
+    const gates = c.querySelectorAll(".w-gate");
+    gates.forEach((g, idx) => { if (!ok(idx)) g.classList.add("off"); });
+  });
+}
+// この戦線で使える兵だけを、布陣にする(戦闘が終わったら、元の布陣に戻す)
+function applyStageUnits(stage){
+  restoreFormation();
+  if (!stage.units) return;
+  state._backup = { slots: JSON.parse(JSON.stringify(state.formationSlots)), morale: state.moraleRole };
+  const slots = makeEmptySlots();
+  for (const role in stage.units){ let i = 0; slots.forEach(sl => { if (sl.role === role && i < stage.units[role].length) sl.kind = stage.units[role][i++]; }); }
+  state.formationSlots = slots; state.moraleRole = null;
+  syncSelectedUnits();
+}
+function restoreFormation(){
+  if (!state._backup) return;
+  state.formationSlots = state._backup.slots; state.moraleRole = state._backup.morale; state._backup = null;
+  syncSelectedUnits();
+}
+// 導き：戦闘の時間に合わせて、上に短い文を出す
+function updateGuide(){
+  const el = document.getElementById("guide-bar"); if (!el || !battle) return;
+  const g = battle.stage && battle.stage.guide;
+  let act = null;
+  if (g && !battle.ended){
+    const t = battle.time, deployed = battle.roleUsed && Object.keys(battle.roleUsed).length > 0;
+    g.forEach(e => { if (t >= e.t && (e.untilDeploy ? !deployed : t < e.t + e.dur)) act = e; });
+  }
+  if (battle._guideCur === act) return;
+  battle._guideCur = act;
+  if (act){ el.textContent = act.text; el.classList.add("on"); } else el.classList.remove("on");
+  document.querySelectorAll(".deploy-btn").forEach(b => b.classList.toggle("guide-pulse", !!act && act.pulse === b.dataset.kind));
+}
+
 function startBattle(stage){
   roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
   const spb = document.getElementById("btn-speed"); if (spb) spb.textContent = "×1";
@@ -2624,6 +2772,7 @@ function startBattle(stage){
   field.querySelectorAll(".fx-sprite").forEach(el => el.remove());
 
   document.getElementById("stage-name-plate").textContent = stage.name;
+  applyStageUnits(stage);
   buildStageArt(stage);
 
   battle = {
@@ -2649,6 +2798,7 @@ function startBattle(stage){
   };
 
   updateCastleBars();
+  applyStageLanes(stage);
   buildDeployRow();
   buildDebugPanel();
   updateLaneButtons();
@@ -3571,7 +3721,15 @@ function getFlagSource(unit){
 // 敵城に与えるダメージの倍率(旗バフ)
 function getCastleDamageMult(unit){
   const src = getFlagSource(unit);
-  return src ? src.def.flagCastleAtkMult : 1;
+  return (src ? src.def.flagCastleAtkMult : 1) * castleTakenScale(unit.side);
+}
+// 戦線ごとの調整：城が受けるダメージの倍率。stage.castleDmgTaken = { player:自城が受ける, enemy:敵城が受ける }。省略は1倍。
+// 最初の戦線(魔野)は、まだ不慣れでも押し切られないよう、自城が受けるダメージを減らしている
+function castleTakenScale(attackerSide){
+  const t = battle && battle.stage && battle.stage.castleDmgTaken;
+  if (!t) return 1;
+  const v = attackerSide === "player" ? t.enemy : t.player; // 攻撃した側の反対が、城を殴られる側
+  return v != null ? v : 1;
 }
 
 // 特殊モーション：鼓舞を受けた瞬間に発動。ステージ上の味方ゴブリン族全員(自身も)に
@@ -4468,6 +4626,12 @@ function defaultLane(){
 }
 function laneFloor(l){ return GRID_GROUND + l * GRID_CELL; }
 function laneZ(u){ return 10 + (GRID_LANES - u.laneLo) * 10; } // 手前(下)のレーンほど前に描く
+// 戦線で使える戦列(stage.lanes)。省略なら全5戦列。回避・レーン移動・戦列の選択は、使える戦列の中だけ
+function laneAllowed(l){
+  if (l < 0 || l >= GRID_LANES) return false;
+  const a = battle && battle.stage && battle.stage.lanes;
+  return !a || a.indexOf(l) !== -1;
+}
 function clampLaneForSpan(lane, span){
   if (span >= 3) return Math.max(1, Math.min(GRID_LANES - 2, lane));
   if (span === 2) return Math.max(0, Math.min(GRID_LANES - 2, lane));
@@ -4586,6 +4750,7 @@ function shiftUnitLane(unit, delta){
   const span = unit.def.laneSpan || 1;
   const newLo = unit.laneLo + delta;
   if (newLo < 0 || newLo + span - 1 > GRID_LANES - 1) return false;
+  for (let l = newLo; l < newLo + span; l++) if (!laneAllowed(l)) return false; // 使えない戦列へは動けない
   const g = laneGeom(unit.def, unit.lane + delta);
   unit.laneTween = { fromB: unit.baseB, toB: g.baseB, toLane: g.lane, t: 0, dur: 350, first: false };
   unit.el.style.zIndex = String(Math.max(laneZ(unit), 10 + (GRID_LANES - g.lo) * 10));
@@ -4594,7 +4759,7 @@ function shiftUnitLane(unit, delta){
 
 // 回避：上下どちらかの隣のレーンへランダムに(壁ならもう一方へ。両方が壁なら回避できない)
 function startLaneDodge(unit){
-  const opts = [unit.lane + 1, unit.lane - 1].filter(l => l >= 0 && l < GRID_LANES);
+  const opts = [unit.lane + 1, unit.lane - 1].filter(l => laneAllowed(l));
   if (!opts.length) return false;
   const to = opts[Math.floor(Math.random() * opts.length)];
   unit.dodgeUsed = true;
@@ -5588,11 +5753,11 @@ function updateCharge(unit, dtMs){
     }
   } else {
     if (unit.side === "player"){
-      battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - dmg);
+      battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - dmg * castleTakenScale("player"));
       updateCastleBars();
       if (battle.enemyCastleHp <= 0) endBattle(true);
     } else {
-      battle.playerCastleHp = Math.max(0, battle.playerCastleHp - dmg);
+      battle.playerCastleHp = Math.max(0, battle.playerCastleHp - dmg * castleTakenScale("enemy"));
       updateCastleBars();
       if (battle.playerCastleHp <= 0) endBattle(false);
     }
@@ -6191,6 +6356,7 @@ function battleLoop(now){
 }
 
 function battleStep(dt){
+  updateGuide();
   // 屍は時間では増えない(倒れたユニットのときだけ増える)ので、ここでは何もためない
 
   updateCommands(dt); // 軍令の終了判定・クールタイム・強化のフラグ
@@ -6350,6 +6516,9 @@ function endBattle(win, instant){
   if (!battle || battle.ended) return;
   battle.ended = true;
   const b = battle;
+  if (win && b.stage && b.stage.id){ state.cleared.add(b.stage.id); saveCleared(); } // 制した戦線を覚える
+  restoreFormation();
+  updateGuide();
   const showResult = () => {
     if (battle !== b) return; // その間に別の戦闘に入っていたら出さない
     const resultScreen = document.getElementById("screen-result");
@@ -6733,7 +6902,7 @@ document.getElementById("battlefield").addEventListener("click", e => {
   closeUnitInfo();
   // 何もない所をタップ：その戦列を、選ぶ・解除する(複数選べる)
   const lane = Math.floor((STAGE_H - GRID_GROUND - p.ly) / GRID_CELL);
-  if (lane < 0 || lane >= GRID_LANES) return;
+  if (lane < 0 || lane >= GRID_LANES || !laneAllowed(lane)) return;
   if (battle.selectedLanes.has(lane)) battle.selectedLanes.delete(lane); else battle.selectedLanes.add(lane);
   updateLaneButtons();
 });
@@ -6881,8 +7050,9 @@ function buildLaneButtons(){
   all.dataset.reading = "ぜんせんれつ";
   all.addEventListener("click", () => {
     if (!battle) return;
-    if (battle.selectedLanes.size >= GRID_LANES) battle.selectedLanes.clear();
-    else for (let k = 0; k < GRID_LANES; k++) battle.selectedLanes.add(k);
+    const al = allowedLaneList();
+    if (battle.selectedLanes.size >= al.length) battle.selectedLanes.clear();
+    else al.forEach(k => battle.selectedLanes.add(k));
     updateLaneButtons();
   });
   box.appendChild(all);
@@ -6920,7 +7090,8 @@ function updateLaneBands(){
       band.style.bottom = laneFloor(k) + "px";
       field.appendChild(band);
     }
-    band.classList.toggle("on", !!battle && battle.selectedLanes.has(k));
+    const single = !!(battle && battle.stage && battle.stage.lanes && battle.stage.lanes.length <= 1); // 戦列が1つだけの戦線では、帯を光らせない
+    band.classList.toggle("on", !!battle && !single && battle.selectedLanes.has(k));
   }
 }
 function updateLaneButtons(){
@@ -6930,12 +7101,13 @@ function updateLaneButtons(){
   if (!box) return;
   Array.from(box.children).forEach(b => {
     if (b.id === "lane-all-btn"){
-      b.classList.toggle("selected", !!battle && battle.selectedLanes.size >= GRID_LANES);
+      b.classList.toggle("selected", !!battle && battle.selectedLanes.size >= allowedLaneList().length);
       return;
     }
     b.classList.toggle("selected", !!battle && battle.selectedLanes.has(Number(b.dataset.lane)));
   });
 }
+function allowedLaneList(){ const r = []; for (let k = 0; k < GRID_LANES; k++) if (laneAllowed(k)) r.push(k); return r; }
 function flashLaneButtons(){
   const box = document.getElementById("lane-buttons");
   box.classList.remove("flash");
