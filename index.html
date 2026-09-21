@@ -69,7 +69,7 @@
   .unit-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:10px; flex:1; align-content:start; overflow-y:auto; }
 
   .formation-slots{
-    display:flex; gap:8px; padding:10px; overflow-x:auto; flex-shrink:0;
+    display:flex; gap:14px; padding:8px 10px; overflow-x:auto; flex-shrink:0;
     background:#0d0c09; border:1px solid var(--line); margin-bottom:12px;
   }
   .formation-slot{
@@ -79,8 +79,12 @@
   .formation-slot img{ width:100%; height:100%; object-fit:cover; display:block; }
   .formation-slot.empty{
     display:flex; align-items:center; justify-content:center;
-    color:var(--text-dim); font-size:1.3rem; border-style:dashed; cursor:default;
+    color:var(--text-dim); font-size:1.3rem; border-style:dashed; cursor:pointer;
   }
+  .formation-slot.active{ border-color:var(--gold); box-shadow:0 0 8px rgba(240,207,106,.75); }
+  .formation-group{ display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+  .formation-group .role-label{ font-size:.62rem; color:var(--gold); letter-spacing:.1em; white-space:nowrap; }
+  .formation-group .role-row{ display:flex; gap:6px; }
   .formation-slot .cost-tag{
     position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.75);
     font-size:.55rem; font-family:monospace; color:var(--gold); text-align:center;
@@ -113,7 +117,7 @@
   .unit-card .icon-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
   .unit-card .icon-fallback{ font-family:'Yu Gothic',sans-serif; font-size:.8rem; color:var(--text-dim); }
   .unit-card .name{ font-size:.78rem; font-family:'Yu Gothic',sans-serif; }
-  .unit-card .cost{ font-size:.72rem; color:var(--rust); font-family:monospace; }
+  .unit-card .cost{ font-size:.72rem; color:#b48ce8; font-family:monospace; }
   .unit-card .rank-tag{
     position:absolute; top:2px; left:2px; font-size:.55rem; padding:1px 4px;
     background:rgba(0,0,0,.5); color:var(--text-dim); font-family:'Yu Gothic',sans-serif;
@@ -161,7 +165,7 @@
   .hpbar .num{ font-size:.6rem; font-family:monospace; color:var(--text-dim); width:52px; flex-shrink:0; }
 
   #top-right-money{ flex:0 0 auto; text-align:right; padding:2px 4px; }
-  #top-right-money .money-num{ font-family:monospace; font-size:1.05rem; color:var(--gold); line-height:1.1; }
+  #top-right-money .money-num{ font-family:monospace; font-size:1.25rem; color:#c9a6ff; line-height:1.1; }
   #top-right-money .money-cap{ font-size:.6rem; color:var(--text-dim); }
 
   /* ステージ：ゲーム内の広さは固定(STAGE_W x STAGE_H = 2000 x 600)で、画面の大きさに合わせて縮小して表示する。
@@ -193,6 +197,32 @@
   #reading-tip{ position:fixed; z-index:99999; left:0; top:0; pointer-events:none; opacity:0; transition:opacity .15s;
     background:rgba(0,0,0,.94); color:#f0cf6a; border:1px solid #8a6a1e; border-radius:6px; padding:10px 18px 8px; font-size:1.25rem; line-height:1.9; white-space:nowrap; }
   #reading-tip rt{ font-size:.5em; color:#e8dcb0; }
+  /* 役職のオーラ(総大将は、屍が立ちのぼる禍々しいオーラ) */
+  .role-aura{ position:absolute; left:50%; bottom:-6%; width:260%; height:150%; transform:translateX(-50%); z-index:-1; pointer-events:none; }
+  .role-aura i, .role-aura img{ position:absolute; pointer-events:none; }
+  .role-general .glow{ inset:0; background:radial-gradient(ellipse at 50% 78%, rgba(160,20,110,.62) 0%, rgba(80,10,120,.46) 30%, rgba(20,0,30,0) 68%); animation:auraPulse 1.5s ease-in-out infinite; }
+  .role-general .mist{ bottom:6%; width:38%; height:78%; background:radial-gradient(ellipse at 50% 62%, rgba(70,0,90,.62), rgba(0,0,0,0) 70%); filter:blur(3px); opacity:0; animation:mistRise 3.4s linear infinite; }
+  .role-general .m1{ left:8%; } .role-general .m2{ left:31%; animation-delay:1.1s; } .role-general .m3{ left:54%; animation-delay:2.2s; }
+  .role-general .skull{ bottom:10%; width:11%; opacity:0; filter:drop-shadow(0 0 4px rgba(190,60,230,.9)); animation:skullRise 3.6s ease-in infinite; }
+  .role-general .s0{ left:14%; animation-delay:0s; } .role-general .s1{ left:26%; animation-delay:.6s; } .role-general .s2{ left:38%; animation-delay:1.3s; }
+  .role-general .s3{ left:50%; animation-delay:1.9s; } .role-general .s4{ left:62%; animation-delay:2.5s; } .role-general .s5{ left:74%; animation-delay:.9s; } .role-general .s6{ left:44%; animation-delay:3s; }
+  .role-elder .ring, .role-captain .ring, .role-chief .ring{ left:22%; right:22%; bottom:4%; height:16%; border-radius:50%; animation:auraPulse 2s ease-in-out infinite; }
+  .role-elder .ring{ border:2px solid rgba(220,220,235,.75); box-shadow:0 0 9px rgba(220,220,235,.55); }
+  .role-captain .ring{ border:2px solid rgba(224,88,74,.85); box-shadow:0 0 9px rgba(224,88,74,.6); }
+  .role-chief .ring{ border:2px solid rgba(90,180,200,.85); box-shadow:0 0 9px rgba(90,180,200,.6); }
+  @keyframes auraPulse{ 0%,100%{ opacity:.7; transform:scale(1); } 50%{ opacity:1; transform:scale(1.07); } }
+  @keyframes mistRise{ 0%{ transform:translateY(25%) scale(.8); opacity:0; } 30%{ opacity:.95; } 100%{ transform:translateY(-95%) scale(1.35); opacity:0; } }
+  @keyframes skullRise{ 0%{ transform:translateY(0) scale(.7); opacity:0; } 15%{ opacity:.9; } 100%{ transform:translateY(-230%) scale(1.2) rotate(9deg); opacity:0; } }
+  /* 役職の告知 */
+  #role-banner-layer{ position:fixed; left:0; right:0; top:26%; z-index:99990; pointer-events:none; text-align:center; }
+  .role-banner{ display:block; margin:0 auto 6px; width:fit-content; color:#f0cf6a; letter-spacing:.35em; white-space:nowrap; opacity:0;
+    background:linear-gradient(90deg, rgba(20,0,10,0), rgba(24,0,16,.92) 18%, rgba(24,0,16,.92) 82%, rgba(20,0,10,0));
+    border-top:1px solid #8a6a1e; border-bottom:1px solid #8a6a1e; text-shadow:0 0 14px rgba(170,50,220,.95); }
+  .role-banner.big{ font-size:1.7rem; padding:10px 60px; animation:bannerBig 2.6s ease forwards; }
+  .role-banner.small{ font-size:.85rem; padding:3px 26px; animation:bannerSmall 1.8s ease forwards; }
+  .role-banner.enemy{ color:#ff7a68; text-shadow:0 0 14px rgba(255,60,40,.95); border-color:#8a2a1e; }
+  @keyframes bannerBig{ 0%{ opacity:0; transform:scale(1.5); } 12%{ opacity:1; transform:scale(1); } 80%{ opacity:1; } 100%{ opacity:0; } }
+  @keyframes bannerSmall{ 0%{ opacity:0; transform:translateY(6px); } 15%{ opacity:1; transform:none; } 80%{ opacity:1; } 100%{ opacity:0; } }
   #grid-toggle{ position:absolute; right:92px; top:8px; z-index:6; font-size:.62rem; padding:8px 10px; color:var(--text-dim); }
   #ground-line{ position:absolute; left:0; right:0; bottom:74px; height:2px; background-color:#000000; }
 
@@ -231,23 +261,14 @@
     display:flex; align-items:center; gap:10px; padding:8px 10px;
     background:linear-gradient(0deg, rgba(10,9,6,.95), rgba(10,9,6,.7) 85%, transparent);
   }
-  #wallet-widget{
-    flex:0 0 auto; background:rgba(20,18,12,.85); border:1px solid var(--line);
-    padding:6px 10px; min-width:108px;
-    clip-path:polygon(8px 0,100% 0,100% 100%,0 100%,0 8px);
-  }
-  #wallet-widget .lv-label{ font-size:.62rem; color:var(--gold); }
-  #wallet-widget .rate{ font-size:.58rem; color:var(--text-dim); margin-bottom:4px; }
-  #wallet-widget .bar{ height:5px; background:#0a0906; border:1px solid var(--line-dim); border-radius:1px; overflow:hidden; margin-bottom:4px; }
-  #wallet-widget .bar i{ display:block; height:100%; background:var(--rust); }
-  #wallet-widget button{ width:100%; font-size:.62rem; padding:4px 0; }
 
   #deploy-row{ flex:1; display:flex; gap:8px; overflow-x:auto; padding:2px 0; }
   .deploy-btn{ position:relative; width:56px; height:56px; padding:0; border-radius:2px; overflow:hidden; flex-shrink:0; border:1px solid var(--line); }
   .deploy-btn img{ width:100%; height:100%; object-fit:cover; display:block; }
   .deploy-btn .icon-fallback{ display:flex; align-items:center; justify-content:center; width:100%; height:100%; background:#050504; color:var(--text-dim); font-size:.68rem; }
-  .deploy-btn .cost-tag{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.75); font-size:.6rem; font-family:monospace; color:var(--gold); text-align:center; }
+  .deploy-btn .cost-tag{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.75); font-size:.6rem; font-family:monospace; color:#c9a6ff; text-align:center; }
   .deploy-btn:disabled .cost-tag{ color:var(--text-dim); }
+  .deploy-btn .role-tag{ position:absolute; top:2px; right:2px; font-size:.55rem; background:rgba(138,106,30,.92); color:#fff; padding:1px 3px; border-radius:2px; }
   .deploy-btn .cost-tag.corpse, .formation-slot .cost-tag.corpse{ color:#c9a6ff; } /* 屍で招集するキャラの値段は紫 */
   .unit-card .cost.corpse{ color:#b48ce8; }
   #top-right-money .corpse-num{ font-family:monospace; font-size:.85rem; color:#c9a6ff; line-height:1.1; margin-top:2px; }
@@ -323,9 +344,7 @@
         </div>
       </div>
       <div id="top-right-money">
-        <div class="money-num" id="money-num" data-rname="銭" data-reading="せん">0銭</div>
-        <div class="money-cap" id="money-cap">上限1500銭</div>
-        <div class="corpse-num" id="corpse-num" data-rname="屍" data-reading="しかばね">屍 0</div>
+        <div class="money-num" id="corpse-num" data-rname="屍" data-reading="しかばね">屍 0</div>
       </div>
     </div>
 
@@ -338,8 +357,7 @@
       <button id="grid-toggle" data-rname="区画表示" data-reading="くかくひょうじ">区画表示: 有</button>
       <button id="debug-tab">動作確認</button>
       <div id="debug-panel"></div>
-      <button id="cheat-money-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000銭(検証用)</button>
-      <button id="cheat-corpse-btn" style="position:absolute;left:0;top:4px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000屍(検証用)</button>
+      <button id="cheat-corpse-btn" style="position:absolute;left:0;top:40px;z-index:6;font-size:.62rem;padding:6px 8px;">+1000屍(検証用)</button>
       <button id="cheat-enemy-btn" style="position:absolute;left:0;top:76px;z-index:6;font-size:.62rem;padding:6px 8px;">敵戍卒出現(検証用)</button>
       <button id="cheat-enemy-spear-btn" style="position:absolute;left:0;top:112px;z-index:6;font-size:.62rem;padding:6px 8px;">敵鎗卒出現(検証用)</button>
       <button id="cheat-enemy-shield-btn" style="position:absolute;left:0;top:148px;z-index:6;font-size:.62rem;padding:6px 8px;">敵楯衛出現(検証用)</button>
@@ -356,12 +374,6 @@
     </div><!-- /battlefield-frame -->
 
     <div id="battle-bottombar">
-      <div id="wallet-widget">
-        <div class="lv-label" id="wallet-lv-label" data-rname="軍資" data-reading="ぐんし">軍資Lv0</div>
-        <div class="rate" id="wallet-rate-label">30銭/秒</div>
-        <div class="bar"><i id="money-bar" style="width:0%"></i></div>
-        <button id="wallet-upgrade-btn">強化(600銭)</button>
-      </div>
       <div id="deploy-row"></div>
       <div id="reserved-space"></div>
     </div>
@@ -1527,14 +1539,6 @@ const STAGES = [
 /* =========================================================
    3. 財布レベル(所持金)テーブル
    ========================================================= */
-const WALLET_LEVELS = [
-  { level:0, rate:30,  cap:1500,  upgradeCost:600   },
-  { level:1, rate:50,  cap:3000,  upgradeCost:1200  },
-  { level:2, rate:80,  cap:6000,  upgradeCost:2400  },
-  { level:3, rate:130, cap:12000, upgradeCost:4800  },
-  { level:4, rate:200, cap:25000, upgradeCost:10000 },
-  { level:5, rate:300, cap:50000, upgradeCost:null  }
-];
 
 /* =========================================================
    4. 画面遷移
@@ -1549,11 +1553,56 @@ function showScreen(id){
 /* =========================================================
    5. 編成画面
    ========================================================= */
+// 布陣の役職(名前は仮)。布陣は10枠で、役職ごとの枠数が決まっている。役職に就けるのも、空けておくのも自由。
+// limit: 招集の制限。perBattle=1試合に出せる回数、alive=同時に戦場にいられる数(1種類のキャラごと)
+// 効果(数値は仮)：
+//  総大将 … 自分のHPが増える。生きている間、毎秒 corpsePerSec の屍を生む。倒れると、味方全員が shakenMs の間、攻撃が shakenAtkMult 倍になる。禍々しい屍のオーラをまとう
+//  宿老   … 自分の戦列と上下1つの戦列の、半径 auraRadius 以内の味方の、被ダメージが auraDmgMult 倍になる
+//  部隊長 … 自分と同じ戦列の、半径 auraRadius 以内の味方の、移動速度が auraSpeedMult 倍になる
+//  組頭   … 自分のHPと攻撃が、それぞれ selfHpMult・selfAtkMult 倍になる
+//  big=true の役職は、出現・討死のときに、画面に大きく告知が出る
+const FORMATION_ROLES = [
+  { id: "general", label: "総大将", short: "総", reading: "そうだいしょう", count: 1, limit: { perBattle: 1 }, big: true,
+    hpMult: 1.5, corpsePerSec: 2, shakenAtkMult: 0.9, shakenMs: 30000 },
+  { id: "elder",   label: "宿老",   short: "宿", reading: "しゅくろう",     count: 1, limit: { alive: 1 }, big: true,
+    auraDmgMult: 0.9, auraRadius: 300 },
+  { id: "captain", label: "部隊長", short: "隊", reading: "ぶたいちょう",   count: 2, limit: { alive: 2 }, big: false,
+    auraSpeedMult: 1.15, auraRadius: 300 },
+  { id: "chief",   label: "組頭",   short: "組", reading: "くみがしら",     count: 2, limit: { alive: 2 }, big: false,
+    selfHpMult: 1.15, selfAtkMult: 1.15 },
+  { id: "foot",    label: "歩兵",   short: "",   reading: "ほへい",         count: 4, limit: null }
+];
+function roleCfg(id){ return FORMATION_ROLES.find(r => r.id === id) || null; }
+const MAX_FORMATION = FORMATION_ROLES.reduce((a, r) => a + r.count, 0); // 布陣できる数の上限(=枠の数)
+
+function makeEmptySlots(){
+  const slots = [];
+  FORMATION_ROLES.forEach(r => { for (let i = 0; i < r.count; i++) slots.push({ role: r.id, kind: null }); });
+  return slots;
+}
 const state = {
-  selectedUnits: ["soldier", "spearman", "shieldman", "arquebusier", "goblin", "drummerGoblin", "catapult", "trapper", "archer", "bruteGoblin"], // 初期の布陣(MAX_FORMATION体まで)
+  formationSlots: makeEmptySlots(),  // 10枠。それぞれ {role, kind}
+  selectedUnits: [],                 // 枠の順に並べた、布陣しているキャラ(枠から自動で作る)
+  activeSlot: null,                  // 布陣画面で、いま選んでいる枠
   formationCategory: "all",
   stage: null
 };
+function syncSelectedUnits(){ state.selectedUnits = state.formationSlots.filter(sl => sl.kind).map(sl => sl.kind); }
+function setDefaultFormation(){
+  const slots = makeEmptySlots();
+  const place = (role, kinds) => { let i = 0; slots.forEach(sl => { if (sl.role === role && i < kinds.length) sl.kind = kinds[i++]; }); };
+  place("elder",   ["drummerGoblin"]);
+  place("captain", ["bruteGoblin", "catapult"]);
+  place("chief",   ["goblin", "trapper"]);
+  place("foot",    ["soldier", "spearman", "shieldman", "arquebusier"]);
+  state.formationSlots = slots;
+  syncSelectedUnits();
+}
+setDefaultFormation();
+function roleOfKind(kind){
+  const sl = state.formationSlots.find(x => x.kind === kind);
+  return sl ? sl.role : "foot";
+}
 
 const FORMATION_CATEGORIES = [
   { id: "all",    label: "全" },
@@ -1572,9 +1621,6 @@ function getDeployCost(def){
   return total;
 }
 
-// 布陣(編成)できる数の上限
-const MAX_FORMATION = 10;
-
 // 画面の上に短い案内を出す(布陣の上限など)
 let toastTimer = null;
 function showToast(text){
@@ -1592,42 +1638,63 @@ function showToast(text){
 }
 
 function buildFormationScreen(){
-  state.selectedUnits = state.selectedUnits.filter(k => k !== "hound"); // 魔獣は単体編成不可(テイマーに付随)
+  // 魔獣は単体編成不可(テイマーに付随)
+  state.formationSlots.forEach(sl => { if (sl.kind === "hound") sl.kind = null; });
+  syncSelectedUnits();
   buildFormationSlots();
   buildCategoryTabs();
   buildUnitGrid();
 }
 
-// 中央：現在編成に入っているユニットのスロット表示。タップすると編成から外れる
+// 上部：10枠の布陣。役職ごとに枠がまとまっている。空の枠をタップで選び、下の一覧のキャラをタップすると、その枠に入る。
+// 埋まっている枠をタップすると、キャラが外れて、その枠が選ばれる。
 function buildFormationSlots(){
   const wrap = document.getElementById("formation-slots");
   wrap.innerHTML = "";
-  state.selectedUnits.forEach((kind, i) => {
-    const def = CHAR_DEFS[kind];
-    if (!def) return;
-    const slot = document.createElement("div");
-    slot.className = "formation-slot";
-    slot.dataset.rname = def.name; slot.dataset.reading = def.reading || "";
-    slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag${currencyKey(def) === "corpse" ? " corpse" : ""}">${getDeployCost(def)}</div>`;
-    attachImgFallback(slot.querySelector("img"), def.name);
-    slot.title = def.name + "(タップで布陣から外す)";
-    slot.addEventListener("click", () => {
-      state.selectedUnits.splice(i, 1);
-      buildFormationScreen();
-    });
-    wrap.appendChild(slot);
+  let gi = 0;
+  FORMATION_ROLES.forEach(role => {
+    const group = document.createElement("div");
+    group.className = "formation-group";
+    const label = document.createElement("div");
+    label.className = "role-label";
+    label.textContent = role.label;
+    label.dataset.reading = role.reading;
+    group.appendChild(label);
+    const row = document.createElement("div");
+    row.className = "role-row";
+    for (let n = 0; n < role.count; n++, gi++){
+      const idx = gi;
+      const sl = state.formationSlots[idx];
+      const slot = document.createElement("div");
+      if (sl.kind){
+        const def = CHAR_DEFS[sl.kind];
+        slot.className = "formation-slot" + (state.activeSlot === idx ? " active" : "");
+        slot.dataset.rname = def.name; slot.dataset.reading = def.reading || "";
+        slot.innerHTML = `<img src="${def.icon}" alt="${def.name}"><div class="cost-tag corpse">${getDeployCost(def)}</div>`;
+        attachImgFallback(slot.querySelector("img"), def.name);
+        slot.addEventListener("click", () => {
+          sl.kind = null;
+          state.activeSlot = idx;
+          syncSelectedUnits();
+          buildFormationScreen();
+        });
+      } else {
+        slot.className = "formation-slot empty" + (state.activeSlot === idx ? " active" : "");
+        slot.textContent = "+";
+        slot.addEventListener("click", () => {
+          state.activeSlot = state.activeSlot === idx ? null : idx;
+          buildFormationScreen();
+        });
+      }
+      row.appendChild(slot);
+    }
+    group.appendChild(row);
+    wrap.appendChild(group);
   });
-  // 空きスロットの目安を1つ表示(上限に達したら出さない)と、現在の数
-  if (state.selectedUnits.length < MAX_FORMATION){
-    const hint = document.createElement("div");
-    hint.className = "formation-slot empty";
-    hint.textContent = "+";
-    wrap.appendChild(hint);
-  }
   const count = document.createElement("div");
   count.className = "formation-count";
   count.textContent = state.selectedUnits.length + "/" + MAX_FORMATION;
-  count.style.cssText = "align-self:center;margin-left:8px;color:var(--text-dim);font-size:.9rem;white-space:nowrap;";
+  count.style.cssText = "align-self:center;margin-left:4px;color:var(--text-dim);font-size:.9rem;white-space:nowrap;";
   wrap.appendChild(count);
 }
 
@@ -1669,13 +1736,22 @@ function buildUnitGrid(){
     `;
     attachImgFallback(card.querySelector("img"), def.name);
     card.addEventListener("click", () => {
-      const idx = state.selectedUnits.indexOf(kind);
-      if (idx === -1){
-        if (state.selectedUnits.length >= MAX_FORMATION){ showToast("布陣は" + MAX_FORMATION + "体まで"); return; } // 上限
-        state.selectedUnits.push(kind);
+      const cur = state.formationSlots.findIndex(sl => sl.kind === kind);
+      if (cur !== -1){
+        // すでに布陣しているキャラは、外す
+        state.formationSlots[cur].kind = null;
+        state.activeSlot = cur;
       } else {
-        state.selectedUnits.splice(idx, 1);
+        // 選んでいる空き枠に入れる。なければ、歩兵の空き枠、それもなければ、どこかの空き枠
+        const act = state.activeSlot;
+        let target = (act != null && state.formationSlots[act] && !state.formationSlots[act].kind) ? act : -1;
+        if (target === -1) target = state.formationSlots.findIndex(sl => !sl.kind && sl.role === "foot");
+        if (target === -1) target = state.formationSlots.findIndex(sl => !sl.kind);
+        if (target === -1){ showToast("布陣は" + MAX_FORMATION + "体まで"); return; } // 上限
+        state.formationSlots[target].kind = kind;
+        state.activeSlot = null;
       }
+      syncSelectedUnits();
       buildFormationScreen();
     });
     grid.appendChild(card);
@@ -1727,8 +1803,6 @@ function startBattle(stage){
     enemyCastleHpMax: stage.enemyCastleHp,
     playerCastleHp: stage.playerCastleHp,
     playerCastleHpMax: stage.playerCastleHp,
-    money: 0,
-    walletLevel: 0,
     units: [],
     traps: [],
     lastTick: performance.now(),
@@ -1736,7 +1810,8 @@ function startBattle(stage){
     paused: false,
     fxList: [],                    // 毎フレーム進めるエフェクト・タイマー(一時停止に連動する)
     comboDone: { player: false, enemy: false }, // 指輪コンボは陣営ごとに1回だけ
-    corpse: 0,                     // 屍(人間以外の召喚資金)。倒れたユニットの分だけたまり、時間では増えない
+    roleUsed: {},                  // 役職のキャラを、この試合で何体出したか(総大将は1度きり)
+    corpse: START_CORPSE,          // 屍(全キャラの召喚資金)。最初に少し持っていて、あとは倒れたユニットの分だけたまる。時間では増えない
     selectedLanes: new Set(),      // 召喚するレーン(下から0〜4)。複数選べて、選んだレーンごとに1体ずつ出る。1つも選んでいないと召喚できない
     time: 0,                       // 戦闘の経過時間(秒)
     nextWave: 0                    // 次に出す敵ウェーブの番号
@@ -1755,6 +1830,12 @@ function startBattle(stage){
 }
 
 function updateCastleBars(){
+  // 城が受けたダメージの一部が、屍になる(敵城でも自城でも)。前回からのHPの減り分を数える
+  if (battle.castlePrev){
+    const dmg = Math.max(0, battle.castlePrev.enemy - battle.enemyCastleHp) + Math.max(0, battle.castlePrev.player - battle.playerCastleHp);
+    if (dmg > 0){ battle.corpse += dmg * CASTLE_CORPSE_RATE; updateWalletUI(); }
+  }
+  battle.castlePrev = { enemy: battle.enemyCastleHp, player: battle.playerCastleHp };
   document.getElementById("enemy-hp-num").textContent =
     Math.max(0,Math.ceil(battle.enemyCastleHp)) + "/" + battle.enemyCastleHpMax;
   document.getElementById("enemy-hp-fill").style.width =
@@ -1763,6 +1844,23 @@ function updateCastleBars(){
     Math.max(0,Math.ceil(battle.playerCastleHp)) + "/" + battle.playerCastleHpMax;
   document.getElementById("player-hp-fill").style.width =
     Math.max(0, battle.playerCastleHp / battle.playerCastleHpMax * 100) + "%";
+}
+
+function roleShort(kind){
+  const r = FORMATION_ROLES.find(x => x.id === roleOfKind(kind));
+  return r ? r.short : "";
+}
+
+// 役職による招集の制限：あと何体まで出せるか。総大将は1試合に1回、宿老は同時に1体、部隊長・組頭は同時に2体(1種類のキャラごと)まで
+function deployAllowance(kind){
+  const role = FORMATION_ROLES.find(x => x.id === roleOfKind(kind));
+  if (!role || !role.limit) return { max: Infinity, reason: "" };
+  if (role.limit.perBattle != null){
+    const used = (battle.roleUsed && battle.roleUsed[kind]) || 0;
+    return { max: Math.max(0, role.limit.perBattle - used), reason: role.label + "は、1度しか出せない" };
+  }
+  const alive = battle.units.filter(u => u.side === "player" && u.deployedKind === kind && !u.dead).length;
+  return { max: Math.max(0, role.limit.alive - alive), reason: role.label + "は、同時に" + role.limit.alive + "体まで" };
 }
 
 function buildDeployRow(){
@@ -1774,7 +1872,8 @@ function buildDeployRow(){
     btn.className = "deploy-btn";
     btn.dataset.rname = def.name; btn.dataset.reading = def.reading || "";
     btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag${currencyKey(def) === "corpse" ? " corpse" : ""}">${getDeployCost(def)}</span>` +
-      ((def.laneSpan || 1) > 1 ? `<span class="lane-tag">${def.laneSpan}戦列</span>` : "");
+      ((def.laneSpan || 1) > 1 ? `<span class="lane-tag">${def.laneSpan}戦列</span>` : "") +
+      (roleShort(kind) ? `<span class="role-tag">${roleShort(kind)}</span>` : "");
     attachImgFallback(btn.querySelector("img"), def.name);
     btn.addEventListener("click", () => tryDeploy(kind));
     row.appendChild(btn);
@@ -1782,45 +1881,25 @@ function buildDeployRow(){
   updateWalletUI();
 }
 
-function tryUpgradeWallet(){
-  const cur = WALLET_LEVELS[battle.walletLevel];
-  if (cur.upgradeCost == null) return;
-  if (battle.money < cur.upgradeCost) return;
-  battle.money -= cur.upgradeCost;
-  battle.walletLevel++;
-  updateWalletUI();
-}
-document.getElementById("wallet-upgrade-btn").addEventListener("click", tryUpgradeWallet);
 
-// 召喚の資金：人間は「銭」、人間以外(鬼・鬼獣)は「屍」で招集する。
-// 屍は、時間では増えない。敵味方を問わず、ユニットが倒れたときだけ、そのユニットの値段の CORPSE_GAIN_RATE 倍がたまる。
+
+// 召喚の資金は、全キャラ共通で「屍」だけ(銭・軍資は廃止)。
+// 屍は、時間では増えない。戦闘の開始時に START_CORPSE を持ち、あとは、敵味方を問わず、ユニットが倒れたときに、
+// そのユニットの値段の CORPSE_GAIN_RATE 倍がたまる。
+const START_CORPSE = 500;      // 最初に持っている屍(戍卒1体か、餓鬼2体ぶん)
 const CORPSE_GAIN_RATE = 0.5;
-function currencyKey(def){ return def.race === "human" ? "money" : "corpse"; }
-function currencyUnit(def){ return def.race === "human" ? "銭" : "屍"; }
+const CASTLE_CORPSE_RATE = 0.3;   // 城が受けたダメージ1につき、屍がこれだけたまる(敵城でも自城でも)
+const STARVE_GRACE_MS = 3000;     // 味方が全滅して、屍が最も安いキャラに足りない状態が、これだけ続いたら、1体ぶんの屍を与える(詰み防止)
+function currencyKey(def){ return "corpse"; }
+function currencyUnit(def){ return "屍"; }
 
 function updateWalletUI(){
   if (!battle) return;
-  const lv = WALLET_LEVELS[battle.walletLevel];
-  document.getElementById("money-num").textContent = Math.floor(battle.money) + "銭";
-  document.getElementById("money-cap").textContent = "上限" + lv.cap + "銭";
-  document.getElementById("money-bar").style.width = (battle.money / lv.cap * 100) + "%";
   document.getElementById("corpse-num").textContent = "屍 " + Math.floor(battle.corpse);
-  document.getElementById("wallet-lv-label").textContent = "軍資Lv" + battle.walletLevel;
-  document.getElementById("wallet-rate-label").textContent = lv.rate + "銭/秒";
-
-  const upBtn = document.getElementById("wallet-upgrade-btn");
-  if (lv.upgradeCost == null){
-    upBtn.textContent = "最大強化";
-    upBtn.disabled = true;
-  } else {
-    upBtn.textContent = "強化(" + lv.upgradeCost + "銭)";
-    upBtn.disabled = battle.money < lv.upgradeCost;
-  }
-
   document.querySelectorAll(".deploy-btn").forEach((btn, i) => {
     const kind = state.selectedUnits[i];
     const def = CHAR_DEFS[kind];
-    btn.disabled = battle[currencyKey(def)] < getDeployCost(def);
+    btn.disabled = battle.corpse < getDeployCost(def) || deployAllowance(kind).max <= 0;
   });
 }
 
@@ -1829,6 +1908,8 @@ function tryDeploy(kind){
   const cost = getDeployCost(def);
   const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
   if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; } // 先にレーンを選ばないと召喚できない
+  const allow = deployAllowance(kind);
+  if (allow.max <= 0){ showToast(allow.reason); return; } // 役職の制限で、いま出せない
   const span = def.laneSpan || 1;
   if (span >= 2){
     // 複数レーンを占めるキャラは、必要な数のレーンを連続で選んだときだけ、1体だけ出せる(複数同時には出せない)。
@@ -1842,9 +1923,17 @@ function tryDeploy(kind){
     const cur = currencyKey(def);
     if (battle[cur] < cost) return;
     battle[cur] -= cost;
+    const big = spawnUnit(kind, "player", 0, { lane: span >= 3 ? lanes[1] : lanes[0] });
+    big.deployedKind = kind;
+    applyRole(big, roleOfKind(kind));
+    battle.roleUsed[kind] = (battle.roleUsed[kind] || 0) + 1;
     updateWalletUI();
-    spawnUnit(kind, "player", 0, { lane: span >= 3 ? lanes[1] : lanes[0] });
     return;
+  }
+  // 役職の制限で、出せる数が選んだ戦列の数より少ないときは、下の戦列から順に、出せる数だけ出す
+  if (lanes.length > allow.max){
+    lanes.length = allow.max;
+    showToast(allow.reason);
   }
   const total = cost * lanes.length; // 1レーンのキャラは、選んだレーンの数だけ、1体(1セット)ずつ出る。値段もその分かかる
   const cur = currencyKey(def);
@@ -1853,6 +1942,9 @@ function tryDeploy(kind){
   updateWalletUI();
   lanes.forEach(lane => {
     const main = spawnUnit(kind, "player", 0, { lane });
+    main.deployedKind = kind;
+    applyRole(main, roleOfKind(kind));
+    battle.roleUsed[kind] = (battle.roleUsed[kind] || 0) + 1;
     (def.summons || []).forEach(s => {
       // 魔獣などは、両隣のレーンに1匹ずつ(壁があれば、その側の1匹は本体と同じレーン)
       const subLanes = summonLanes(main.lane, s.count);
@@ -1980,6 +2072,10 @@ function spawnUnit(kind, side, xOffset, opts){
     lane: 0, laneLo: 0, laneHi: 0, // いるレーン(下から0〜4)。laneLo〜laneHiが占有レーン
     homeLane: 0,                  // 出現したレーン(魔獣は、ここと両隣のレーンまでしか移動できない)
     baseB: 74,                    // 足元の高さ(画面の下からのpx)
+    deployedKind: null,           // プレイヤーが召喚したキャラの種類(役職の制限の数え方に使う)
+    role: null,                   // 就いている役職(general/elder/captain/chief)
+    roleAtkMult: 1,               // 役職による攻撃力の倍率(組頭)
+    shakenMs: 0,                  // 総大将が倒れたことによる動揺の残り時間(ms)。攻撃力が下がる
     needsPullBack: false,         // レーン移動・着地などのあと、敵と重なっていたら手前に引く
     laneTween: null, laneMoving: false, laneReturnMs: 0, laneReturnPending: false, dodgeHomeLane: 0, // レーン移動(回避)
     bearerOf: null,               // キングの担ぎ手として担いでいる相手
@@ -2066,18 +2162,31 @@ function getBuffFactor(unit, key){
   unit.buffSources.forEach(src => { const v = src.def[key]; if (v != null) m *= v; });
   return m;
 }
+// 役職のオーラ：同じ陣営の役職者から受ける効果(効果は重ねがけしない)
+function roleAuraFactor(unit, kind){
+  let f = 1;
+  battle.units.forEach(o => {
+    if (o.dead || o.side !== unit.side || !o.role) return;
+    const cfg = roleCfg(o.role);
+    if (!cfg) return;
+    if (Math.abs(unitCenterX(o) - unitCenterX(unit)) > (cfg.auraRadius || 0)) return;
+    if (kind === "dmg" && cfg.auraDmgMult && lanesOverlap(o.lane - 1, o.lane + 1, unit.laneLo, unit.laneHi)) f = Math.min(f, cfg.auraDmgMult);
+    if (kind === "speed" && cfg.auraSpeedMult && lanesOverlap(o.laneLo, o.laneHi, unit.laneLo, unit.laneHi)) f = Math.max(f, cfg.auraSpeedMult);
+  });
+  return f;
+}
 function getEffectiveAtk(unit){
-  let atk = unit.def.atk * getBuffFactor(unit, "buffAtkMult");
+  let atk = unit.def.atk * getBuffFactor(unit, "buffAtkMult") * (unit.roleAtkMult || 1) * (unit.shakenMs > 0 ? roleCfg("general").shakenAtkMult : 1);
   if (unit.def.tamerBuffEligible && hasLivingTamerAlly(unit)){
     atk *= 1.10; // テイマーが在陣している間、攻撃力+10%(範囲無限、テイマーが死ぬと自動的に外れる)
   }
   return atk;
 }
 function getEffectiveSpeed(unit, baseSpeed){
-  return baseSpeed * getBuffFactor(unit, "buffSpeedMult");
+  return baseSpeed * getBuffFactor(unit, "buffSpeedMult") * roleAuraFactor(unit, "speed");
 }
 function getDamageCutMultiplier(unit){
-  return getBuffFactor(unit, "buffDamageCutMult");
+  return getBuffFactor(unit, "buffDamageCutMult") * roleAuraFactor(unit, "dmg");
 }
 
 // このユニットが死亡/消滅した際、そのユニットが与えていたバフを全員から取り除く
@@ -2730,6 +2839,13 @@ const STATUS_ICON_DEFS = {
   armor:   { title: "不撓", svg: '<path d="M12 1.5 L20.5 5 V12 C20.5 17 15 20.5 12 22.5 C9 20.5 3.5 17 3.5 12 V5Z" fill="#d1a52a" stroke="#4a3608" stroke-width="1"/><path d="M12 7 L13.4 10.4 L17 10.7 L14.2 13 L15.1 16.5 L12 14.6 L8.9 16.5 L9.8 13 L7 10.7 L10.6 10.4Z" fill="#fff3c2"/>' },
   // 女王のバリアに守られている
   barrier: { title: "結界", svg: '<path d="M12 1.5 L21 6.5 V17.5 L12 22.5 L3 17.5 V6.5Z" fill="rgba(173,120,255,.45)" stroke="#c9a6ff" stroke-width="2"/><path d="M12 6 L16.5 8.6 V13.6 L12 16.2 L7.5 13.6 V8.6Z" fill="none" stroke="#e6d5ff" stroke-width="1.2"/>' },
+  // 役職の印(名前の頭文字)
+  roleGeneral: { title: "総大将", svg: '<circle cx="12" cy="12" r="10.5" fill="#2a0a33" stroke="#b05ad8" stroke-width="1.8"/><text x="12" y="17.5" text-anchor="middle" font-size="14" font-family="serif" fill="#f0cf6a">総</text>' },
+  roleElder:   { title: "宿老", svg: '<circle cx="12" cy="12" r="10.5" fill="#26262e" stroke="#c9c9d8" stroke-width="1.8"/><text x="12" y="17.5" text-anchor="middle" font-size="14" font-family="serif" fill="#f0e6c0">宿</text>' },
+  roleCaptain: { title: "部隊長", svg: '<circle cx="12" cy="12" r="10.5" fill="#3a0f0f" stroke="#e0584a" stroke-width="1.8"/><text x="12" y="17.5" text-anchor="middle" font-size="14" font-family="serif" fill="#f0e6c0">隊</text>' },
+  roleChief:   { title: "組頭", svg: '<circle cx="12" cy="12" r="10.5" fill="#0f2a33" stroke="#5ab4c8" stroke-width="1.8"/><text x="12" y="17.5" text-anchor="middle" font-size="14" font-family="serif" fill="#f0e6c0">組</text>' },
+  // 動揺(総大将を失った)
+  shaken:  { title: "動揺", svg: '<path d="M12 2C7 2 4 5.5 4 10c0 2.6 1 4.2 2.5 5.3V19h11v-3.7C19 14.2 20 12.6 20 10c0-4.5-3-8-8-8Z" fill="#b8b0c8" stroke="#2c1c3c" stroke-width="1"/><circle cx="8.6" cy="10.5" r="2" fill="#2c1c3c"/><circle cx="15.4" cy="10.5" r="2" fill="#2c1c3c"/><path d="M18.5 15 L23.5 15 L21 21Z" fill="#e0584a" stroke="#3a0f0f" stroke-width=".8"/>' },
   // 毒
   poison:  { title: "瘴毒", svg: '<path d="M12 1.5 C12 1.5 4.5 11 4.5 15.5 A7.5 7.5 0 0 0 19.5 15.5 C19.5 11 12 1.5 12 1.5Z" fill="#9b4dca" stroke="#2c0f42" stroke-width="1"/><circle cx="9.5" cy="15" r="1.4" fill="#e8c8ff"/><circle cx="14.5" cy="17" r="1" fill="#e8c8ff"/><path d="M9.5 9 Q11 12 9 14" stroke="#e8c8ff" stroke-width="1" fill="none"/>' },
   // 出血
@@ -2746,10 +2862,14 @@ Object.keys(STATUS_ICON_DEFS).forEach(k => { STATUS_ICON_URLS[k] = svgIcon(STATU
 function getStatusKeys(unit){
   const keys = [];
   const def = unit.def;
+  if (unit.role) keys.push("role" + unit.role.charAt(0).toUpperCase() + unit.role.slice(1));
+  if (unit.shakenMs > 0) keys.push("shaken");
+  if (roleAuraFactor(unit, "dmg") < 1 && keys.indexOf("defUp") === -1) keys.push("defUp");      // 宿老のオーラ
+  if (roleAuraFactor(unit, "speed") > 1 && keys.indexOf("speedUp") === -1) keys.push("speedUp"); // 部隊長のオーラ
   if (getBuffStacks(unit) > 0){
     if (getBuffFactor(unit, "buffAtkMult") > 1) keys.push("atkUp");
-    if (getBuffFactor(unit, "buffSpeedMult") > 1) keys.push("speedUp");
-    if (getBuffFactor(unit, "buffDamageCutMult") < 1) keys.push("defUp");
+    if (getBuffFactor(unit, "buffSpeedMult") > 1 && keys.indexOf("speedUp") === -1) keys.push("speedUp");
+    if (getBuffFactor(unit, "buffDamageCutMult") < 1 && keys.indexOf("defUp") === -1) keys.push("defUp");
   }
   if (def.tamerBuffEligible && hasLivingTamerAlly(unit) && keys.indexOf("atkUp") === -1) keys.push("atkUp"); // テイマーがいる間の魔獣の攻撃力+10%
   if (def.bonusVsRace && def.bonusVsRace.beast) keys.push("beastAtk");                                           // 魔獣・獣に対して攻撃力が上がる(槍兵)
@@ -2787,6 +2907,60 @@ function updateStatusIcons(unit){
     if (facing === -1) img.style.transform = "scaleX(-1)"; // 自軍側は親要素が左右反転しているので、アイコンだけ元に戻す
     box.appendChild(img);
   });
+}
+
+/* ---------- 役職の効果・オーラ・告知 ---------- */
+// 役職を与える(プレイヤーが召喚したとき・敵の出現予定で指定されたとき)
+function applyRole(unit, roleId){
+  const role = roleCfg(roleId);
+  if (!role || roleId === "foot" || unit.role) return;
+  unit.role = roleId;
+  const hpMult = (role.hpMult || 1) * (role.selfHpMult || 1);
+  if (hpMult !== 1){ unit.hpMax = Math.round(unit.hpMax * hpMult); unit.hp = unit.hpMax; }
+  if (role.selfAtkMult) unit.roleAtkMult = role.selfAtkMult;
+  attachRoleAura(unit, role);
+  applyFrame(unit);
+  showRoleBanner(unit, role, "appear");
+}
+
+const SKULL_SVG = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C7 2 4 5.5 4 10c0 2.6 1 4.2 2.5 5.3V19h11v-3.7C19 14.2 20 12.6 20 10c0-4.5-3-8-8-8Z" fill="#d9d2e6"/><circle cx="8.6" cy="10.5" r="2.3" fill="#1a0a24"/><circle cx="15.4" cy="10.5" r="2.3" fill="#1a0a24"/><path d="M11 14h2l-1 2.5z" fill="#1a0a24"/><path d="M9 19v3M12 19v3M15 19v3" stroke="#1a0a24" stroke-width="1.3"/></svg>');
+// キャラの足元とまわりに、役職のオーラを出す。総大将は、屍そのものが立ちのぼるような、禍々しいオーラ
+function attachRoleAura(unit, role){
+  const aura = document.createElement("div");
+  aura.className = "role-aura role-" + role.id;
+  if (role.id === "general"){
+    let html = '<i class="glow"></i><i class="mist m1"></i><i class="mist m2"></i><i class="mist m3"></i>';
+    for (let k = 0; k < 7; k++) html += '<img class="skull s' + k + '" src="' + SKULL_SVG + '" alt="">';
+    aura.innerHTML = html;
+  } else {
+    aura.innerHTML = '<i class="ring"></i>';
+  }
+  unit.el.insertBefore(aura, unit.el.firstChild);
+  unit.auraEl = aura;
+}
+
+// 画面中央の告知(総大将と宿老は大きく、部隊長と組頭は控えめに)
+function showRoleBanner(unit, role, what){
+  const layer = document.getElementById("role-banner-layer");
+  if (!layer) return;
+  const enemy = unit.side === "enemy";
+  const text = (enemy ? "敵" : "") + role.label + "　" + (what === "appear" ? "出現" : (enemy ? "討取" : "討死"));
+  const el = document.createElement("div");
+  el.className = "role-banner " + (role.big ? "big" : "small") + (enemy ? " enemy" : "");
+  el.textContent = text;
+  layer.appendChild(el);
+  setTimeout(() => el.remove(), role.big ? 2600 : 1800);
+}
+
+// 役職者が倒れた
+function onRoleUnitDied(unit){
+  const role = roleCfg(unit.role);
+  if (!role) return;
+  showRoleBanner(unit, role, "fall");
+  if (role.id === "general"){
+    // 総大将を失うと、その陣営の味方全員が動揺して、しばらく攻撃力が下がる
+    battle.units.forEach(u => { if (!u.dead && u.side === unit.side) u.shakenMs = role.shakenMs; });
+  }
 }
 
 /* ---------- ゴブリン・キング ---------- */
@@ -4379,6 +4553,7 @@ function killUnit(target){
   if (target.def.gateUnit && target.owner && target.owner.def.gate){
     target.owner.gateCooldown += target.owner.def.gate.breakPenaltyMs;
   }
+  if (target.role) onRoleUnitDied(target);            // 役職者が倒れた：告知(総大将なら、味方が動揺する)
   if (target.bearerOf) onBearerDied(target);          // 担ぎ手が倒れた：全員倒れたら玉座が落下する
   if (target.def.bearers) releaseBearers(target);     // キングが倒れた：残った担ぎ手は普通のユニットに戻る
   clearBuffsFrom(target); // このユニットが死んだので、与えていたバフも消える
@@ -4800,22 +4975,52 @@ function battleLoop(now){
   const dt = now - battle.lastTick;
   battle.lastTick = now;
 
-  const lv = WALLET_LEVELS[battle.walletLevel];
-  battle.money = Math.min(lv.cap, battle.money + lv.rate * (dt/1000));
-  updateWalletUI();
+  // 屍は時間では増えない(倒れたユニットのときだけ増える)ので、ここでは何もためない
+
+  // 総大将(自軍)が生きている間は、屍を生み続ける。画面の表示は、0.2秒ごとに更新する
+  {
+    let income = 0;
+    battle.units.forEach(u => {
+      if (u.side === "player" && !u.dead && u.role === "general") income += roleCfg("general").corpsePerSec;
+    });
+    if (income > 0){
+      battle.corpse += income * (dt / 1000);
+      battle.uiTimer = (battle.uiTimer || 0) + dt;
+      if (battle.uiTimer >= 200){ battle.uiTimer = 0; updateWalletUI(); }
+    }
+  }
+
+  // 詰み防止：味方が1体もいなくて、屍が、布陣の中で最も安いキャラの値段に足りない状態が続いたら、1体ぶんだけ屍を与える
+  {
+    const alive = battle.units.some(u => u.side === "player" && !u.dead && !u.def.gateUnit);
+    const cheapest = Math.min.apply(null, state.selectedUnits.map(k => getDeployCost(CHAR_DEFS[k])));
+    if (!alive && isFinite(cheapest) && battle.corpse < cheapest){
+      battle.starveMs = (battle.starveMs || 0) + dt;
+      if (battle.starveMs >= STARVE_GRACE_MS){
+        battle.corpse = cheapest;
+        battle.starveMs = 0;
+        updateWalletUI();
+        showToast("最後の屍を得た");
+      }
+    } else {
+      battle.starveMs = 0;
+    }
+  }
 
   // 敵ウェーブ：ステージの enemyWaves に、出す時間(秒)・種類・レーンを並べておく
   battle.time += dt / 1000;
   const waves = battle.stage.enemyWaves || [];
   while (battle.nextWave < waves.length && waves[battle.nextWave].t <= battle.time){
     const w = waves[battle.nextWave++];
-    spawnUnit(w.kind, "enemy", w.xOffset || 0, { lane: w.lane });
+    const wu = spawnUnit(w.kind, "enemy", w.xOffset || 0, { lane: w.lane });
+    if (w.role) applyRole(wu, w.role); // 敵の役職(enemyWavesの role に general/elder/captain/chief)
   }
 
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
     if (unit.midCooldown > 0) unit.midCooldown = Math.max(0, unit.midCooldown - dt);
     if (unit.attackArmorMs > 0) unit.attackArmorMs = Math.max(0, unit.attackArmorMs - dt);
+    if (unit.shakenMs > 0) unit.shakenMs = Math.max(0, unit.shakenMs - dt);
     if (unit.shieldCooldown > 0) unit.shieldCooldown = Math.max(0, unit.shieldCooldown - dt);
     if (unit.meteorCooldown > 0) unit.meteorCooldown = Math.max(0, unit.meteorCooldown - dt);
     if (unit.barrierMs > 0) unit.barrierMs = Math.max(0, unit.barrierMs - dt);
@@ -4913,12 +5118,6 @@ document.getElementById("cheat-enemy-king-btn").addEventListener("click", () => 
 document.getElementById("cheat-corpse-btn").addEventListener("click", () => {
   if (!battle) return;
   battle.corpse += 1000;
-  updateWalletUI();
-});
-document.getElementById("cheat-money-btn").addEventListener("click", () => {
-  if (!battle) return;
-  const lv = WALLET_LEVELS[battle.walletLevel];
-  battle.money = Math.min(lv.cap, battle.money + 1000);
   updateWalletUI();
 });
 document.getElementById("btn-pause").addEventListener("click", (e) => {
@@ -5186,5 +5385,6 @@ function flashLaneButtons(){
 
 })();
 </script>
+  <div id="role-banner-layer"></div>
 </body>
 </html>
