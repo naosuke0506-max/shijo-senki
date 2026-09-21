@@ -1605,7 +1605,74 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    ========================================================= */
 const STAGES = [
   // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔野", reading:"まや", intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:3000, playerCastleHp:2000, enemyWaves: [] }
+  { id:"plain", name:"魔野", reading:"まや", intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
+  // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
+  // 城も硬くして、10分ほどで決着がつくようにした(簡易な自動プレイで、約7分で勝てる強さ)。
+  startCorpse:1000, corpseGainRate:1.0,
+  // 敵の出現：t=戦闘開始からの秒数、kind=キャラ、lane=戦列(0=最左翼〜4=最右翼)、xOffset=同じ時刻・同じ戦列で重ならないためのずれ、msg=出現時の告知
+  // 最初の戦線なので、女王・鬼犀・礫車・鬼象砦・役職者は出さない。約10分間、少数から徐々に増やす
+  enemyWaves: [
+    { t:15, kind:"goblin", lane:2, msg:"鬼の群、寄せ来たる" },
+    { t:32, kind:"goblin", lane:2 },
+    { t:50, kind:"goblin", lane:1 },
+    { t:65, kind:"goblin", lane:3 },
+    { t:80, kind:"goblin", lane:2 },
+    { t:95, kind:"goblin", lane:1 },
+    { t:95, kind:"goblin", lane:3 },
+    { t:115, kind:"goblin", lane:2 },
+    { t:130, kind:"archer", lane:2 },
+    { t:145, kind:"goblin", lane:0 },
+    { t:145, kind:"goblin", lane:4 },
+    { t:165, kind:"goblin", lane:2 },
+    { t:165, kind:"goblin", lane:2, xOffset:45 },
+    { t:180, kind:"archer", lane:1 },
+    { t:195, kind:"goblin", lane:3 },
+    { t:195, kind:"goblin", lane:1 },
+    { t:215, kind:"archer", lane:3 },
+    { t:230, kind:"goblin", lane:2 },
+    { t:230, kind:"goblin", lane:2, xOffset:45 },
+    { t:245, kind:"bruteGoblin", lane:2, msg:"剛鬼、現る" },
+    { t:265, kind:"goblin", lane:1 },
+    { t:265, kind:"goblin", lane:3 },
+    { t:280, kind:"archer", lane:2 },
+    { t:300, kind:"goblin", lane:0 },
+    { t:300, kind:"goblin", lane:2 },
+    { t:300, kind:"goblin", lane:4 },
+    { t:320, kind:"bruteGoblin", lane:3 },
+    { t:335, kind:"archer", lane:1 },
+    { t:335, kind:"goblin", lane:2 },
+    { t:355, kind:"goblin", lane:1 },
+    { t:355, kind:"goblin", lane:2 },
+    { t:355, kind:"goblin", lane:3 },
+    { t:375, kind:"bruteGoblin", lane:1 },
+    { t:395, kind:"archer", lane:2 },
+    { t:395, kind:"archer", lane:3 },
+    { t:410, kind:"goblin", lane:1 },
+    { t:410, kind:"goblin", lane:2 },
+    { t:410, kind:"goblin", lane:3 },
+    { t:430, kind:"trapper", lane:2, msg:"穽鬼、罠を仕掛く" },
+    { t:445, kind:"goblin", lane:1 },
+    { t:445, kind:"goblin", lane:3 },
+    { t:460, kind:"bruteGoblin", lane:2 },
+    { t:460, kind:"archer", lane:1 },
+    { t:480, kind:"hound", lane:2 },
+    { t:495, kind:"goblin", lane:0 },
+    { t:495, kind:"goblin", lane:2 },
+    { t:495, kind:"goblin", lane:4 },
+    { t:515, kind:"drummerGoblin", lane:2, msg:"鼓鬼、戦鼓を打つ" },
+    { t:530, kind:"goblin", lane:1 },
+    { t:530, kind:"goblin", lane:2 },
+    { t:530, kind:"goblin", lane:3 },
+    { t:550, kind:"bruteGoblin", lane:3 },
+    { t:550, kind:"bruteGoblin", lane:1 },
+    { t:570, kind:"archer", lane:2, msg:"鬼の大群、押し寄せ来たる" },
+    { t:570, kind:"goblin", lane:0 },
+    { t:570, kind:"goblin", lane:1 },
+    { t:570, kind:"goblin", lane:2, xOffset:45 },
+    { t:570, kind:"goblin", lane:3 },
+    { t:570, kind:"goblin", lane:4 },
+    { t:590, kind:"bruteGoblin", lane:2 }
+  ] }
 ];
 
 /* =========================================================
@@ -2036,7 +2103,7 @@ function startBattle(stage){
     commands: [],                  // いま出ている軍令
     speed: 1,                      // 倍速(1・2・3)
     roleUsed: {},                  // 役職のキャラを、この試合で何体出したか(総大将は1度きり)
-    corpse: START_CORPSE,          // 屍(全キャラの召喚資金)。最初に少し持っていて、あとは倒れたユニットの分だけたまる。時間では増えない
+    corpse: (stage.startCorpse != null ? stage.startCorpse : START_CORPSE),          // 屍(全キャラの召喚資金)。最初に少し持っていて、あとは倒れたユニットの分だけたまる。時間では増えない
     selectedLanes: new Set(),      // 召喚するレーン(下から0〜4)。複数選べて、選んだレーンごとに1体ずつ出る。1つも選んでいないと召喚できない
     time: 0,                       // 戦闘の経過時間(秒)
     nextWave: 0                    // 次に出す敵ウェーブの番号
@@ -5139,7 +5206,7 @@ function killUnit(target){
   target.target = null;
   // 屍：敵味方を問わず、倒れたユニットの値段に応じてたまる(ゲートなど値段のないものは、たまらない)
   if (battle && target.def.cost > 0){
-    battle.corpse += target.def.cost * CORPSE_GAIN_RATE;
+    battle.corpse += target.def.cost * (battle.stage.corpseGainRate != null ? battle.stage.corpseGainRate : CORPSE_GAIN_RATE);
     updateWalletUI();
   }
   // ゲートが壊された：キングのゲート召喚クールタイムを延ばす
@@ -5617,6 +5684,7 @@ function battleStep(dt){
   const waves = battle.stage.enemyWaves || [];
   while (battle.nextWave < waves.length && waves[battle.nextWave].t <= battle.time){
     const w = waves[battle.nextWave++];
+    if (w.msg) queueBanner(w.msg, false, true); // 敵の出現の告知(赤い文字)
     const wu = spawnUnit(w.kind, "enemy", w.xOffset || 0, { lane: w.lane });
     if (w.role) applyRole(wu, w.role); // 敵の役職(enemyWavesの role に general/elder/captain/chief)
   }
