@@ -3240,6 +3240,8 @@ function startAdvance(cmd){
   const C = cmd.commander;
   cmd.anchorX = C.x + bodyWidth(C) / 2; // 陣形を組む基準点(命令者のいる位置)。組んだあとは、それぞれが自分の速さで前進する
   cmd.members.forEach(u => { u.advFormed = false; });
+  cmd.phase = "forming";          // 陣形を組んでいる間は、前進しない。全員が組み終わったら、前進を始める
+  cmd.formStart = battle.time;
   const sorted = cmd.members.slice().sort((a, b) => frontScore(a) - frontScore(b) || b.hp - a.hp);
   const offs = formationOffsets(cmd.formation, sorted.length);
   // 陣形が収まる中心の戦列：戦列のずれが±2まであるので、5戦列に収まる位置(なるべく命令者の戦列に近く)
@@ -3305,7 +3307,15 @@ function updateCommands(dt){
   battle.commands.slice().forEach(c => {
     if (c.commander.dead){ releaseCommand(c); return; }                          // どの軍令も、命令者が倒れたら解除
     if (c.type === "attack" && (!c.target || c.target.dead)){ releaseCommand(c); return; } // 標的は、倒れたら終わり
-    if (c.type === "advance" && !c.members.some(u => !u.dead)) releaseCommand(c); // 配下が全員いなくなったら終わり
+    if (c.type === "advance"){
+      const alive = c.members.filter(u => !u.dead);
+      if (!alive.length){ releaseCommand(c); return; } // 配下が全員いなくなったら終わり
+      // 陣形が完成したら(全員がマスに着いたら)、前進を始める。組めない兵がいても、25秒たったら前進を始める
+      if (c.phase === "forming" && (alive.every(u => u.advFormed) || battle.time - c.formStart > 25)){
+        c.phase = "advancing";
+        queueBanner("陣形　完成　" + c.formation.name, false, false);
+      }
+    }
   });
   updateCommandAuras();
 }
@@ -3378,6 +3388,11 @@ function commandStep(unit, dtMs){
     if (!unit.advFormed && unit.guardCell){
       if (moveToCell()) return true;
       unit.advFormed = true;
+    }
+    if (cmd.phase === "forming"){
+      // マスに着いた兵は、全員が組み終わるまで、その場で待つ(前進しない)
+      if (unit.motion !== "idle") setMotion(unit, "idle", { loop: true });
+      return true;
     }
     return false;
   }
