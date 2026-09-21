@@ -285,6 +285,60 @@
     background:repeating-linear-gradient(90deg,#6b6248 0 10px,transparent 10px 14px);
   }
 
+  /* ===== ステージの背景・大気・城の画像(魔野ほか) ===== */
+  #stage-art{ position:absolute; left:0; top:0; width:2000px; height:600px; z-index:0; pointer-events:none; overflow:hidden; }
+  #stage-art .art-sky{ position:absolute; left:0; top:0; width:100%; height:180px; background:linear-gradient(180deg,#0d0709 0%,#25100f 38%,#4d2416 72%,#7a4526 100%); }
+  #stage-art .art-sun{ position:absolute; left:820px; top:-40px; width:520px; height:300px; background:radial-gradient(ellipse at 50% 62%, rgba(214,104,52,.6) 0%, rgba(170,70,36,.32) 30%, rgba(0,0,0,0) 68%); }
+  #stage-art .art-cloud{ position:absolute; left:0; top:0; width:4000px; height:110px; opacity:.55; animation:cloudDrift 260s linear infinite;
+    background:
+      radial-gradient(ellipse 260px 34px at 180px 30px, rgba(12,6,7,.85), transparent 72%),
+      radial-gradient(ellipse 340px 30px at 640px 62px, rgba(24,10,9,.75), transparent 72%),
+      radial-gradient(ellipse 220px 26px at 1020px 22px, rgba(12,6,7,.8), transparent 72%),
+      radial-gradient(ellipse 300px 32px at 1500px 70px, rgba(30,12,10,.7), transparent 72%);
+    background-size:2000px 100%; background-repeat:repeat-x; }
+  #stage-art svg.art-svg{ position:absolute; left:0; top:0; width:2000px; height:600px; }
+  #stage-art .art-ground-base{ position:absolute; left:0; top:92px; width:100%; height:508px;
+    background:linear-gradient(180deg,#5a4028 0%,#3b2c1d 16%,#2f2318 55%,#1f1710 100%); }
+  #stage-art .art-grain{ position:absolute; left:0; top:92px; width:100%; height:508px; opacity:.7; }
+  #stage-art .art-haze{ position:absolute; left:0; top:60px; width:100%; height:120px; background:linear-gradient(180deg,rgba(130,70,44,0) 0%,rgba(140,80,50,.42) 55%,rgba(90,50,34,0) 100%); }
+  #stage-art .art-lane{ position:absolute; left:0; width:100%; height:100px; background:rgba(0,0,0,.09); }
+  #stage-art .art-bg-img{ position:absolute; left:0; top:0; width:100%; height:100%; object-fit:cover; display:none; }
+  #stage-art.has-bg .art-bg-img{ display:block; }
+  #stage-art.has-bg .code-layer{ display:none; }
+  #battlefield.themed #ground-line{ display:none; }
+  #stage-fog, #stage-atmo{ position:absolute; left:0; top:0; width:2000px; height:600px; pointer-events:none; }
+  #stage-fog{ z-index:3; overflow:hidden; }
+  #stage-atmo{ z-index:120; overflow:hidden; }
+  #stage-fog .fog{ position:absolute; left:0; width:3000px; background-repeat:repeat-x; background-size:1000px 100%; }
+  #stage-fog .fog.far{ top:70px; height:150px; opacity:.55; animation:fogDrift 150s linear infinite;
+    background-image:
+      radial-gradient(ellipse 380px 42px at 180px 55%, rgba(150,96,70,.5), transparent 72%),
+      radial-gradient(ellipse 300px 34px at 700px 38%, rgba(140,90,66,.42), transparent 72%); }
+  #stage-fog .fog.low{ top:400px; height:200px; opacity:.5; animation:fogDrift 90s linear infinite;
+    background-image:
+      radial-gradient(ellipse 420px 50px at 260px 62%, rgba(120,84,64,.42), transparent 72%),
+      radial-gradient(ellipse 340px 42px at 760px 45%, rgba(110,76,58,.36), transparent 72%); }
+  #stage-atmo .vignette{ position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse at 50% 56%, rgba(0,0,0,0) 52%, rgba(0,0,0,.52) 100%),
+      linear-gradient(90deg, rgba(120,22,16,.24), rgba(120,22,16,0) 22%),
+      linear-gradient(270deg, rgba(70,80,44,.16), rgba(70,80,44,0) 18%); }
+  #stage-atmo .ash{ position:absolute; top:-20px; border-radius:50%; background:#9a938a; opacity:0; animation:ashDrift 12s linear infinite; }
+  #stage-atmo .ember{ position:absolute; border-radius:50%; background:#ffb45a; box-shadow:0 0 8px 3px rgba(255,120,40,.65); opacity:0; animation:emberRise 7s ease-out infinite; }
+  #stage-atmo .crow{ position:absolute; left:0; opacity:.9; animation:crowFly 46s linear infinite; }
+  #stage-atmo .crow svg{ display:block; fill:#0b0607; transform-origin:50% 60%; animation:crowFlap .5s ease-in-out infinite alternate; }
+  @keyframes cloudDrift{ from{ transform:translateX(0);} to{ transform:translateX(-2000px);} }
+  @keyframes fogDrift{ from{ transform:translateX(0);} to{ transform:translateX(-1000px);} }
+  @keyframes ashDrift{ 0%{ transform:translate(0,0) rotate(0deg); opacity:0;} 10%{ opacity:.75;} 88%{ opacity:.5;} 100%{ transform:translate(320px,660px) rotate(300deg); opacity:0;} }
+  @keyframes emberRise{ 0%{ transform:translate(0,0) scale(1); opacity:0;} 14%{ opacity:1;} 100%{ transform:translate(140px,-330px) scale(.25); opacity:0;} }
+  @keyframes crowFly{ from{ transform:translate(-120px,0);} to{ transform:translate(2150px,-46px);} }
+  @keyframes crowFlap{ from{ transform:scaleY(1);} to{ transform:scaleY(.45);} }
+  .castle.has-img{ width:auto; height:440px; bottom:56px; z-index:4; background:none; border:none; border-radius:0; box-shadow:none; }
+  .castle.has-img .flag, .castle.has-img .battlements{ display:none; }
+  .castle.has-img img{ display:block; height:100%; width:auto; filter:drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
+  .castle.enemy.has-img{ left:-30px; }
+  .castle.player.has-img{ right:-30px; }
+
   .unit-sprite{ position:absolute; bottom:74px; transform-origin:bottom center; }
   .unit-sprite img{ display:block; image-rendering:-webkit-optimize-contrast; filter:drop-shadow(0 4px 4px rgba(0,0,0,.5)); }
   .unit-sprite .uhp{ position:absolute; left:50%; transform:translateX(-50%); top:-10px; width:44px; height:5px; background:#0a0906; border:1px solid #000; }
@@ -343,7 +397,6 @@
   <!-- タイトル -->
   <section id="screen-title" class="screen active">
     <h1>屍城戦記</h1>
-    <div class="sub">SHIJO SENKI</div>
     <div class="world-intro">人の世の果てに、屍城あり。<br>鬼の群、日毎夜毎に押し寄せ、<br>守備の兵、斃れし者の屍を糧として、<br>なお戦い止まず。</div>
     <button class="primary" id="btn-to-formation" data-reading="しゅつじん">出陣</button>
   </section>
@@ -1605,7 +1658,7 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
    ========================================================= */
 const STAGES = [
   // enemyWaves: 敵の出現予定。 { t: 出す時間(秒), kind: キャラ, lane: レーン(下から0〜4) } を並べる。将来ランダムなステージも作る
-  { id:"plain", name:"魔野", reading:"まや", intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
+  { id:"plain", name:"魔野", reading:"まや", art:{ seed:20260921, bg:"plain_bg.png", castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }, intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。", enemyCastleHp:6000, playerCastleHp:6000,
   // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
   // 城も硬くして、10分ほどで決着がつくようにした(簡易な自動プレイで、約7分で勝てる強さ)。
   startCorpse:1000, corpseGainRate:1.0,
@@ -2075,6 +2128,176 @@ function buildStageScreen(){
    ========================================================= */
 let battle = null;
 
+
+/* =========================================================
+   ステージの見た目(背景・大気・城)
+   画像がなくても、コードで描いた荒野が出る。stage.art に画像名があり、STAGE_ART_BASE に置いてあれば、そちらを使う。
+   画像の置き場：GitHubの stages/ フォルダ(REPO_BASE のコミットを更新すること)
+   ========================================================= */
+const STAGE_ART_BASE = REPO_BASE + "stages/";
+function seededRand(seed){ let a = seed >>> 0; return function(){ a = (a * 1664525 + 1013904223) >>> 0; return a / 4294967296; }; }
+function svgEl(name, attrs){ const e = document.createElementNS("http://www.w3.org/2000/svg", name); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+function buildStageArt(stage){
+  const field = document.getElementById("battlefield");
+  ["stage-art","stage-fog","stage-atmo"].forEach(id => { const o = document.getElementById(id); if (o) o.remove(); });
+  const art = stage.art || {};
+  const rand = seededRand(art.seed || 20260921);
+  const R = (a, b) => a + rand() * (b - a);
+  const W = 2000, H = 600, HORIZON = 96;
+
+  // ---- 背景(空・遠景・地面) ----
+  const root = document.createElement("div"); root.id = "stage-art";
+  const codeLayer = (cls) => { const d = document.createElement("div"); d.className = cls + " code-layer"; root.appendChild(d); return d; };
+  codeLayer("art-sky"); codeLayer("art-sun"); codeLayer("art-cloud");
+
+  const svg = svgEl("svg", { "class": "art-svg code-layer", viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none" });
+  // 遠景の山並み(2層)
+  const ridge = (base, amp, fill, op) => {
+    let d = "M0," + (HORIZON + 30);
+    const ph = [R(0,6), R(0,6), R(0,6)];
+    for (let x = 0; x <= W; x += 36){
+      const n = Math.sin(x/210 + ph[0]) * .5 + Math.sin(x/95 + ph[1]) * .3 + Math.sin(x/41 + ph[2]) * .2 + (rand() - .5) * .25;
+      d += " L" + x + "," + (base - amp * (n * .5 + .5)).toFixed(1);
+    }
+    d += " L" + W + "," + (HORIZON + 30) + " Z";
+    svg.appendChild(svgEl("path", { d, fill, opacity: op }));
+  };
+  ridge(HORIZON - 4, 58, "#2c1613", ".95");
+  ridge(HORIZON + 4, 34, "#1b0f0d", "1");
+  // 地平の枯れ木・崩れた望楼
+  const tree = (x, y, h) => {
+    let d = "M" + x + "," + y + " L" + (x + R(-4,4)) + "," + (y - h);
+    for (let i = 0; i < 5; i++){
+      const by = y - h * R(.35, .95), dir = rand() < .5 ? -1 : 1, len = h * R(.25, .5);
+      d += " M" + x + "," + by + " L" + (x + dir * len) + "," + (by - len * R(.3, .8));
+    }
+    svg.appendChild(svgEl("path", { d, stroke: "#120a09", "stroke-width": R(2, 3.6), fill: "none", "stroke-linecap": "round" }));
+  };
+  for (let i = 0; i < 26; i++) tree(R(60, W - 60), HORIZON + R(8, 24), R(26, 62));
+  const ruin = (x, y, w, h) => {
+    const top = y - h; let d = "M" + x + "," + y + " L" + x + "," + top;
+    const n = 4 + Math.floor(rand() * 3), seg = w / n;
+    for (let i = 1; i <= n; i++) d += " L" + (x + seg * i - seg * .5) + "," + (top - R(0, 10)) + " L" + (x + seg * i) + "," + (top + R(0, 12));
+    d += " L" + (x + w) + "," + y + " Z";
+    svg.appendChild(svgEl("path", { d, fill: "#140b0a" }));
+    svg.appendChild(svgEl("rect", { x: x + w * .4, y: top + h * .32, width: w * .14, height: h * .22, fill: "#5a2a14", opacity: .8 }));
+  };
+  [420, 1010, 1560].forEach((x, i) => ruin(x + R(-60, 60), HORIZON + R(14, 26), R(34, 52), R(58, 90)));
+  root.appendChild(svg);
+
+  // 地面
+  codeLayer("art-ground-base");
+  // ざらつき(ランタイムで作る)
+  const gc = document.createElement("canvas"); gc.width = gc.height = 160;
+  const gx = gc.getContext("2d"), id = gx.createImageData(160, 160);
+  for (let i = 0; i < id.data.length; i += 4){ const v = rand() < .5 ? 0 : 255; id.data[i] = id.data[i+1] = id.data[i+2] = v; id.data[i+3] = Math.floor(rand() * 26); }
+  gx.putImageData(id, 0, 0);
+  const grain = codeLayer("art-grain"); grain.style.backgroundImage = "url(" + gc.toDataURL() + ")"; grain.style.backgroundSize = "160px 160px";
+  // 戦列の帯(奥の戦列ほど上)。奥行きが見えるように、1つおきに少し暗く
+  for (let k = 0; k < GRID_LANES; k += 2){
+    const b = document.createElement("div"); b.className = "art-lane code-layer";
+    b.style.top = (H - GRID_GROUND - GRID_CELL * (k + 1)) + "px"; root.appendChild(b);
+  }
+  codeLayer("art-haze");
+
+  // 地面の小物(遠いものは小さく、手前のものは大きく。y の小さい順に描く)
+  const gsvg = svgEl("svg", { "class": "art-svg code-layer", viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none" });
+  const items = [];
+  const add = (type, n) => { for (let i = 0; i < n; i++){ const y = HORIZON + 8 + Math.pow(rand(), .85) * (H - HORIZON - 14); items.push({ type, x: R(20, W - 20), y, sc: .75 + .5 * (y - HORIZON) / (H - HORIZON) }); } };
+  add("stain", 30); add("crack", 36); add("rock", 44); add("grass", 70); add("bone", 34); add("skull", 20); add("spear", 14); add("banner", 4);
+  items.sort((a, b) => a.y - b.y);
+  items.forEach(it => {
+    const { x, y, sc, type } = it, g = svgEl("g", {});
+    if (type === "stain"){
+      g.appendChild(svgEl("ellipse", { cx: x, cy: y, rx: R(24, 58) * sc, ry: R(6, 14) * sc, fill: "#3a0c0a", opacity: R(.25, .45) }));
+    } else if (type === "crack"){
+      let d = "M" + x + "," + y, cx = x, cy = y;
+      for (let i = 0; i < 6; i++){ cx += R(6, 20) * sc * (rand() < .5 ? -1 : 1); cy += R(-4, 6) * sc; d += " L" + cx + "," + cy; }
+      g.appendChild(svgEl("path", { d, stroke: "#0f0a07", "stroke-width": 1.6 * sc, fill: "none", opacity: .55 }));
+    } else if (type === "rock"){
+      const rx = R(8, 22) * sc, ry = rx * R(.45, .7);
+      g.appendChild(svgEl("ellipse", { cx: x, cy: y, rx, ry, fill: "#2b2119", stroke: "#100b08", "stroke-width": 1.4 }));
+      g.appendChild(svgEl("ellipse", { cx: x - rx * .25, cy: y - ry * .3, rx: rx * .5, ry: ry * .35, fill: "#4a3b2c", opacity: .6 }));
+    } else if (type === "grass"){
+      let d = ""; const n = 4 + Math.floor(rand() * 3);
+      for (let i = 0; i < n; i++){ const a = (i - (n - 1) / 2) * .32 + R(-.1, .1), l = R(10, 22) * sc; d += "M" + x + "," + y + " L" + (x + Math.sin(a) * l) + "," + (y - Math.cos(a) * l) + " "; }
+      g.appendChild(svgEl("path", { d, stroke: "#5b4c26", "stroke-width": 1.6 * sc, fill: "none", "stroke-linecap": "round", opacity: .85 }));
+    } else if (type === "bone"){
+      const l = R(12, 26) * sc, a = R(-.6, .6);
+      const dx = Math.cos(a) * l / 2, dy = Math.sin(a) * l / 2;
+      g.appendChild(svgEl("line", { x1: x - dx, y1: y - dy, x2: x + dx, y2: y + dy, stroke: "#b8a888", "stroke-width": 2.6 * sc, "stroke-linecap": "round", opacity: .6 }));
+      g.appendChild(svgEl("circle", { cx: x + dx, cy: y + dy, r: 2.6 * sc, fill: "#b8a888", opacity: .6 }));
+      g.appendChild(svgEl("circle", { cx: x - dx, cy: y - dy, r: 2.6 * sc, fill: "#b8a888", opacity: .6 }));
+    } else if (type === "skull"){
+      g.appendChild(svgEl("ellipse", { cx: x, cy: y + 2 * sc, rx: 8 * sc, ry: 3 * sc, fill: "#000", opacity: .35 }));
+      g.appendChild(svgEl("circle", { cx: x, cy: y - 3 * sc, r: 6.5 * sc, fill: "#a99a7a", opacity: .7 }));
+      g.appendChild(svgEl("circle", { cx: x - 2.4 * sc, cy: y - 3.4 * sc, r: 1.6 * sc, fill: "#120b08" }));
+      g.appendChild(svgEl("circle", { cx: x + 2.4 * sc, cy: y - 3.4 * sc, r: 1.6 * sc, fill: "#120b08" }));
+    } else if (type === "spear"){
+      const l = R(40, 64) * sc, a = R(-.5, .5) + (rand() < .5 ? 0 : Math.PI * .22);
+      const ex = x + Math.sin(a) * l, ey = y - Math.cos(a) * l;
+      g.appendChild(svgEl("line", { x1: x, y1: y, x2: ex, y2: ey, stroke: "#4b3a27", "stroke-width": 2.6 * sc, "stroke-linecap": "round" }));
+      if (rand() < .6) g.appendChild(svgEl("path", { d: "M" + ex + "," + ey + " l" + (Math.sin(a) * 12 * sc) + "," + (-Math.cos(a) * 12 * sc) + " l" + (-3 * sc) + ",0 z", fill: "#8b9093" }));
+    } else if (type === "banner"){
+      const h = R(50, 74) * sc;
+      g.appendChild(svgEl("line", { x1: x, y1: y, x2: x + 3, y2: y - h, stroke: "#3c2d1f", "stroke-width": 3 * sc }));
+      g.appendChild(svgEl("path", { d: "M" + (x + 3) + "," + (y - h) + " l" + (26 * sc) + ",4 l" + (-6 * sc) + "," + (8 * sc) + " l" + (8 * sc) + "," + (9 * sc) + " l" + (-28 * sc) + ",-2 z", fill: "#5a1a14", opacity: .85 }));
+    }
+    gsvg.appendChild(g);
+  });
+  root.appendChild(gsvg);
+
+  // 画像(あれば、コードの絵の代わりに使う)
+  if (art.bg){
+    const im = document.createElement("img"); im.className = "art-bg-img"; im.alt = ""; im.draggable = false;
+    im.onload = () => root.classList.add("has-bg");
+    im.onerror = () => im.remove();
+    im.src = STAGE_ART_BASE + art.bg;
+    root.appendChild(im);
+  }
+  field.insertBefore(root, field.firstChild);
+  field.classList.add("themed");
+
+  // ---- 流れる霧(ユニットの後ろ) ----
+  const fog = document.createElement("div"); fog.id = "stage-fog";
+  ["far", "low"].forEach(c => { const f = document.createElement("div"); f.className = "fog " + c; f.style.animationDelay = (-rand() * 60) + "s"; fog.appendChild(f); });
+  field.appendChild(fog);
+
+  // ---- 灰・火の粉・鴉・暗がり(ユニットの前) ----
+  const atmo = document.createElement("div"); atmo.id = "stage-atmo";
+  const vg = document.createElement("div"); vg.className = "vignette"; atmo.appendChild(vg);
+  for (let i = 0; i < 34; i++){
+    const a = document.createElement("i"); a.className = "ash"; const sz = R(4, 9);
+    a.style.cssText = "left:" + R(-100, 1900).toFixed(0) + "px;width:" + sz.toFixed(1) + "px;height:" + sz.toFixed(1) + "px;animation-duration:" + R(9, 20).toFixed(1) + "s;animation-delay:" + (-R(0, 20)).toFixed(1) + "s;";
+    atmo.appendChild(a);
+  }
+  for (let i = 0; i < 16; i++){
+    const e = document.createElement("i"); e.className = "ember"; const sz = R(3, 6);
+    e.style.cssText = "left:" + R(0, 1900).toFixed(0) + "px;top:" + R(300, 600).toFixed(0) + "px;width:" + sz.toFixed(1) + "px;height:" + sz.toFixed(1) + "px;animation-duration:" + R(5, 10).toFixed(1) + "s;animation-delay:" + (-R(0, 10)).toFixed(1) + "s;";
+    atmo.appendChild(e);
+  }
+  for (let i = 0; i < 3; i++){
+    const c = document.createElement("div"); c.className = "crow";
+    c.style.cssText = "top:" + R(14, 70).toFixed(0) + "px;width:" + R(30, 44).toFixed(0) + "px;animation-duration:" + R(38, 60).toFixed(0) + "s;animation-delay:" + (-R(0, 50)).toFixed(0) + "s;";
+    c.innerHTML = '<svg viewBox="0 0 24 10"><path d="M0 4 Q6 -2 12 5 Q18 -2 24 4 Q18 3 12 8 Q6 3 0 4Z"/></svg>';
+    atmo.appendChild(c);
+  }
+  field.appendChild(atmo);
+
+  // ---- 城(画像があれば差し替え。なければ、四角い城のまま) ----
+  const setCastle = (sel, file) => {
+    const box = field.querySelector(sel); if (!box) return;
+    box.classList.remove("has-img"); const old = box.querySelector("img.castle-img"); if (old) old.remove();
+    if (!file) return;
+    const im = new Image(); im.className = "castle-img"; im.alt = ""; im.draggable = false;
+    im.onload = () => { box.appendChild(im); box.classList.add("has-img"); };
+    im.src = STAGE_ART_BASE + file;
+  };
+  setCastle(".castle.enemy", art.castleEnemy);
+  setCastle(".castle.player", art.castlePlayer);
+}
+
 function startBattle(stage){
   roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
   const spb = document.getElementById("btn-speed"); if (spb) spb.textContent = "×1";
@@ -2086,6 +2309,7 @@ function startBattle(stage){
   field.querySelectorAll(".fx-sprite").forEach(el => el.remove());
 
   document.getElementById("stage-name-plate").textContent = stage.name;
+  buildStageArt(stage);
 
   battle = {
     stage,
