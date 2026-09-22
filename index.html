@@ -742,6 +742,8 @@ const IMG_ARMORED = REPO_BASE + "images/armored_repo_upload/";
 const ICON_ARMORED = REPO_BASE + "icons/armored_icon.png";
 const IMG_SCOUT = REPO_BASE + "images/scout_repo_upload/";
 const ICON_SCOUT = REPO_BASE + "icons/scout_icon.png";
+const IMG_REPAIRER = REPO_BASE + "images/repairer_repo_upload/";
+const ICON_REPAIRER = REPO_BASE + "icons/repairer_icon.png";
 const IMG_SHIELDMAN = REPO_BASE + "images/shieldman_repo_upload/";
 const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
 const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
@@ -1035,6 +1037,43 @@ const CHAR_DEFS = {
       getup:     [350,350]
     },
     attackImpactFrame: 6          // attack_7(刀が最も伸びきり、斬撃の軌跡が最大になる瞬間)
+  },
+
+  repairer: {
+    reading: "しゅうふくへい",             // 名前の読み(長押しで表示)
+    intro: "槌を担ぐ普請の者。戦わず、自城のそばに留まり、崩れた城壁をゆっくりと直し続ける。",
+    name: "修復兵",
+    rank: null,
+    race: "human",
+    cost: 400,
+    hp: 22,
+    atk: 0,
+    weight: 26,
+    walkSpeed: 30,
+    noCombat: true,           // 索敵・攻撃・追走をしない
+    repairsCastle: true,      // 歩いて前に出ず、自城のそばに留まって城を直し続ける(専用のAIを使う)
+    repairAmountPerTick: 12,  // 1回あたりの回復量
+    repairTickIntervalMs: 2000, // 回復判定の間隔
+    parryable: true,
+    guardable: false,
+    bleedOnHit: false,
+    icon: ICON_REPAIRER,
+    imageBase: IMG_REPAIRER,
+    pixelScale: 92 / 320,
+    motionScale: { down: 0.68 },
+    frameCounts: {
+      idle:1, walk:4, repair:5, flinch:3, blowback:4, down:1, getup:2
+    },
+    // 実測済みの数値(1倍速)
+    frameDurations: {
+      idle:     [1000],
+      walk:     [250,250,250,250],
+      repair:   [265,265,385,300,265],
+      flinch:   [350,350,350],
+      blowback: [295,295,295,295],
+      down:     [1000],
+      getup:    [310,310]
+    }
   },
 
   shieldman: {
@@ -3841,6 +3880,22 @@ function updateLaunch(unit, dtMs){
 
 // 鼓舞兵の太鼓と同じ仕組み：クールタイムが明けたら詠唱モーションを1回再生し、
 // その瞬間に範囲内でHPが減っている味方をまとめて固定量回復する
+// 修復兵：戦わず、自城のそばに留まって、城のHPをゆっくり回復し続ける(巫鬼のように味方を癒すのではなく、城そのものを直す)
+function updateRepairerAI(unit, dtMs){
+  const def = unit.def;
+  if (unit.motion !== "repair"){
+    if (unit.motion === "idle" || unit.motion === "walk") setMotion(unit, "repair", { loop:true });
+    return;
+  }
+  unit.repairCooldown = (unit.repairCooldown || 0) - dtMs;
+  if (unit.repairCooldown <= 0){
+    unit.repairCooldown = def.repairTickIntervalMs || 2000;
+    if (battle && battle.playerCastleHp < battle.playerCastleHpMax){
+      battle.playerCastleHp = Math.min(battle.playerCastleHpMax, battle.playerCastleHp + (def.repairAmountPerTick || 0));
+      updateCastleBars();
+    }
+  }
+}
 function updateHealer(unit, dtMs){
   const def = unit.def;
   if (!def.canHeal || unit.dead || unit.restrained || unit.isReviving) return;
@@ -6427,6 +6482,7 @@ function updateUnitAI(unit, dtMs){
   if (unit.bearerOf){ updateBearerAI(unit); return; }            // キングの担ぎ手：担いでいる間は攻撃しない
   if (def.kingLogic){ updateKingAI(unit, dtMs); return; }         // キング：ゆっくり進み、ゲートを召喚する
 
+  if (def.repairsCastle){ updateRepairerAI(unit, dtMs); return; } // 修復兵：自城のそばに留まり、城を直し続ける
   if (def.noCombat){
     // 非戦闘ユニット(鼓舞兵など)：戦わないが、目の前に敵がいる間は立ち尽くして待つ
     const blocker = battle.units.find(other =>
