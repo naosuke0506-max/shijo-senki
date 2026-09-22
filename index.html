@@ -1127,8 +1127,9 @@ const CHAR_DEFS = {
     imageBase: IMG_WATCHTOWER, imagePrefix: "p",
     pixelScale: 260 / 1414,       // 望楼台の絵(高さ1414px)を約260pxに(戦列の高さの倍以上、5mの見た目)
     motionScale: {},
-    frameCounts: { normal:1, d1:1, d2:1, d3:1, collapsed:1 },
-    frameDurations: { normal:[1000], d1:[1000], d2:[1000], d3:[1000], collapsed:[1000] },
+    frameCounts: { normal:1, idle:1, d1:1, d2:1, d3:1, collapsed:1 },
+    frameDurations: { normal:[1000], idle:[1000], d1:[1000], d2:[1000], d3:[1000], collapsed:[1000] },
+    motionAlias: { idle: { as: "normal" } }, // 出現直後、一瞬だけ参照されるidleは、normalの絵を使う
     structureStageMotions: ["normal", "d1", "d2", "d3"] // HPの割合が高い順。最後は必ずcollapsed
   },
   watchtowerWall: {
@@ -1140,8 +1141,9 @@ const CHAR_DEFS = {
     imageBase: IMG_WATCHTOWER, imagePrefix: "w",
     pixelScale: 260 / 1332,
     motionScale: {},
-    frameCounts: { normal:1, d1:1, collapsed:1 },
-    frameDurations: { normal:[1000], d1:[1000], collapsed:[1000] },
+    frameCounts: { normal:1, idle:1, d1:1, collapsed:1 },
+    frameDurations: { normal:[1000], idle:[1000], d1:[1000], collapsed:[1000] },
+    motionAlias: { idle: { as: "normal" } },
     structureStageMotions: ["normal", "d1"]
   },
 
@@ -4036,6 +4038,7 @@ function startPlacementPick(kind){
   if (remain > 0){ showToast(def.name + "：あと" + Math.ceil(remain / 1000) + "秒で、また使える"); return; }
   if (battle.corpse < cost){ showToast("屍が足りぬ"); return; }
   battle.placementPending = { kind };
+  const ov = document.getElementById("grid-overlay"); if (ov) ov.style.display = ""; // 場所を選ぶ間は、普段の表示設定に関わらずマス目を見せる
   showToast(def.name + "：築く場所を、戦場でお選びください");
 }
 // 選んだマス目に、実際に召喚し、そこへ向かわせる(この時点で屍を払い、クールタイムを起こす)
@@ -7446,6 +7449,9 @@ document.getElementById("battlefield").addEventListener("click", e => {
       if (commitPlacement(battle.placementPending.kind, col, lane)) battle.placementPending = null;
     } else {
       battle.placementPending = null; // 使えない場所をタップしたら、設置待ちを取り消す
+    }
+    if (!battle.placementPending){
+      const ov = document.getElementById("grid-overlay"); if (ov) ov.style.display = gridVisible ? "" : "none"; // 普段の表示設定に戻す
     }
     return; // 設置の場所待ちの間は、タップを場所選びだけに使う
   }
