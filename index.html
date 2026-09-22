@@ -738,6 +738,8 @@ const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
 const ICON_SPEARMAN = REPO_BASE + "icons/spearman_icon.png";
 const IMG_LANGXIAN = REPO_BASE + "images/langxian_repo_upload/";
 const ICON_LANGXIAN = REPO_BASE + "icons/langxian_icon.png";
+const IMG_ARMORED = REPO_BASE + "images/armored_repo_upload/";
+const ICON_ARMORED = REPO_BASE + "icons/armored_icon.png";
 const IMG_SHIELDMAN = REPO_BASE + "images/shieldman_repo_upload/";
 const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
 const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
@@ -946,6 +948,92 @@ const CHAR_DEFS = {
       getup:      [285,285,285,285,285]
     },
     attackImpactFrame: 4          // attack_5(500ms・枝が広がる瞬間)
+  },
+
+  armored: {
+    reading: "かっちゅうへい",             // 名前の読み(長押しで表示)
+    intro: "分厚き鎧で立ちはだかる兵。盾に頼らず、鎧そのもので敵の一撃を受け流す。剛鬼のごとき、盾ごと打ち砕く敵に強い。",
+    name: "甲冑兵",
+    rank: null,
+    race: "human",
+    cost: 650,
+    hp: 85,
+    atk: 9,
+    weight: 110,
+    walkSpeed: 30,
+    approachMotion: "walk",     // 走る絵を持たないので、発見後も歩きのまま近づく(速さは歩きと同じ)
+    approachSpeed: 30,
+    attackRange: 50,
+    detectionRange: 230,
+    meleeDamageCutPercent: 0.35, // 近接ダメージを常に35%軽減する(ガードとは別判定：剛鬼のガード貫通にも効く。弓など遠距離には効かない)
+    alwaysSuperArmored: true,    // 常時怯まない：殴られ続けても手が止まらず、壁であり続ける
+    attackFlags: { ignoresGuard: true }, // 重い一撃は、敵の盾のガードも構わず貫く
+    parryable: false,
+    guardable: false,
+    bleedOnHit: false,
+    icon: ICON_ARMORED,
+    imageBase: IMG_ARMORED,
+    pixelScale: 92 / 529,
+    motionScale: { down: 0.68 },
+    frameCounts: {
+      idle:1, walk:4, discover:2, attack:8, blowback:5, down:2, getup:3
+    },
+    // 実測済みの数値(1倍速)。常時スーパーアーマーのため怯み・ガード崩しは無い(ガードもしないので不要)
+    frameDurations: {
+      idle:      [1000],
+      walk:      [250,250,250,250],
+      discover:  [295,295],
+      attack:    [225,225,225,225,225,225,225,225],
+      blowback:  [250,250,250,250,250],
+      down:      [500,500],
+      getup:     [265,265,265]
+    },
+    attackImpactFrame: 6          // attack_7(振り下ろしが、相手の高さまで届く瞬間)
+  },
+
+  scout: {
+    reading: "せっこう",             // 名前の読み(長押しで表示)
+    intro: "足速き偵察の兵。罠を踏まず、隠れし敵を見逃さぬ。索敵・鼓舞・回復など、戦わぬ鬼を真っ先に狙う。",
+    name: "斥候",
+    rank: null,
+    race: "human",
+    cost: 420,
+    hp: 24,
+    atk: 8,
+    weight: 24,
+    walkSpeed: 62,
+    runSpeed: 100,
+    attackRange: 42,
+    detectionRange: 300,             // 長い索敵範囲。遠くの支援役にも気づける
+    preferNoCombatTargets: true,     // 索敵範囲内に、戦わぬ敵(穽鬼・鼓鬼・巫鬼など)がいれば、他の敵より優先して狙う
+    bonusVsNoCombat: 2.2,            // 戦わぬ敵への攻撃力が2.2倍
+    netResistant: true,              // 罠を見切り、踏んでも引っかからない
+    parryable: true,
+    guardable: false,
+    bleedOnHit: false,
+    // 絵は未作成。出来るまで、戦闘中の絵は戍卒のものを仮に使う。札の絵は、無ければ名前の文字が出る。
+    icon: ICON_SOLDIER,                                  // 絵が出来たら ICON_SCOUT に差し替え
+    imageBase: IMG_SOLDIER,                              // 絵が出来たら IMG_SCOUT に差し替え
+    pixelScale: 92 / 529,
+    motionScale: { down: 0.68 },
+    frameCounts: {
+      idle:1, walk:5, run:5, discover:2, attack:10,
+      flinch:8, guardbreak:4, blowback:8, down:2, getup:5
+    },
+    frameDurations: {
+      idle:       [1000],
+      walk:       [260,260,260,260,260],
+      run:        [230,230,230,230,230],
+      discover:   [360,800],
+      attack:     [180,160,160,180,180,180,40,40,20,220],
+      flinch:     [80,80,100,120,40,380,270,240],
+      guardbreak: [180,180,180,180],
+      blowback:   [130,130,130,130,130,130,130,130],
+      down:       [600,2000],
+      getup:      [200,200,240,340,260]
+    },
+    attackImpactFrame: 8,
+    frameFacingOverride: { walk: [1, 1, -1, 1, 1] }
   },
 
   shieldman: {
@@ -3275,6 +3363,7 @@ function getBuffFactor(unit, key){
 // commit=true のときだけ、先手の「最初の一撃」を使ったことにする
 function attackBonus(unit, target, commit){
   let m = (unit.def.bonusVsRace && unit.def.bonusVsRace[target.def.race]) || 1;
+  if (unit.def.bonusVsNoCombat && target.def.noCombat) m *= unit.def.bonusVsNoCombat; // 斥候：非戦闘の支援役(穽鬼・鼓鬼・巫鬼など)への追加ダメージ
   if (unit.role === "assault" && target.role) m *= roleCfg("assault").roleHunterMult;
   if (unit.role === "vanguard" && unit.lastStrikeTarget !== target){
     m *= roleCfg("vanguard").firstStrikeMult;
@@ -6167,6 +6256,10 @@ function applyDamageToUnit(target, amount, attacker){
   const attackerFlags = (attacker && attacker.def.attackFlags) || {};
   const meleeRangeCheck = attacker && edgeDistance(target, attacker) <= def.attackRange;
   amount = amount * getDamageCutMultiplier(target); // 鼓舞バフの被ダメージカットを適用
+  // 甲冑兵などの、鎧そのものによる近接ダメージ軽減(ガードとは別判定なので、ガード貫通の一撃にも効く)
+  if (def.meleeDamageCutPercent && !(attacker && attacker.def.ranged)){
+    amount = amount * (1 - def.meleeDamageCutPercent);
+  }
 
   // 特殊回避：自分の攻撃射程内(=近接で殴られた時)の前方攻撃だけを一度限り確定で避ける
   // (火縄銃などの遠距離攻撃は射程外からの被弾になるため対象外)
@@ -6274,6 +6367,7 @@ function applyDamageToUnit(target, amount, attacker){
 function findNearestEnemyInRange(unit){
   if (!battle) return null;
   let nearest = null, nearestDist = Infinity;
+  let priority = null, priorityDist = Infinity; // 斥候：非戦闘の支援役がいれば、そちらを優先して探す
   battle.units.forEach(other => {
     if (other === unit || other.dead || other.side === unit.side) return;
     if (other.mounted) return; // フォートレスの背中に乗っている間は狙えない
@@ -6288,8 +6382,12 @@ function findNearestEnemyInRange(unit){
       nearest = other;
       nearestDist = d;
     }
+    if (unit.def.preferNoCombatTargets && other.def.noCombat && d < priorityDist){
+      priority = other;
+      priorityDist = d;
+    }
   });
-  return nearest;
+  return priority || nearest;
 }
 
 function onAttackEnd(unit){
