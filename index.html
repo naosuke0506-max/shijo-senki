@@ -860,7 +860,7 @@ const CHAR_DEFS = {
   spearman: {
     reading: "そうそつ",             // 名前の読み(長押しで表示)
     intro: "長き鎗を携えし兵卒。獣の類には、ことさら強し。",
-    bonusVsRace: { beast: 1.2 }, // 魔獣・獣(種族beast)への攻撃力が20%上がる
+    bonusVsRace: { beast: 1.5 }, // 魔獣・獣(種族beast)への攻撃力が50%上がる
     name: "鎗卒",
     rank: null, // 後日決定
     race: "human",
@@ -938,7 +938,7 @@ const CHAR_DEFS = {
       walk:       [215,215,215,215],
       discover:   [395,450],
       sneak:      [385,385,385,385],
-      attack:     [295,295,295,295,500,295,295,295,295],
+      attack:     [210,210,210,210,250,210,210,210,210],
       flinch:     [265,265,265,265,265,265],
       guardbreak: [370,370,370],
       blowback:   [300,300,300,300,300,300],
@@ -1197,11 +1197,12 @@ const CHAR_DEFS = {
     canHeal: true,
     healRadius: 330,          // オーラの効果範囲
     healTickIntervalMs: 1500, // 回復判定の間隔
-    healAmountPerTick: 4,     // 1回あたりの回復量
+    healAmountPerTick: 7,     // 1回あたりの回復量(通常戦線より強化。第三戦線で「まだヒーラーに対策できなくても、餓鬼だけなら問題ない」という前提の強さ)
     canRevive: true,
     reviveUsesMax: 1,         // 1戦闘中に使える回数
     reviveRadius: 280,        // この範囲内の直近の死体を対象にできる(回復範囲の倍)
     corpseRestoreHpPercent: 0.5, // 蘇生後のHP割合(最大HPの半分)
+    reviveInvulnMs: 3000,     // 蘇生された側は、蘇生後3秒間、無敵になる
     icon: ICON_HEALER,
     imageBase: IMG_HEALER,
     pixelScale: 74 / 511, // 通常ゴブリン(約74px)と同じ大きさに。歩行コマ(511px)基準
@@ -1992,7 +1993,50 @@ const STAGES = [
       { t:146, kind:"archer", lane:3 },
       { t:153, kind:"goblin", lane:2 }
     ] },
-  // ---- 第三戦線：全5戦列、自分の布陣。役職・鬼獣・大鬼を含む、長い戦(旧・魔野) ----
+  // ---- 第三戦線：引き続き3戦列。鎗卒に加えて狼筅手が使える。
+  //   学ぶこと：①鎗卒は間合いの外から餓鬼を突ける(先の戦線までの延長) ②餓鬼が同じ戦列に連なって迫ると、単体攻撃の鎗卒だけでは抑え切れず、
+  //   前方を薙ぎ払う狼筅手が要る ③巫鬼(回復・蘇生)が出るが、まだ対策できる兵はいない。ただし敵は餓鬼のみなので、対策できなくても支障はない ----
+  { id:"spear", name:"槍原", reading:"やりはら", menu:{ tag:"三陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+    intro:"骸の野を越え、なお続く鬼の道。群れは、隊列を組みて迫る。",
+    lanes:[1,2,3], units:{ foot:["soldier","shieldman","spearman","langxian"] },
+    enemyCastleHp:3400, playerCastleHp:6000, startCorpse:1000, corpseGainRate:1.0, castleDmgTaken:{ player:0.6 },
+    guide:[
+      { t:0.5, dur:9, pulse:"spearman", text:"「鎗卒」は、間合いの外から鬼を突ける" },
+      { t:62, dur:10, text:"鬼が列を成して迫る。鎗卒だけでは抑え切れぬ" },
+      { t:70, dur:10, pulse:"langxian", text:"「狼筅手」を送り、前を薙ぎ払え" },
+      { t:148, dur:10, text:"癒しの巫が現れた。今はまだ、手立てなし……だが、鬼が相手なら障りはない" }
+    ],
+    enemyWaves:[
+      { t:10, kind:"goblin", lane:2, msg:"鬼、寄せ来たる" },
+      { t:22, kind:"goblin", lane:1 },
+      { t:34, kind:"goblin", lane:3 },
+      { t:46, kind:"goblin", lane:2 },
+      { t:58, kind:"goblin", lane:1 },
+      { t:72, kind:"goblin", lane:2, msg:"鬼、列を成す" },
+      { t:75, kind:"goblin", lane:2 },
+      { t:78, kind:"goblin", lane:2 },
+      { t:96, kind:"goblin", lane:3 },
+      { t:108, kind:"goblin", lane:1 },
+      { t:122, kind:"goblin", lane:3, msg:"鬼、列を成す" },
+      { t:125, kind:"goblin", lane:3 },
+      { t:128, kind:"goblin", lane:3 },
+      { t:150, kind:"healer", lane:2, msg:"巫鬼、現る" },
+      { t:158, kind:"goblin", lane:1 },
+      { t:170, kind:"goblin", lane:2 },
+      { t:182, kind:"goblin", lane:3 },
+      { t:196, kind:"goblin", lane:1, msg:"鬼、列を成す" },
+      { t:199, kind:"goblin", lane:1 },
+      { t:202, kind:"goblin", lane:1 },
+      { t:218, kind:"goblin", lane:2 },
+      { t:230, kind:"goblin", lane:3 },
+      { t:242, kind:"healer", lane:2, msg:"巫鬼、現る" },
+      { t:250, kind:"goblin", lane:1 },
+      { t:258, kind:"goblin", lane:3 },
+      { t:270, kind:"goblin", lane:2, msg:"鬼、列を成す" },
+      { t:273, kind:"goblin", lane:2 },
+      { t:276, kind:"goblin", lane:2 }
+    ] },
+  // ---- 第四戦線：全5戦列、自分の布陣。役職・鬼獣・大鬼を含む、長い戦(旧・魔野) ----
   { id:"plain3", name:"鬼哭野", reading:"きこくの", menu:{ tag:"荒野", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"鬼の哭く声、風に乗りて聞こゆ。押し寄せる群は、いよいよ厚し。", enemyCastleHp:6000, playerCastleHp:6000,
   // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
@@ -3961,7 +4005,7 @@ function getStatusKeys(unit){
   if (getFlagSource(unit)) keys.push("castleAtk");
   if (unit.attackArmorMs > 0) keys.push("armor");
   if (battle.units.some(q => !q.dead && q.side === unit.side && q.barrierMs > 0) && (def.heightM || 2) <= 4 && isShielded(unit)) keys.push("barrier");
-  if (unit.transforming) keys.push("invuln");
+  if (unit.transforming || unit.reviveInvulnMs > 0) keys.push("invuln");
   if (unit.poisonRemainingMs > 0) keys.push("poison");
   if (unit.gauges && unit.gauges.bleed > 0) keys.push("bleed");
   if (unit.restrained) keys.push("net");
@@ -6070,6 +6114,7 @@ function completeRevive(healer, corpse){
   corpse.dead = false;
   const restorePercent = corpse.def.corpseRestoreHpPercent != null ? corpse.def.corpseRestoreHpPercent : 0.4;
   corpse.hp = Math.max(1, Math.round(corpse.hpMax * restorePercent));
+  corpse.reviveInvulnMs = healer.def.reviveInvulnMs || 0; // 蘇生された側は、しばらく攻撃を受けない
   corpse.target = null;
   applyFrame(corpse);
   const fallback = corpse.def.frameCounts.walk ? "walk" : (corpse.def.approachMotion || "walk");
@@ -6101,6 +6146,7 @@ function updateRevive(dtMs){
 function applyDamageToUnit(target, amount, attacker){
   if (target.dead || target.mounted) return; // フォートレスの背中に乗っている間は攻撃を受けない
   if (target.def.invulnerable) return;       // 巨大ゲートは壊せない
+  if (target.reviveInvulnMs > 0) return;     // 蘇生直後の無敵時間中
   // 担がれているキングは、遠距離攻撃(空中に届く攻撃)でしか攻撃できない
   if (target.elevated && attacker && !(attacker.def.ranged || attacker.def.canHitAir)) return;
   if (target.transforming) return; // 女王の第二形態への移行モーション中は無敵(毒などのダメージも受けない)
@@ -6492,6 +6538,7 @@ function battleStep(dt){
     updateBearerSync(unit);
     updateKingBody(unit, dt);
     if (unit.gateCooldown > 0) unit.gateCooldown = Math.max(0, unit.gateCooldown - dt);
+    if (unit.reviveInvulnMs > 0) unit.reviveInvulnMs = Math.max(0, unit.reviveInvulnMs - dt); // 蘇生直後の無敵時間
     updateFortressCorpse(unit);
     updateBuffAura(unit, dt);
     updateFlagBuff(unit);
