@@ -731,7 +731,7 @@
    ========================================================= */
 // @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
 // コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
-const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@fd4d5bb/";
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@448f83a/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
@@ -744,6 +744,8 @@ const IMG_SCOUT = REPO_BASE + "images/scout_repo_upload/";
 const ICON_SCOUT = REPO_BASE + "icons/scout_icon.png";
 const IMG_REPAIRER = REPO_BASE + "images/repairer_repo_upload/";
 const ICON_REPAIRER = REPO_BASE + "icons/repairer_icon.png";
+const IMG_WATCHTOWER = REPO_BASE + "images/watchtower_repo_upload/";
+const ICON_WATCHTOWER = REPO_BASE + "icons/watchtower_icon.png";
 const IMG_SHIELDMAN = REPO_BASE + "images/shieldman_repo_upload/";
 const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
 const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
@@ -1074,6 +1076,73 @@ const CHAR_DEFS = {
       down:     [1000],
       getup:    [310,310]
     }
+  },
+
+  watchtower: {
+    reading: "ぼうろうへい",             // 名前の読み(長押しで表示)
+    intro: "梯子材を担ぐ普請の者。戦わず、指定した場所に望楼台(または壁)を築く。",
+    name: "望楼兵",
+    rank: null,
+    race: "human",
+    cost: 450,
+    hp: 24,
+    atk: 0,
+    weight: 26,
+    walkSpeed: 32,
+    noCombat: true,           // 索敵・攻撃・追走をしない
+    canPlaceStructure: true,  // 「設置」の対象になる。召喚すると、マス目を指定するモードに入る
+    placementCooldownMs: 18000, // 個数ではなく、クールタイムで再び使えるようにする
+    structureBuildMs: 2665,   // build_1〜5の合計(1回きり、ループしない)
+    parryable: true,
+    guardable: false,
+    bleedOnHit: false,
+    icon: ICON_WATCHTOWER,
+    imageBase: IMG_WATCHTOWER,
+    pixelScale: 92 / 577,
+    motionScale: { down: 0.68 },
+    frameCounts: {
+      idle:1, walk:4, build:5, flinch:3, blowback:4, down:1, getup:2
+    },
+    // 実測済みの数値(1倍速)
+    frameDurations: {
+      idle:     [1000],
+      walk:     [280,280,280,280],
+      build:    [500,500,750,625,290],
+      flinch:   [265,265,265],
+      blowback: [265,265,265,265],
+      down:     [1000],
+      getup:    [265,265]
+    }
+  },
+
+  // 望楼台・壁：望楼兵が築く建造物。プレイヤーが直接召喚することはないので、布陣画面には出さない(hiddenFromFormation)。
+  // 敵だけが進行を阻まれ、攻撃して壊しにかかる(見た目はnoCombat扱いだが、実際には戦わず、ただ立ちはだかる)。
+  // HPが75%・50%・25%を切るごとに絵が変わり、0で崩れ落ちる。崩れると、同じマス目(列)の壁も道連れで壊れる(望楼台のみ)
+  watchtowerPlatform: {
+    reading: "ぼうろうだい", intro: "組み上げられた木造りの物見台。", name: "望楼台",
+    hiddenFromFormation: true, rank: null, race: "object",
+    cost: 0, hp: 620, atk: 0, weight: 9999, walkSpeed: 0, attackRange: 0, detectionRange: 0,
+    noCombat: true, immobile: true, structureUnit: true, structureKind: "platform", noRevive: true,
+    hitboxWidth: 84, hpBarWidth: 80,
+    imageBase: IMG_WATCHTOWER, imagePrefix: "p",
+    pixelScale: 260 / 1414,       // 望楼台の絵(高さ1414px)を約260pxに(戦列の高さの倍以上、5mの見た目)
+    motionScale: {},
+    frameCounts: { normal:1, d1:1, d2:1, d3:1, collapsed:1 },
+    frameDurations: { normal:[1000], d1:[1000], d2:[1000], d3:[1000], collapsed:[1000] },
+    structureStageMotions: ["normal", "d1", "d2", "d3"] // HPの割合が高い順。最後は必ずcollapsed
+  },
+  watchtowerWall: {
+    reading: "へき", intro: "土砂を詰めた、太い丸太の壁。", name: "壁",
+    hiddenFromFormation: true, rank: null, race: "object",
+    cost: 0, hp: 380, atk: 0, weight: 9999, walkSpeed: 0, attackRange: 0, detectionRange: 0,
+    noCombat: true, immobile: true, structureUnit: true, structureKind: "wall", noRevive: true,
+    hitboxWidth: 84, hpBarWidth: 80,
+    imageBase: IMG_WATCHTOWER, imagePrefix: "w",
+    pixelScale: 260 / 1332,
+    motionScale: {},
+    frameCounts: { normal:1, d1:1, collapsed:1 },
+    frameDurations: { normal:[1000], d1:[1000], collapsed:[1000] },
+    structureStageMotions: ["normal", "d1"]
   },
 
   shieldman: {
@@ -2169,7 +2238,7 @@ const STAGES = [
   //   開始時点で、自城はすでに大きく傷んでいる。敵城を落としても勝てるが、自城を満タンまで直し切っても勝ちになる ----
   { id:"beast", name:"獣道", reading:"けものみち", menu:{ tag:"四陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"焦土に獣の足跡、幾重にも交わる。城壁はすでに傷み、なお鬼の牙は止まらぬ。",
-    lanes:[0,1,2,3,4], units:{ foot:["soldier","shieldman","spearman","langxian","armored","scout","repairer"] },
+    lanes:[0,1,2,3,4], units:{ foot:["soldier","shieldman","spearman","langxian","repairer"] },
     enemyCastleHp:4600, playerCastleHp:7000, playerCastleStartHp:1750, // 自城は開始時点で25%まで傷んでいる
     startCorpse:1200, corpseGainRate:1.0, castleDmgTaken:{ player:0.85 },
     winByFullHeal:true, // 敵城を落とす他に、自城を満タンまで直し切っても勝ちになる
@@ -3077,6 +3146,7 @@ function startBattle(stage){
     commands: [],                  // いま出ている軍令
     speed: 1,                      // 倍速(1・2・3)
     roleUsed: {},                  // 役職のキャラを、この試合で何体出したか(総大将は1度きり)
+    placementPending: null,        // 望楼兵などの設置系：召喚後、戦場をタップして場所を選んでいる間の状態
     corpse: (stage.startCorpse != null ? stage.startCorpse : START_CORPSE),          // 屍(全キャラの召喚資金)。最初に少し持っていて、あとは倒れたユニットの分だけたまる。時間では増えない
     selectedLanes: new Set(),      // 召喚するレーン(下から0〜4)。複数選べて、選んだレーンごとに1体ずつ出る。1つも選んでいないと召喚できない
     time: 0,                       // 戦闘の経過時間(秒)
@@ -3192,6 +3262,7 @@ function skillCd(unit, ms){
 
 function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
+  if (def.canPlaceStructure){ startPlacementPick(kind); return; } // 設置系：戦列ではなく、戦場をタップして場所を選ぶ
   const cost = getDeployCost(def);
   const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
   if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; } // 先にレーンを選ばないと召喚できない
@@ -3947,6 +4018,108 @@ function updateLaunch(unit, dtMs){
 // 鼓舞兵の太鼓と同じ仕組み：クールタイムが明けたら詠唱モーションを1回再生し、
 // その瞬間に範囲内でHPが減っている味方をまとめて固定量回復する
 // 修復兵：戦わず、自城のそばに留まって、城のHPをゆっくり回復し続ける(巫鬼のように味方を癒すのではなく、城そのものを直す)
+// ---- 望楼兵・望楼台・壁：設置まわりの一式 ----
+function columnOfX(x){ return Math.max(1, Math.min(20, Math.floor(x / GRID_CELL) + 1)); }
+function columnCenterX(col){ return (col - 0.5) * GRID_CELL; }
+function findStructureAt(col, lane){
+  return battle && battle.units.find(u => !u.dead && u.def.structureUnit && u.structureCol === col && u.lane === lane);
+}
+function findPlatformInColumn(col){
+  return battle && battle.units.find(u => !u.dead && u.def.structureKind === "platform" && u.structureCol === col);
+}
+// 召喚ボタンから、設置系のキャラを選んだとき：戦場をタップして、築く場所(列・戦列)を選ぶモードに入る
+function startPlacementPick(kind){
+  const def = CHAR_DEFS[kind];
+  const cost = getDeployCost(def);
+  battle.placementCooldowns = battle.placementCooldowns || {};
+  const remain = (battle.placementCooldowns[kind] || 0);
+  if (remain > 0){ showToast(def.name + "：あと" + Math.ceil(remain / 1000) + "秒で、また使える"); return; }
+  if (battle.corpse < cost){ showToast("屍が足りぬ"); return; }
+  battle.placementPending = { kind };
+  showToast(def.name + "：築く場所を、戦場でお選びください");
+}
+// 選んだマス目に、実際に召喚し、そこへ向かわせる(この時点で屍を払い、クールタイムを起こす)
+function commitPlacement(kind, col, lane){
+  const def = CHAR_DEFS[kind];
+  if (findStructureAt(col, lane)){ showToast("そこには、すでに何かある"); return false; }
+  const cost = getDeployCost(def);
+  if (battle.corpse < cost){ showToast("屍が足りぬ"); return false; }
+  battle.corpse -= cost; updateWalletUI();
+  battle.placementCooldowns = battle.placementCooldowns || {};
+  battle.placementCooldowns[kind] = def.placementCooldownMs || 0;
+  const u = spawnUnit(kind, "player", 0, { lane });
+  u.buildTargetCol = col; u.buildTargetLane = lane; u.buildTargetX = columnCenterX(col);
+  u.deployedKind = kind;
+  return true;
+}
+function updateBuilderAI(unit, dtMs){
+  if (unit.buildStarted) return; // 建設中(build)：setMotionのonEndで完了処理をするので、ここでは何もしない
+  const dx = unit.buildTargetX - unit.x;
+  if (Math.abs(dx) > 4){
+    if (unit.motion !== "walk") setMotion(unit, "walk", { loop:true });
+    const speed = unit.def.walkSpeed || 30;
+    const step = Math.sign(dx) * Math.min(Math.abs(dx), speed * (dtMs / 1000));
+    unit.x += moveWithCollision(unit, step); // 敵がそのマス目を塞いでいれば、そこで足止めされる
+    applyFrame(unit);
+    return;
+  }
+  unit.x = unit.buildTargetX; applyFrame(unit);
+  unit.buildStarted = true;
+  setMotion(unit, "build", { onEnd: () => finishPlacement(unit) });
+}
+function finishPlacement(unit){
+  if (!unit.dead){
+    const col = unit.buildTargetCol, lane = unit.buildTargetLane;
+    if (!findStructureAt(col, lane)){
+      const kind = findPlatformInColumn(col) ? "watchtowerWall" : "watchtowerPlatform";
+      const s = spawnUnit(kind, "player", 0, { lane });
+      s.x = columnCenterX(col); s.structureCol = col;
+      setMotion(s, "normal", { loop:true });
+      applyFrame(s);
+    }
+  }
+  removeUnit(unit);
+}
+// HPの割合に応じて、望楼台・壁の見た目を切り替える(城の損傷表現と同じ考え方)
+function updateStructureStage(u){
+  const stages = u.def.structureStageMotions; if (!stages) return;
+  const ratio = Math.max(0, u.hp) / u.hpMax;
+  const idx = Math.min(stages.length - 1, Math.floor((1 - ratio) * stages.length));
+  const wanted = stages[idx];
+  if (u.motion !== wanted){
+    setMotion(u, wanted, { loop:true });
+    spawnStructureFx(u, "impact");
+  }
+}
+// 衝撃煙(命中直後)・落下の砂埃(崩れた後)を、望楼台・壁の位置に重ねて出す
+function spawnStructureFx(u, type){
+  const src = IMG_WATCHTOWER + (type === "impact" ? "impact_smoke.png" : "fall_dust.png");
+  const h = type === "impact" ? 160 : 120;
+  spawnFx(src, u.x + (u.def.hitboxWidth || 0) / 2 - h / 2, { height: h, bottom: (u.baseB || 74) - (type === "impact" ? 20 : 30), lifespan: type === "impact" ? 500 : 1400 });
+}
+// 望楼台・壁が崩れるときの、専用の処理(通常の「down」ではなく「collapsed」を使い、望楼台は同じ列の壁も道連れにする)
+function collapseStructure(target){
+  setMotion(target, "collapsed", { loop:true });
+  spawnStructureFx(target, "impact");
+  let wait = 0;
+  addFxTask(dt => {
+    wait += dt;
+    if (wait < 150) return true;
+    spawnStructureFx(target, "fall");
+    return false;
+  });
+  if (target.def.structureKind === "platform"){
+    battle.units.filter(u => !u.dead && u.def.structureKind === "wall" && u.structureCol === target.structureCol)
+      .forEach(w => killUnit(w)); // 望楼台が壊れると、同じ列の壁もまとめて壊れる
+  }
+  let wait2 = 0;
+  addFxTask(dt => {
+    wait2 += dt;
+    if (wait2 < 2400) return true;
+    removeUnit(target);
+    return false;
+  });
+}
 function updateRepairerAI(unit, dtMs){
   const def = unit.def;
   if (unit.motion !== "repair"){
@@ -6258,6 +6431,7 @@ function afterReaction(unit){
 function killUnit(target){
   target.dead = true;
   target.target = null;
+  if (target.def.structureUnit){ collapseStructure(target); return; } // 望楼台・壁は、専用の崩れ方をする
   // 屍：敵味方を問わず、倒れたユニットの値段に応じてたまる(ゲートなど値段のないものは、たまらない)
   if (battle && target.def.cost > 0){
     battle.corpse += target.def.cost * (battle.stage.corpseGainRate != null ? battle.stage.corpseGainRate : CORPSE_GAIN_RATE);
@@ -6443,6 +6617,7 @@ function applyDamageToUnit(target, amount, attacker){
 
   target.hp = Math.max(0, target.hp - amount);
   applyFrame(target);
+  if (target.def.structureUnit && target.hp > 0) updateStructureStage(target); // 望楼台・壁：傷の見た目を切り替える
 
   // 毒付与(弓兵の矢など)：蓄積式。閾値に達すると発動し、最大HPの一定割合を効果時間で分割して与える
   if (attacker && attacker.def.poisonOnHit && target.hp > 0 && !target.def.poisonImmune){
@@ -6552,6 +6727,7 @@ function updateUnitAI(unit, dtMs){
   if (unit.bearerOf){ updateBearerAI(unit); return; }            // キングの担ぎ手：担いでいる間は攻撃しない
   if (def.kingLogic){ updateKingAI(unit, dtMs); return; }         // キング：ゆっくり進み、ゲートを召喚する
 
+  if (unit.buildTargetX != null){ updateBuilderAI(unit, dtMs); return; } // 望楼兵：指定のマス目まで歩き、着いたら築き始める
   if (def.repairsCastle){ updateRepairerAI(unit, dtMs); return; } // 修復兵：自城のそばに留まり、城を直し続ける
   if (def.noCombat){
     // 非戦闘ユニット(鼓舞兵など)：戦わないが、目の前に敵がいる間は立ち尽くして待つ
@@ -6718,6 +6894,9 @@ function battleLoop(now){
 
 function battleStep(dt){
   updateGuide();
+  if (battle.placementCooldowns){
+    for (const k in battle.placementCooldowns){ if (battle.placementCooldowns[k] > 0) battle.placementCooldowns[k] = Math.max(0, battle.placementCooldowns[k] - dt); }
+  }
   // 屍は時間では増えない(倒れたユニットのときだけ増える)ので、ここでは何もためない
 
   updateCommands(dt); // 軍令の終了判定・クールタイム・強化のフラグ
@@ -7260,6 +7439,16 @@ function renderUnitInfo(){
 document.getElementById("battlefield").addEventListener("click", e => {
   if (!battle || battle.ended) return;
   const p = fieldPointToLogical(e);
+  if (battle.placementPending){
+    const col = columnOfX(p.lx);
+    const lane = Math.floor((STAGE_H - GRID_GROUND - p.ly) / GRID_CELL);
+    if (lane >= 0 && lane < GRID_LANES && laneAllowed(lane)){
+      if (commitPlacement(battle.placementPending.kind, col, lane)) battle.placementPending = null;
+    } else {
+      battle.placementPending = null; // 使えない場所をタップしたら、設置待ちを取り消す
+    }
+    return; // 設置の場所待ちの間は、タップを場所選びだけに使う
+  }
   const u = unitAtPoint(p.lx, p.ly);
   if (u){ showUnitInfo(u); return; }               // 兵をタップ：情報を出す
   closeUnitInfo();
