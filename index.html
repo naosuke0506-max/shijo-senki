@@ -3017,7 +3017,13 @@ function applyStageUnits(stage){
   if (!stage.units) return;
   state._backup = { slots: JSON.parse(JSON.stringify(state.formationSlots)), morale: state.moraleRole };
   const slots = makeEmptySlots();
-  for (const role in stage.units){ let i = 0; slots.forEach(sl => { if (sl.role === role && i < stage.units[role].length) sl.kind = stage.units[role][i++]; }); }
+  for (const role in stage.units){
+    const want = stage.units[role];
+    let i = 0;
+    slots.forEach(sl => { if (sl.role === role && i < want.length) sl.kind = want[i++]; });
+    // 既定の枠数(歩兵は4など)を超える顔ぶれを指定した戦線では、この戦闘だけ枠を追加する
+    while (i < want.length) slots.push({ role, kind: want[i++], parent: null });
+  }
   state.formationSlots = slots; state.moraleRole = null;
   syncSelectedUnits();
 }
