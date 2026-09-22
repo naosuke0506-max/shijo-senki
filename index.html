@@ -1124,12 +1124,13 @@ const CHAR_DEFS = {
     cost: 0, hp: 620, atk: 0, weight: 9999, walkSpeed: 0, attackRange: 0, detectionRange: 0,
     noCombat: true, immobile: true, structureUnit: true, structureKind: "platform", noRevive: true,
     hitboxWidth: 84, hpBarWidth: 80,
-    imageBase: IMG_WATCHTOWER, imagePrefix: "p",
+    imageBase: IMG_WATCHTOWER,
     pixelScale: 260 / 1414,       // 望楼台の絵(高さ1414px)を約260pxに(戦列の高さの倍以上、5mの見た目)
     motionScale: {},
     frameCounts: { normal:1, idle:1, d1:1, d2:1, d3:1, collapsed:1 },
     frameDurations: { normal:[1000], idle:[1000], d1:[1000], d2:[1000], d3:[1000], collapsed:[1000] },
-    motionAlias: { idle: { as: "normal" } }, // 出現直後、一瞬だけ参照されるidleは、normalの絵を使う
+    // GitHub上の実際のファイル名(通し番号を付けていない)を、そのまま1つずつ指定する
+    frameFileMap: { normal:"platform_1.png", idle:"platform_1.png", d1:"platform_d1.png", d2:"platform_d2.png", d3:"platform_d3.png", collapsed:"platform_collapsed.png" },
     structureStageMotions: ["normal", "d1", "d2", "d3"] // HPの割合が高い順。最後は必ずcollapsed
   },
   watchtowerWall: {
@@ -1138,12 +1139,12 @@ const CHAR_DEFS = {
     cost: 0, hp: 380, atk: 0, weight: 9999, walkSpeed: 0, attackRange: 0, detectionRange: 0,
     noCombat: true, immobile: true, structureUnit: true, structureKind: "wall", noRevive: true,
     hitboxWidth: 84, hpBarWidth: 80,
-    imageBase: IMG_WATCHTOWER, imagePrefix: "w",
+    imageBase: IMG_WATCHTOWER,
     pixelScale: 260 / 1332,
     motionScale: {},
     frameCounts: { normal:1, idle:1, d1:1, collapsed:1 },
     frameDurations: { normal:[1000], idle:[1000], d1:[1000], collapsed:[1000] },
-    motionAlias: { idle: { as: "normal" } },
+    frameFileMap: { normal:"wall_1.png", idle:"wall_1.png", d1:"wall_d1.png", collapsed:"wall_collapsed.png" },
     structureStageMotions: ["normal", "d1"]
   },
 
@@ -3505,6 +3506,7 @@ function spawnUnit(kind, side, xOffset, opts){
 }
 
 function frameUrl(def, motion, frameIndex1based){
+  if (def.frameFileMap && def.frameFileMap[motion]) return def.imageBase + def.frameFileMap[motion]; // ファイル名を1つずつ指定する場合(望楼台・壁など)
   const base = (def.motionImageBase && def.motionImageBase[motion]) || def.imageBase;
   const alias = def.motionAlias && def.motionAlias[motion]; // 別モーションの絵を(逆順で)流用する指定(ゲートの消滅など)
   let m = motion, i = frameIndex1based;
