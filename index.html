@@ -6268,6 +6268,11 @@ function applyDamageToUnit(target, amount, attacker){
 
   if (dodgeReady && startLaneDodge(target)){
     // 回避：上下どちらかの隣のレーンへ移動する(モーション中は無敵、着いて2秒後にまた回避モーションで元のレーンへ戻る)
+    // 攻撃していた側は、戦列を外れた相手をもう追わない：狙いを外し、その場に立ち止まらず前進を続ける
+    if (attacker){
+      if (attacker.target === target) attacker.target = null;
+      attacker.dodgedPastUnit = target; // この相手とはもう戦わない(戻ってきてすれ違っても、狙い直さない)
+    }
     return; // ダメージなし
   }
 
