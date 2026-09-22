@@ -740,6 +740,8 @@ const IMG_LANGXIAN = REPO_BASE + "images/langxian_repo_upload/";
 const ICON_LANGXIAN = REPO_BASE + "icons/langxian_icon.png";
 const IMG_ARMORED = REPO_BASE + "images/armored_repo_upload/";
 const ICON_ARMORED = REPO_BASE + "icons/armored_icon.png";
+const IMG_SCOUT = REPO_BASE + "images/scout_repo_upload/";
+const ICON_SCOUT = REPO_BASE + "icons/scout_icon.png";
 const IMG_SHIELDMAN = REPO_BASE + "images/shieldman_repo_upload/";
 const ICON_SHIELDMAN = REPO_BASE + "icons/shieldman_icon.png";
 const IMG_ARQUEBUSIER = REPO_BASE + "images/arquebusier_repo_upload/";
@@ -1002,38 +1004,37 @@ const CHAR_DEFS = {
     atk: 8,
     weight: 24,
     walkSpeed: 62,
-    runSpeed: 100,
+    approachMotion: "walk",         // 走る絵を持たないので、発見後も歩きのまま(速さは元々速い)
+    approachSpeed: 62,
     attackRange: 42,
     detectionRange: 300,             // 長い索敵範囲。遠くの支援役にも気づける
     preferNoCombatTargets: true,     // 索敵範囲内に、戦わぬ敵(穽鬼・鼓鬼・巫鬼など)がいれば、他の敵より優先して狙う
     bonusVsNoCombat: 2.2,            // 戦わぬ敵への攻撃力が2.2倍
+    noCombatLaneReach: 1,            // 戦わぬ敵にだけ、隣のレーンまで踏み込んで攻撃できる
+    canEngageBehind: true,           // 背後に回り込まれても、振り向いて追いかけ、戦える(回避した餓鬼を逃さない)
     netResistant: true,              // 罠を見切り、踏んでも引っかからない
     parryable: true,
     guardable: false,
     bleedOnHit: false,
-    // 絵は未作成。出来るまで、戦闘中の絵は戍卒のものを仮に使う。札の絵は、無ければ名前の文字が出る。
-    icon: ICON_SOLDIER,                                  // 絵が出来たら ICON_SCOUT に差し替え
-    imageBase: IMG_SOLDIER,                              // 絵が出来たら IMG_SCOUT に差し替え
-    pixelScale: 92 / 529,
+    icon: ICON_SCOUT,
+    imageBase: IMG_SCOUT,
+    pixelScale: 92 / 490,
     motionScale: { down: 0.68 },
     frameCounts: {
-      idle:1, walk:5, run:5, discover:2, attack:10,
-      flinch:8, guardbreak:4, blowback:8, down:2, getup:5
+      idle:1, walk:4, discover:2, attack:9, flinch:5, blowback:5, down:1, getup:2
     },
+    // 実測済みの数値(1倍速)。ガードをしないのでガード崩しは無い
     frameDurations: {
-      idle:       [1000],
-      walk:       [260,260,260,260,260],
-      run:        [230,230,230,230,230],
-      discover:   [360,800],
-      attack:     [180,160,160,180,180,180,40,40,20,220],
-      flinch:     [80,80,100,120,40,380,270,240],
-      guardbreak: [180,180,180,180],
-      blowback:   [130,130,130,130,130,130,130,130],
-      down:       [600,2000],
-      getup:      [200,200,240,340,260]
+      idle:      [1000],
+      walk:      [260,260,260,260],
+      discover:  [295,295],
+      attack:    [50,60,50,130,210,200,250,200,200],
+      flinch:    [225,225,225,225,225],
+      blowback:  [245,245,245,245,245],
+      down:      [1000],
+      getup:     [350,350]
     },
-    attackImpactFrame: 8,
-    frameFacingOverride: { walk: [1, 1, -1, 1, 1] }
+    attackImpactFrame: 6          // attack_7(刀が最も伸びきり、斬撃の軌跡が最大になる瞬間)
   },
 
   shieldman: {
@@ -4862,7 +4863,14 @@ function getReachLanes(unit){
 }
 function canReachLane(unit, target){
   const rl = getReachLanes(unit);
-  return lanesOverlap(rl[0], rl[1], target.laneLo, target.laneHi);
+  if (lanesOverlap(rl[0], rl[1], target.laneLo, target.laneHi)) return true;
+  // 斥候：戦わぬ敵(穽鬼・鼓鬼・巫鬼など)にだけ、隣のレーンまで踏み込んで攻撃できる
+  if (target.def.noCombat && unit.def.noCombatLaneReach){
+    const ext = unit.def.noCombatLaneReach;
+    const lo = Math.max(0, unit.laneLo - ext), hi = Math.min(GRID_LANES - 1, unit.laneHi + ext);
+    if (lanesOverlap(lo, hi, target.laneLo, target.laneHi)) return true;
+  }
+  return false;
 }
 // 2体以上を同時に出すとき(魔獣2匹など)の、レーンの振り分け：基準レーンの両隣。壁なら基準レーンと同じ位置
 function summonLanes(baseLane, count){
@@ -6108,6 +6116,7 @@ function isAttackFromFront(target, attacker){
 const ADJACENT_ENGAGE_THRESHOLD = 20;
 function isEngageable(unit, other){
   if (other.def.noCombat) return true; // 非戦闘ユニットは自衛できないので、前後関係に関わらず常に攻撃対象にできる
+  if (unit.def.canEngageBehind) return true; // 斥候：背後に回り込まれても、振り向いて相手をする
   const forwardDir = unit.side === "player" ? -1 : 1;
   const dx = other.x - unit.x;
   if (Math.sign(dx) === forwardDir || dx === 0) return true; // 正面、または真横で重なっている
@@ -6379,7 +6388,7 @@ function findNearestEnemyInRange(unit){
     if (!canReachLane(unit, other)) return; // 自分のレーン(遠距離はさらに隣のレーン)にいない敵は、見つけられない・狙えない
     if (other.def.invulnerable) return; // 壊せない巨大ゲートは狙わない
     if (other.elevated && !(unit.def.ranged || unit.def.canHitAir)) return; // 担がれたキングは遠距離攻撃しか届かない
-    if (other === unit.dodgedPastUnit) return; // 回避してすれ違った相手とは戦わない
+    if (other === unit.dodgedPastUnit && !unit.def.canEngageBehind) return; // 回避してすれ違った相手とは戦わない(斥候は例外)
     const d = edgeDistance(unit, other);
     if (d > unit.def.detectionRange) return;
     if (!isEngageable(unit, other)) return; // 完全に背後の敵は無視(密着していれば例外)
@@ -6486,8 +6495,9 @@ function updateUnitAI(unit, dtMs){
   let destX = unit.target ? unit.target.x : (unit.side === "player" ? 60 : fieldWidth - 60 - (def.spawnFullyInside ? (def.hitboxWidth || 0) : 0));
   let dx = destX - unit.x;
 
-  if (unit.target && dx !== 0 && Math.sign(dx) !== forwardDir){
+  if (unit.target && dx !== 0 && Math.sign(dx) !== forwardDir && !def.canEngageBehind){
     // 索敵対象が自分の後方にいる(回避で追い抜かれた場合など)：後退はせず、その相手は諦めて前進を続ける
+    // (斥候は例外：振り向いて追いかける)
     unit.target = null;
     destX = unit.side === "player" ? 60 : fieldWidth - 60;
     dx = destX - unit.x;
