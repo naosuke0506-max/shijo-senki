@@ -2164,7 +2164,67 @@ const STAGES = [
       { t:273, kind:"goblin", lane:2 },
       { t:276, kind:"goblin", lane:2 }
     ] },
-  // ---- 第四戦線：全5戦列、自分の布陣。役職・鬼獣・大鬼を含む、長い戦(旧・魔野) ----
+  // ---- 第四戦線：ここから全5戦列。餓鬼・弓鬼に加え、鬼犬(魔獣)が単体で現れる。
+  //   学ぶこと：①鎗卒は魔獣に強い(攻撃力1.5倍) ②鬼犬は横の戦列へ機敏に動く ③修復兵が新たに使え、自城がピンチのときの頼み
+  //   開始時点で、自城はすでに大きく傷んでいる。敵城を落としても勝てるが、自城を満タンまで直し切っても勝ちになる ----
+  { id:"beast", name:"獣道", reading:"けものみち", menu:{ tag:"四陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+    intro:"焦土に獣の足跡、幾重にも交わる。城壁はすでに傷み、なお鬼の牙は止まらぬ。",
+    lanes:[0,1,2,3,4], units:{ foot:["soldier","shieldman","spearman","langxian","armored","scout","repairer"] },
+    enemyCastleHp:4600, playerCastleHp:7000, playerCastleStartHp:1750, // 自城は開始時点で25%まで傷んでいる
+    startCorpse:1200, corpseGainRate:1.0, castleDmgTaken:{ player:0.85 },
+    winByFullHeal:true, // 敵城を落とす他に、自城を満タンまで直し切っても勝ちになる
+    guide:[
+      { t:0.5, dur:10, text:"自城、すでに大きく傷んでいる。油断は、命取りぞ" },
+      { t:12, dur:9, pulse:"repairer", text:"「修復兵」を送れば、自城を直せる。危うき時の頼みぞ" },
+      { t:56, dur:10, text:"獣の気配。魔獣には、鎗卒の突きがよく効く" },
+      { t:64, dur:9, pulse:"spearman", text:"鬼犬は、隣の戦列へも機敏に動く。逃さず追え" },
+      { t:150, dur:10, text:"敵城を落とすもよし、自城を直し切るもまた、勝ちなり" }
+    ],
+    enemyWaves:[
+      { t:8,  kind:"goblin", lane:2, msg:"鬼、寄せ来たる" },
+      { t:18, kind:"goblin", lane:1 },
+      { t:28, kind:"goblin", lane:3 },
+      { t:38, kind:"archer", lane:2, msg:"弓鬼、現る" },
+      { t:46, kind:"goblin", lane:0 },
+      { t:54, kind:"goblin", lane:4 },
+      { t:60, kind:"hound", lane:2, msg:"鬼犬、放たれる" },
+      { t:72, kind:"archer", lane:1 },
+      { t:80, kind:"goblin", lane:2 },
+      { t:88, kind:"goblin", lane:0, msg:"鬼、列を成す" },
+      { t:91, kind:"goblin", lane:0 },
+      { t:94, kind:"goblin", lane:0 },
+      { t:104, kind:"archer", lane:3 },
+      { t:112, kind:"hound", lane:4 },
+      { t:120, kind:"goblin", lane:1 },
+      { t:128, kind:"goblin", lane:3 },
+      { t:136, kind:"archer", lane:2 },
+      { t:144, kind:"goblin", lane:4, msg:"鬼、列を成す" },
+      { t:147, kind:"goblin", lane:4 },
+      { t:150, kind:"goblin", lane:4 },
+      { t:160, kind:"hound", lane:1 },
+      { t:168, kind:"goblin", lane:0 },
+      { t:176, kind:"archer", lane:4 },
+      { t:184, kind:"goblin", lane:2 },
+      { t:192, kind:"goblin", lane:3, msg:"鬼、列を成す" },
+      { t:195, kind:"goblin", lane:3 },
+      { t:198, kind:"goblin", lane:3 },
+      { t:208, kind:"hound", lane:0 },
+      { t:216, kind:"archer", lane:1 },
+      { t:224, kind:"goblin", lane:4 },
+      { t:232, kind:"goblin", lane:1 },
+      { t:240, kind:"hound", lane:3 },
+      { t:248, kind:"goblin", lane:2, msg:"鬼、列を成す" },
+      { t:251, kind:"goblin", lane:2 },
+      { t:254, kind:"goblin", lane:2 },
+      { t:264, kind:"archer", lane:0 },
+      { t:272, kind:"goblin", lane:4 },
+      { t:280, kind:"hound", lane:2 },
+      { t:288, kind:"goblin", lane:1 },
+      { t:296, kind:"archer", lane:3 },
+      { t:304, kind:"goblin", lane:0 },
+      { t:312, kind:"goblin", lane:4 }
+    ] },
+  // ---- 第五戦線：全5戦列、自分の布陣。役職・鬼獣・大鬼を含む、長い戦(旧・魔野) ----
   { id:"plain3", name:"鬼哭野", reading:"きこくの", menu:{ tag:"荒野", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"鬼の哭く声、風に乗りて聞こゆ。押し寄せる群は、いよいよ厚し。", enemyCastleHp:6000, playerCastleHp:6000,
   // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
@@ -2999,7 +3059,7 @@ function startBattle(stage){
     stage,
     enemyCastleHp: stage.enemyCastleHp,
     enemyCastleHpMax: stage.enemyCastleHp,
-    playerCastleHp: stage.playerCastleHp,
+    playerCastleHp: stage.playerCastleStartHp != null ? stage.playerCastleStartHp : stage.playerCastleHp, // 戦線によっては、開始時点ですでに自城が傷んでいる
     playerCastleHpMax: stage.playerCastleHp,
     units: [],
     traps: [],
@@ -3893,6 +3953,10 @@ function updateRepairerAI(unit, dtMs){
     if (battle && battle.playerCastleHp < battle.playerCastleHpMax){
       battle.playerCastleHp = Math.min(battle.playerCastleHpMax, battle.playerCastleHp + (def.repairAmountPerTick || 0));
       updateCastleBars();
+      // 戦線によっては、自城を満タンまで直し切ることそのものが勝利条件になる
+      if (battle.stage && battle.stage.winByFullHeal && battle.playerCastleHp >= battle.playerCastleHpMax && !battle.ended){
+        endBattle(true, false, "repair");
+      }
     }
   }
 }
@@ -6804,7 +6868,7 @@ function playCastleFall(side, win){
   document.getElementById("screen-battle").appendChild(bn);
   setTimeout(() => bn.remove(), 2600);
 }
-function endBattle(win, instant){
+function endBattle(win, instant, reason){
   if (!battle || battle.ended) return;
   battle.ended = true;
   const b = battle;
@@ -6818,10 +6882,11 @@ function endBattle(win, instant){
     resultScreen.classList.add(win ? "win" : "lose");
     document.getElementById("result-title").textContent = win ? "勝利" : "敗北";
     document.getElementById("result-sub").textContent =
-      win ? "敵城、陥落。" : "自城、陥落。";
+      reason === "repair" ? "自城、すべて直った。" : (win ? "敵城、陥落。" : "自城、陥落。");
     showScreen("screen-result");
   };
   if (instant){ showResult(); return; }
+  if (reason === "repair"){ setTimeout(showResult, 1200); return; } // 崩れる城はないので、演出は挟まず短い間だけ置く
   playCastleFall(win ? "enemy" : "player", win); // 城が崩れる間、戦場は止まって見せる
   setTimeout(showResult, 2700);
 }
