@@ -59,6 +59,8 @@
   #screen-formation > *{ flex-shrink:0; }
   .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .topbar h2{ margin:0; font-size:1.05rem; color:var(--gold); letter-spacing:.1em; font-weight:400; }
+  #final-wave-timer{ display:none; font-size:.72rem; color:var(--gold); letter-spacing:.05em; padding:2px 8px; border:1px solid rgba(201,162,74,.5); border-radius:3px; white-space:nowrap; }
+  #final-wave-timer.warn{ color:#ff6a5a; border-color:#ff6a5a; }
   .topbar button{ font-family:'Yu Gothic',sans-serif; padding:8px 16px; font-size:.8rem; }
 
   .world-intro{ margin:14px 0 22px; color:var(--text-dim); font-size:.85rem; line-height:2; letter-spacing:.22em; text-align:center; }
@@ -655,6 +657,7 @@
     <div id="battle-topbar">
       <div id="top-left-controls">
         <div class="stage-plate" id="stage-name-plate" data-reading="まや">魔野</div>
+        <div id="final-wave-timer"></div>
         <button id="btn-pause" title="一時停止">Ⅱ</button>
         <button id="btn-speed" title="速度" data-reading="そくど">×1</button>
         <button id="btn-surrender" title="投降">✕</button>
@@ -1043,7 +1046,7 @@ const CHAR_DEFS = {
 
   repairer: {
     reading: "しゅうふくへい",             // 名前の読み(長押しで表示)
-    intro: "槌を担ぐ普請の者。戦わず、自城のそばに留まり、崩れた城壁をゆっくりと直し続ける。",
+    intro: "槌を担ぐ普請の者。戦わず、召喚の折に選びし建物のそばに留まり、傷んだ所をゆっくりと直し続ける。",
     name: "修復兵",
     rank: null,
     race: "human",
@@ -1053,7 +1056,7 @@ const CHAR_DEFS = {
     weight: 26,
     walkSpeed: 30,
     noCombat: true,           // 索敵・攻撃・追走をしない
-    repairsCastle: true,      // 歩いて前に出ず、自城のそばに留まって城を直し続ける(専用のAIを使う)
+    canPickRepairTarget: true, // 召喚すると、戦場をタップして直す対象(自城・望楼台・壁など、建物なら何でも)を選ぶモードに入る
     repairAmountPerTick: 12,  // 1回あたりの回復量
     repairTickIntervalMs: 2000, // 回復判定の間隔
     parryable: true,
@@ -1135,6 +1138,9 @@ const CHAR_DEFS = {
     frameDurations: { normal:[1000], idle:[1000], d1:[1000], d2:[1000], d3:[1000], collapsed:[1000] },
     // GitHub上の実際のファイル名(通し番号を付けていない)を、そのまま1つずつ指定する
     frameFileMap: { normal:"platform_1.png", idle:"platform_1.png", d1:"platform_d1.png", d2:"platform_d2.png", d3:"platform_d3.png", collapsed:"platform_collapsed.png" },
+    // d1・d2・d3の絵は、周りの透明な余白の切り取り方が浅いため、通常のpixelScaleのままだと段階が進むごとに小さく見えてしまう。
+    // 崩れる前の4段階(normal〜d3)は、常に通常時と同じ大きさで表示する(崩れ落ちた後のcollapsedは、瓦礫らしい横に広い絵なので対象外)
+    motionForcedSize: { normal:{width:95,height:260}, idle:{width:95,height:260}, d1:{width:95,height:260}, d2:{width:95,height:260}, d3:{width:95,height:260} },
     structureStageMotions: ["normal", "d1", "d2", "d3"] // HPの割合が高い順。最後は必ずcollapsed
   },
   watchtowerWall: {
@@ -2304,7 +2310,88 @@ const STAGES = [
       { t:304, kind:"goblin", lane:0 },
       { t:312, kind:"goblin", lane:4 }
     ] },
-  // ---- 第五戦線：全5戦列、自分の布陣。役職・鬼獣・大鬼を含む、長い戦(旧・魔野) ----
+  // ---- 第五戦線：全5戦列。使える人間は戍卒・修復兵・望楼兵のみ。敵は餓鬼・弓鬼・馭獣鬼(鬼犬2匹つき)。
+  //   学ぶこと：①望楼台と壁を並べて築き、高所からの遠距離攻撃と、通行を阻む壁を活かす守り方
+  //   開始と同時に、最終波までのカウントダウンが始まる。警告のあと、鬼の大群が押し寄せる。
+  //   その大群を、決めた時間だけ耐え抜けば、その瞬間に勝利(敵城を落として勝つことも、引き続きできる) ----
+  { id:"rampart", name:"砦野", reading:"とりでの", menu:{ tag:"五陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+    intro:"屍城に近き最後の野。ここに柵を結い、迫り来る鬼の大群を、堰き止めねばならぬ。",
+    lanes:[0,1,2,3,4], units:{ foot:["soldier","repairer","watchtower"] },
+    enemyCastleHp:5200, playerCastleHp:7500, startCorpse:1300, corpseGainRate:1.0, castleDmgTaken:{ player:0.9 },
+    finalWaveAt:150, survivalDuration:120, // 開始から150秒で最終波、それから120秒(2分)耐え抜けば勝利
+    warnings:[
+      { t:130, msg:"鬼の大群、迫り来たる……!", big:true }
+    ],
+    guide:[
+      { t:0.5, dur:10, text:"この地は戦列五つ。戍卒・修復兵・望楼兵のみを率いよ" },
+      { t:10, dur:9, pulse:"watchtower", text:"「望楼兵」を送り、戦列に望楼台を築け" },
+      { t:45, dur:9, text:"台を並べ、壁で繋げば、鬼を長く阻める" },
+      { t:100, dur:10, text:"大群の来る前に、柵を組み終えておけ" },
+      { t:130, dur:9, text:"鬼の大群、迫り来たる。持ち場を固めよ" },
+      { t:150, dur:10, text:"持ちこたえよ。耐え抜けば、勝ちなり" }
+    ],
+    enemyWaves:[
+      { t:10, kind:"goblin", lane:2, msg:"鬼、寄せ来たる" },
+      { t:22, kind:"goblin", lane:1 },
+      { t:22, kind:"goblin", lane:3 },
+      { t:36, kind:"archer", lane:2, msg:"弓鬼、現る" },
+      { t:50, kind:"goblin", lane:0 },
+      { t:50, kind:"goblin", lane:4 },
+      { t:64, kind:"tamer", lane:2, msg:"馭獣鬼、鬼犬を放つ" },
+      { t:78, kind:"archer", lane:1 },
+      { t:78, kind:"archer", lane:3 },
+      { t:92, kind:"goblin", lane:2 },
+      { t:92, kind:"goblin", lane:0 },
+      { t:92, kind:"goblin", lane:4 },
+      { t:106, kind:"tamer", lane:1 },
+      { t:106, kind:"tamer", lane:3 },
+      { t:120, kind:"archer", lane:0 },
+      { t:120, kind:"archer", lane:4 },
+      { t:134, kind:"goblin", lane:1 },
+      { t:134, kind:"goblin", lane:2 },
+      { t:134, kind:"goblin", lane:3 },
+      // ---- 最終波(t=150〜270)。警告のあと、大群が絶え間なく押し寄せる ----
+      { t:150, kind:"goblin", lane:0, msg:"鬼の大群、来たる!" },
+      { t:150, kind:"goblin", lane:1 },
+      { t:150, kind:"goblin", lane:2 },
+      { t:150, kind:"goblin", lane:3 },
+      { t:150, kind:"goblin", lane:4 },
+      { t:158, kind:"archer", lane:0 },
+      { t:158, kind:"archer", lane:2 },
+      { t:158, kind:"archer", lane:4 },
+      { t:166, kind:"goblin", lane:1 },
+      { t:166, kind:"goblin", lane:3 },
+      { t:174, kind:"tamer", lane:2 },
+      { t:182, kind:"goblin", lane:0 },
+      { t:182, kind:"goblin", lane:2 },
+      { t:182, kind:"goblin", lane:4 },
+      { t:190, kind:"archer", lane:1 },
+      { t:190, kind:"archer", lane:3 },
+      { t:198, kind:"goblin", lane:1 },
+      { t:198, kind:"goblin", lane:2 },
+      { t:198, kind:"goblin", lane:3 },
+      { t:206, kind:"tamer", lane:0 },
+      { t:206, kind:"tamer", lane:4 },
+      { t:214, kind:"goblin", lane:0 },
+      { t:214, kind:"goblin", lane:4 },
+      { t:222, kind:"archer", lane:2 },
+      { t:230, kind:"goblin", lane:0 },
+      { t:230, kind:"goblin", lane:1 },
+      { t:230, kind:"goblin", lane:2 },
+      { t:230, kind:"goblin", lane:3 },
+      { t:230, kind:"goblin", lane:4 },
+      { t:238, kind:"archer", lane:0 },
+      { t:238, kind:"archer", lane:4 },
+      { t:246, kind:"tamer", lane:1 },
+      { t:246, kind:"tamer", lane:3 },
+      { t:254, kind:"goblin", lane:2 },
+      { t:254, kind:"archer", lane:2 },
+      { t:262, kind:"goblin", lane:0 },
+      { t:262, kind:"goblin", lane:1 },
+      { t:262, kind:"goblin", lane:3 },
+      { t:262, kind:"goblin", lane:4 }
+    ] },
+  // ---- 第六戦線：全5戦列、自分の布陣。役職・鬼獣・大鬼を含む、長い戦(旧・魔野) ----
   { id:"plain3", name:"鬼哭野", reading:"きこくの", menu:{ tag:"荒野", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"鬼の哭く声、風に乗りて聞こゆ。押し寄せる群は、いよいよ厚し。", enemyCastleHp:6000, playerCastleHp:6000,
   // 最初の戦線(チュートリアル)だけの調整：最初の屍を1000にし、倒れたユニットからの屍を、値段と同じだけにする(通常は0.5倍)。
@@ -3113,6 +3200,29 @@ function restoreFormation(){
   syncSelectedUnits();
 }
 // 導き：戦闘の時間に合わせて、上に短い文を出す
+function formatMmSs(sec){
+  sec = Math.max(0, Math.ceil(sec));
+  const m = Math.floor(sec / 60), s2 = sec % 60;
+  return m + ":" + (s2 < 10 ? "0" : "") + s2;
+}
+// 最終波までの・耐え抜くまでの残り時間を、上部に出す(そうした戦線だけ)
+function updateFinalWaveTimer(){
+  const el = document.getElementById("final-wave-timer");
+  if (!el || !battle) return;
+  const stage = battle.stage;
+  if (stage.finalWaveAt == null || stage.survivalDuration == null || battle.ended){
+    el.style.display = "none";
+    return;
+  }
+  el.style.display = "";
+  if (battle.time < stage.finalWaveAt){
+    el.classList.remove("warn");
+    el.textContent = "大群まで　" + formatMmSs(stage.finalWaveAt - battle.time);
+  } else {
+    el.classList.add("warn");
+    el.textContent = "耐えよ　あと　" + formatMmSs(stage.finalWaveAt + stage.survivalDuration - battle.time);
+  }
+}
 function updateGuide(){
   const el = document.getElementById("guide-bar"); if (!el || !battle) return;
   const g = battle.stage && battle.stage.guide;
@@ -3158,10 +3268,12 @@ function startBattle(stage){
     speed: 1,                      // 倍速(1・2・3)
     roleUsed: {},                  // 役職のキャラを、この試合で何体出したか(総大将は1度きり)
     placementPending: null,        // 望楼兵などの設置系：召喚後、戦場をタップして場所を選んでいる間の状態
+    repairPickPending: null,       // 修復兵：召喚後、戦場をタップして直す対象を選んでいる間の状態
     corpse: (stage.startCorpse != null ? stage.startCorpse : START_CORPSE),          // 屍(全キャラの召喚資金)。最初に少し持っていて、あとは倒れたユニットの分だけたまる。時間では増えない
     selectedLanes: new Set(),      // 召喚するレーン(下から0〜4)。複数選べて、選んだレーンごとに1体ずつ出る。1つも選んでいないと召喚できない
     time: 0,                       // 戦闘の経過時間(秒)
-    nextWave: 0                    // 次に出す敵ウェーブの番号
+    nextWave: 0,                    // 次に出す敵ウェーブの番号
+    nextWarn: 0                     // 次に出す警告(warnings)の番号
   };
 
   updateCastleBars();
@@ -3274,6 +3386,7 @@ function skillCd(unit, ms){
 function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
   if (def.canPlaceStructure){ startPlacementPick(kind); return; } // 設置系：戦列ではなく、戦場をタップして場所を選ぶ
+  if (def.canPickRepairTarget){ startRepairTargetPick(kind); return; } // 修復兵：戦列ではなく、戦場をタップして直す対象を選ぶ
   const cost = getDeployCost(def);
   const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
   if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; } // 先にレーンを選ばないと召喚できない
@@ -3358,8 +3471,11 @@ function spawnUnit(kind, side, xOffset, opts){
     const motionScales = curDef.motionScale || {};
     const motionFactor = motionScales[img.dataset.motion] != null ? motionScales[img.dataset.motion] : 1;
     const scale = (curDef.pixelScale || 1) * motionFactor * ((img._ownerUnit && img._ownerUnit.scaleMult) || 1);
-    const dw = curDef.forcedDisplayWidth || (img.naturalWidth * scale); // 壁など、1マスぴったりの幅に強制したいものはここで指定
-    const dh = curDef.forcedDisplayHeight || (img.naturalHeight * scale);
+    // 建造物など、絵ごとに余白の切り取り方が違っても、段階が変わって見た目の大きさが変わらないようにしたいものは、
+    // モーションごとに強制サイズを指定できる(motionForcedSize)。指定がなければ、全モーション共通のforcedDisplayWidth/Heightを使う
+    const motionForced = curDef.motionForcedSize && curDef.motionForcedSize[img.dataset.motion];
+    const dw = (motionForced && motionForced.width) || curDef.forcedDisplayWidth || (img.naturalWidth * scale); // 壁など、1マスぴったりの幅に強制したいものはここで指定
+    const dh = (motionForced && motionForced.height) || curDef.forcedDisplayHeight || (img.naturalHeight * scale);
     img.style.width = dw + "px";
     img.style.height = dh + "px";
     if (img._ownerUnit){
@@ -3487,6 +3603,8 @@ function spawnUnit(kind, side, xOffset, opts){
     frozenForRevive: false,       // 死体側：蘇生対象として固定され、消滅を待たされている
     perch: null,                  // 望楼台・壁の上にいる間：{ col, lane, phase:"toLadder"|"climb"|"deck" }
     towerDetourMs: 0,             // 望楼台を避けて戦列を移った直後の残り時間(ms)
+    repairTarget: null,           // 修復兵専用：直す対象。{ kind:"castle" } または { kind:"structure", ref:望楼台や壁のユニット }
+    repairCooldown: 0,            // 修復兵専用：次に回復判定するまでの残り時間(ms)
     _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
   img._ownerUnit = unit;
@@ -4068,6 +4186,91 @@ function commitPlacement(kind, col, lane){
   u.deployedKind = kind;
   return true;
 }
+// 修復兵：召喚ボタンを押すと、戦場をタップして直す対象(自城・望楼台・壁)を選ぶモードに入る
+function startRepairTargetPick(kind){
+  const def = CHAR_DEFS[kind];
+  const cost = getDeployCost(def);
+  if (battle.corpse < cost){ showToast("屍が足りぬ"); return; }
+  battle.repairPickPending = { kind };
+  showToast(def.name + "：直す建物を、戦場でお選びください(自城も可)");
+}
+// タップした場所に、直せる建物(自城・望楼台・壁)があるかを調べる
+function repairTargetAtPoint(lx, ly){
+  if (lx >= STAGE_W - 120) return { kind: "castle" }; // 自城の近く(右端)をタップ
+  const u = unitAtPoint(lx, ly);
+  if (u && u.def.structureUnit && u.side === "player") return { kind: "structure", ref: u };
+  return null;
+}
+// 選んだ対象へ、実際に修復兵を出す(この時点で屍を払う)
+function commitRepairTarget(kind, target){
+  const def = CHAR_DEFS[kind];
+  const cost = getDeployCost(def);
+  if (battle.corpse < cost){ showToast("屍が足りぬ"); return false; }
+  battle.corpse -= cost; updateWalletUI();
+  const lane = target.kind === "structure" ? target.ref.lane : defaultLane();
+  const u = spawnUnit(kind, "player", 0, { lane });
+  u.repairTarget = target;
+  u.deployedKind = kind;
+  return true;
+}
+// 修復兵の行動：対象のそばまで歩き、着いたら直し続ける。対象が満タンでも、その場に留まって待ち、減ったらまた直す
+function repairTargetPos(unit){
+  const t = unit.repairTarget;
+  if (t.kind === "castle"){
+    const field = document.getElementById("battlefield");
+    return unit.side === "player" ? (field ? field.clientWidth - 90 : STAGE_W - 90) : 90;
+  }
+  if (t.ref.dead) return null; // 対象(望楼台・壁)が既に壊れていた
+  return columnCenterX(t.ref.structureCol) + 60; // 建物の少し手前に立つ
+}
+function repairTargetHp(unit){
+  const t = unit.repairTarget;
+  if (t.kind === "castle") return { hp: battle.playerCastleHp, max: battle.playerCastleHpMax };
+  if (t.ref.dead) return null;
+  return { hp: t.ref.hp, max: t.ref.hpMax };
+}
+function healRepairTarget(unit, amount){
+  const t = unit.repairTarget;
+  if (t.kind === "castle"){
+    battle.playerCastleHp = Math.min(battle.playerCastleHpMax, battle.playerCastleHp + amount);
+    updateCastleBars();
+    if (battle.stage && battle.stage.winByFullHeal && battle.playerCastleHp >= battle.playerCastleHpMax && !battle.ended){
+      endBattle(true, false, "repair");
+    }
+    return;
+  }
+  if (t.ref.dead) return;
+  t.ref.hp = Math.min(t.ref.hpMax, t.ref.hp + amount);
+  if (t.ref.def.structureUnit) updateStructureStage(t.ref);
+}
+function updateRepairerAI(unit, dtMs){
+  const def = unit.def;
+  const destX = repairTargetPos(unit);
+  if (destX == null){
+    // 対象が既になくなっていた：その場に立ち尽くす
+    if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
+    return;
+  }
+  const dx = destX - unit.x;
+  if (Math.abs(dx) > 6){
+    const dir = dx > 0 ? 1 : -1;
+    unit.x += moveWithCollision(unit, dir * (def.walkSpeed || 30) * (dtMs / 1000));
+    if (unit.motion !== "walk" && def.frameCounts.walk) setMotion(unit, "walk", { loop:true });
+    applyFrame(unit);
+    return;
+  }
+  if (unit.motion !== "repair"){
+    if (unit.motion === "idle" || unit.motion === "walk") setMotion(unit, "repair", { loop:true });
+    return;
+  }
+  unit.repairCooldown -= dtMs;
+  if (unit.repairCooldown <= 0){
+    unit.repairCooldown = def.repairTickIntervalMs || 2000;
+    const cur = repairTargetHp(unit);
+    if (cur && cur.hp < cur.max) healRepairTarget(unit, def.repairAmountPerTick || 0);
+    // 満タンでも、対象のそばに留まって待ち続け、減り次第また直す(この関数を呼び出すupdateUnitAIが、毎tick様子を見ている)
+  }
+}
 function updateBuilderAI(unit, dtMs){
   if (unit.buildStarted) return; // 建設中(build)：setMotionのonEndで完了処理をするので、ここでは何もしない
   const dx = unit.buildTargetX - unit.x;
@@ -4361,25 +4564,7 @@ function collapseStructure(target){
     return false;
   });
 }
-function updateRepairerAI(unit, dtMs){
-  const def = unit.def;
-  if (unit.motion !== "repair"){
-    if (unit.motion === "idle" || unit.motion === "walk") setMotion(unit, "repair", { loop:true });
-    return;
-  }
-  unit.repairCooldown = (unit.repairCooldown || 0) - dtMs;
-  if (unit.repairCooldown <= 0){
-    unit.repairCooldown = def.repairTickIntervalMs || 2000;
-    if (battle && battle.playerCastleHp < battle.playerCastleHpMax){
-      battle.playerCastleHp = Math.min(battle.playerCastleHpMax, battle.playerCastleHp + (def.repairAmountPerTick || 0));
-      updateCastleBars();
-      // 戦線によっては、自城を満タンまで直し切ることそのものが勝利条件になる
-      if (battle.stage && battle.stage.winByFullHeal && battle.playerCastleHp >= battle.playerCastleHpMax && !battle.ended){
-        endBattle(true, false, "repair");
-      }
-    }
-  }
-}
+
 function updateHealer(unit, dtMs){
   const def = unit.def;
   if (!def.canHeal || unit.dead || unit.restrained || unit.isReviving) return;
@@ -6978,7 +7163,7 @@ function updateUnitAI(unit, dtMs){
   if (def.kingLogic){ updateKingAI(unit, dtMs); return; }         // キング：ゆっくり進み、ゲートを召喚する
 
   if (unit.buildTargetX != null){ updateBuilderAI(unit, dtMs); return; } // 望楼兵：指定のマス目まで歩き、着いたら築き始める
-  if (def.repairsCastle){ updateRepairerAI(unit, dtMs); return; } // 修復兵：自城のそばに留まり、城を直し続ける
+  if (unit.repairTarget){ updateRepairerAI(unit, dtMs); return; } // 修復兵：選んだ対象のそばに留まり、直し続ける
   if (def.noCombat){
     // 非戦闘ユニット(鼓舞兵など)：戦わないが、目の前に敵がいる間は立ち尽くして待つ
     const blocker = battle.units.find(other =>
@@ -7189,7 +7374,27 @@ function battleStep(dt){
     if (w.msg) queueBanner(w.msg, false, true); // 敵の出現の告知(赤い文字)
     const wu = spawnUnit(w.kind, "enemy", w.xOffset || 0, { lane: w.lane });
     if (w.role) applyRole(wu, w.role); // 敵の役職(enemyWavesの role に general/elder/captain/chief)
+    // 馭獣鬼(鬼犬2匹つき)など、召喚すると子分も連れてくるキャラは、敵側でも同じように一緒に出す
+    (wu.def.summons || []).forEach(s => {
+      const subLanes = summonLanes(wu.lane, s.count);
+      for (let i = 0; i < s.count; i++){
+        const offset = (i - (s.count - 1) / 2) * 26;
+        spawnUnit(s.kind, "enemy", (w.xOffset || 0) + offset, { lane: subLanes[i] });
+      }
+    });
   }
+  // 戦線ごとの警告(ステージのwarningsに、時間(秒)・文言を並べておく。最終波の予告などに使う)
+  const warns = battle.stage.warnings || [];
+  while (battle.nextWarn < warns.length && warns[battle.nextWarn].t <= battle.time){
+    const w = warns[battle.nextWarn++];
+    queueBanner(w.msg, !!w.big, true);
+  }
+  // 最終波を、決めた時間だけ耐え抜いたら、その瞬間に勝利する戦線がある(敵城を落として勝つことも、引き続きできる)
+  if (battle.stage.finalWaveAt != null && battle.stage.survivalDuration != null && !battle.ended &&
+      battle.time >= battle.stage.finalWaveAt + battle.stage.survivalDuration){
+    endBattle(true, false, "survive");
+  }
+  updateFinalWaveTimer();
 
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
@@ -7317,7 +7522,9 @@ function endBattle(win, instant, reason){
     resultScreen.classList.add(win ? "win" : "lose");
     document.getElementById("result-title").textContent = win ? "勝利" : "敗北";
     document.getElementById("result-sub").textContent =
-      reason === "repair" ? "自城、すべて直った。" : (win ? "敵城、陥落。" : "自城、陥落。");
+      reason === "repair" ? "自城、すべて直った。" :
+      reason === "survive" ? "鬼の大群、ついに退けたり。" :
+      (win ? "敵城、陥落。" : "自城、陥落。");
     showScreen("screen-result");
   };
   if (instant){ showResult(); return; }
@@ -7690,6 +7897,13 @@ function renderUnitInfo(){
 document.getElementById("battlefield").addEventListener("click", e => {
   if (!battle || battle.ended) return;
   const p = fieldPointToLogical(e);
+  if (battle.repairPickPending){
+    const kind = battle.repairPickPending.kind;
+    const target = repairTargetAtPoint(p.lx, p.ly);
+    if (target) commitRepairTarget(kind, target); else showToast("そこは直せぬ");
+    battle.repairPickPending = null;
+    return; // 対象待ちの間は、タップを対象選びだけに使う
+  }
   if (battle.placementPending){
     const col = columnOfX(p.lx);
     const lane = Math.floor((STAGE_H - GRID_GROUND - p.ly) / GRID_CELL);
