@@ -1123,9 +1123,10 @@ const CHAR_DEFS = {
     hiddenFromFormation: true, rank: null, race: "object",
     cost: 0, hp: 620, atk: 0, weight: 9999, walkSpeed: 0, attackRange: 0, detectionRange: 0,
     noCombat: true, immobile: true, structureUnit: true, structureKind: "platform", noRevive: true,
-    hitboxWidth: 84, hpBarWidth: 80,
+    hitboxWidth: 90, hpBarWidth: 80,
     imageBase: IMG_WATCHTOWER,
     pixelScale: 260 / 1414,       // 望楼台の絵(高さ1414px)を約260pxに(戦列の高さの倍以上、5mの見た目)
+    structureDisplayWidth: 95,    // マス目の真ん中に置くための、実際の表示幅
     motionScale: {},
     frameCounts: { normal:1, idle:1, d1:1, d2:1, d3:1, collapsed:1 },
     frameDurations: { normal:[1000], idle:[1000], d1:[1000], d2:[1000], d3:[1000], collapsed:[1000] },
@@ -1138,9 +1139,12 @@ const CHAR_DEFS = {
     hiddenFromFormation: true, rank: null, race: "object",
     cost: 0, hp: 380, atk: 0, weight: 9999, walkSpeed: 0, attackRange: 0, detectionRange: 0,
     noCombat: true, immobile: true, structureUnit: true, structureKind: "wall", noRevive: true,
-    hitboxWidth: 84, hpBarWidth: 80,
+    hitboxWidth: 96, hpBarWidth: 80,
     imageBase: IMG_WATCHTOWER,
-    pixelScale: 260 / 1332,
+    pixelScale: 1,                // 横幅・高さとも、下のforcedDisplayで強制するので、ここは使わない
+    forcedDisplayWidth: 100,      // 1マスぴったりの横幅にする(縦横比を保たず、断面をブロックのように敷き詰める)
+    forcedDisplayHeight: 260,     // 望楼台と同じ、5m相当の高さにそろえる
+    structureDisplayWidth: 100,   // マス目の真ん中に置くための、実際の表示幅
     motionScale: {},
     frameCounts: { normal:1, idle:1, d1:1, collapsed:1 },
     frameDurations: { normal:[1000], idle:[1000], d1:[1000], collapsed:[1000] },
@@ -3350,8 +3354,8 @@ function spawnUnit(kind, side, xOffset, opts){
     const motionScales = curDef.motionScale || {};
     const motionFactor = motionScales[img.dataset.motion] != null ? motionScales[img.dataset.motion] : 1;
     const scale = (curDef.pixelScale || 1) * motionFactor * ((img._ownerUnit && img._ownerUnit.scaleMult) || 1);
-    const dw = img.naturalWidth * scale;
-    const dh = img.naturalHeight * scale;
+    const dw = curDef.forcedDisplayWidth || (img.naturalWidth * scale); // 壁など、1マスぴったりの幅に強制したいものはここで指定
+    const dh = curDef.forcedDisplayHeight || (img.naturalHeight * scale);
     img.style.width = dw + "px";
     img.style.height = dh + "px";
     if (img._ownerUnit){
@@ -4078,7 +4082,7 @@ function finishPlacement(unit){
     if (!findStructureAt(col, lane)){
       const kind = findPlatformInColumn(col) ? "watchtowerWall" : "watchtowerPlatform";
       const s = spawnUnit(kind, "player", 0, { lane });
-      s.x = columnCenterX(col); s.structureCol = col;
+      s.x = columnCenterX(col) - (s.def.structureDisplayWidth || 0) / 2; s.structureCol = col;
       setMotion(s, "normal", { loop:true });
       applyFrame(s);
     }
