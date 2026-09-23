@@ -2316,80 +2316,60 @@ const STAGES = [
   //   その大群を、決めた時間だけ耐え抜けば、その瞬間に勝利(敵城を落として勝つことも、引き続きできる) ----
   { id:"rampart", name:"砦野", reading:"とりでの", menu:{ tag:"五陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"屍城に近き最後の野。ここに柵を結い、迫り来る鬼の大群を、堰き止めねばならぬ。",
-    lanes:[0,1,2,3,4], units:{ foot:["soldier","repairer","watchtower"] },
-    enemyCastleHp:5200, playerCastleHp:7500, startCorpse:1300, corpseGainRate:1.0, castleDmgTaken:{ player:0.9 },
-    finalWaveAt:150, survivalDuration:120, // 開始から150秒で最終波、それから120秒(2分)耐え抜けば勝利
+    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower"] },
+    enemyCastleHp:5200, playerCastleHp:7500, startCorpse:3500, corpseGainRate:1.0, castleDmgTaken:{ player:0.9 },
+    finalWaveAt:60, survivalDuration:120, // 開始から60秒(1分)で最終波、それから120秒(2分)耐え抜けば勝利。1分までは敵は一切出ない
     warnings:[
-      { t:130, msg:"鬼の大群、迫り来たる……!", big:true }
+      { t:50, msg:"鬼の大群、迫り来たる……!", big:true }
     ],
     guide:[
-      { t:0.5, dur:10, text:"この地は戦列五つ。戍卒・修復兵・望楼兵のみを率いよ" },
-      { t:10, dur:9, pulse:"watchtower", text:"「望楼兵」を送り、戦列に望楼台を築け" },
-      { t:45, dur:9, text:"台を並べ、壁で繋げば、鬼を長く阻める" },
-      { t:100, dur:10, text:"大群の来る前に、柵を組み終えておけ" },
-      { t:130, dur:9, text:"鬼の大群、迫り来たる。持ち場を固めよ" },
-      { t:150, dur:10, text:"持ちこたえよ。耐え抜けば、勝ちなり" }
+      { t:0.5, dur:10, text:"この地は戦列五つ。火縄銃兵・修復兵・望楼兵のみを率いよ" },
+      { t:5, dur:9, pulse:"watchtower", text:"「望楼兵」を送り、大群が来る前に望楼台と壁を築け" },
+      { t:40, dur:9, text:"残り時間はわずか。柵を組み終えておけ" },
+      { t:50, dur:9, text:"鬼の大群、迫り来たる。持ち場を固めよ" },
+      { t:60, dur:10, text:"持ちこたえよ。耐え抜けば、勝ちなり" }
     ],
     enemyWaves:[
-      { t:10, kind:"goblin", lane:2, msg:"鬼、寄せ来たる" },
-      { t:22, kind:"goblin", lane:1 },
-      { t:22, kind:"goblin", lane:3 },
-      { t:36, kind:"archer", lane:2, msg:"弓鬼、現る" },
-      { t:50, kind:"goblin", lane:0 },
-      { t:50, kind:"goblin", lane:4 },
-      { t:64, kind:"tamer", lane:2, msg:"馭獣鬼、鬼犬を放つ" },
-      { t:78, kind:"archer", lane:1 },
-      { t:78, kind:"archer", lane:3 },
-      { t:92, kind:"goblin", lane:2 },
+      // 開始から1分(t=60)までは、敵は一切出ない。その後、大群が絶え間なく押し寄せる(t=60〜180)
+      { t:60, kind:"goblin", lane:0, msg:"鬼の大群、来たる!" },
+      { t:60, kind:"goblin", lane:1 },
+      { t:60, kind:"goblin", lane:2 },
+      { t:60, kind:"goblin", lane:3 },
+      { t:60, kind:"goblin", lane:4 },
+      { t:68, kind:"archer", lane:0 },
+      { t:68, kind:"archer", lane:2 },
+      { t:68, kind:"archer", lane:4 },
+      { t:76, kind:"goblin", lane:1 },
+      { t:76, kind:"goblin", lane:3 },
+      { t:84, kind:"tamer", lane:2 },
       { t:92, kind:"goblin", lane:0 },
+      { t:92, kind:"goblin", lane:2 },
       { t:92, kind:"goblin", lane:4 },
-      { t:106, kind:"tamer", lane:1 },
-      { t:106, kind:"tamer", lane:3 },
-      { t:120, kind:"archer", lane:0 },
-      { t:120, kind:"archer", lane:4 },
-      { t:134, kind:"goblin", lane:1 },
-      { t:134, kind:"goblin", lane:2 },
-      { t:134, kind:"goblin", lane:3 },
-      // ---- 最終波(t=150〜270)。警告のあと、大群が絶え間なく押し寄せる ----
-      { t:150, kind:"goblin", lane:0, msg:"鬼の大群、来たる!" },
-      { t:150, kind:"goblin", lane:1 },
-      { t:150, kind:"goblin", lane:2 },
-      { t:150, kind:"goblin", lane:3 },
-      { t:150, kind:"goblin", lane:4 },
-      { t:158, kind:"archer", lane:0 },
-      { t:158, kind:"archer", lane:2 },
-      { t:158, kind:"archer", lane:4 },
-      { t:166, kind:"goblin", lane:1 },
-      { t:166, kind:"goblin", lane:3 },
-      { t:174, kind:"tamer", lane:2 },
-      { t:182, kind:"goblin", lane:0 },
-      { t:182, kind:"goblin", lane:2 },
-      { t:182, kind:"goblin", lane:4 },
-      { t:190, kind:"archer", lane:1 },
-      { t:190, kind:"archer", lane:3 },
-      { t:198, kind:"goblin", lane:1 },
-      { t:198, kind:"goblin", lane:2 },
-      { t:198, kind:"goblin", lane:3 },
-      { t:206, kind:"tamer", lane:0 },
-      { t:206, kind:"tamer", lane:4 },
-      { t:214, kind:"goblin", lane:0 },
-      { t:214, kind:"goblin", lane:4 },
-      { t:222, kind:"archer", lane:2 },
-      { t:230, kind:"goblin", lane:0 },
-      { t:230, kind:"goblin", lane:1 },
-      { t:230, kind:"goblin", lane:2 },
-      { t:230, kind:"goblin", lane:3 },
-      { t:230, kind:"goblin", lane:4 },
-      { t:238, kind:"archer", lane:0 },
-      { t:238, kind:"archer", lane:4 },
-      { t:246, kind:"tamer", lane:1 },
-      { t:246, kind:"tamer", lane:3 },
-      { t:254, kind:"goblin", lane:2 },
-      { t:254, kind:"archer", lane:2 },
-      { t:262, kind:"goblin", lane:0 },
-      { t:262, kind:"goblin", lane:1 },
-      { t:262, kind:"goblin", lane:3 },
-      { t:262, kind:"goblin", lane:4 }
+      { t:100, kind:"archer", lane:1 },
+      { t:100, kind:"archer", lane:3 },
+      { t:108, kind:"goblin", lane:1 },
+      { t:108, kind:"goblin", lane:2 },
+      { t:108, kind:"goblin", lane:3 },
+      { t:116, kind:"tamer", lane:0 },
+      { t:116, kind:"tamer", lane:4 },
+      { t:124, kind:"goblin", lane:0 },
+      { t:124, kind:"goblin", lane:4 },
+      { t:132, kind:"archer", lane:2 },
+      { t:140, kind:"goblin", lane:0 },
+      { t:140, kind:"goblin", lane:1 },
+      { t:140, kind:"goblin", lane:2 },
+      { t:140, kind:"goblin", lane:3 },
+      { t:140, kind:"goblin", lane:4 },
+      { t:148, kind:"archer", lane:0 },
+      { t:148, kind:"archer", lane:4 },
+      { t:156, kind:"tamer", lane:1 },
+      { t:156, kind:"tamer", lane:3 },
+      { t:164, kind:"goblin", lane:2 },
+      { t:164, kind:"archer", lane:2 },
+      { t:172, kind:"goblin", lane:0 },
+      { t:172, kind:"goblin", lane:1 },
+      { t:172, kind:"goblin", lane:3 },
+      { t:172, kind:"goblin", lane:4 }
     ] },
   // ---- 第六戦線：全5戦列、自分の布陣。役職・鬼獣・大鬼を含む、長い戦(旧・魔野) ----
   { id:"plain3", name:"鬼哭野", reading:"きこくの", menu:{ tag:"荒野", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
@@ -4295,9 +4275,27 @@ function finishPlacement(unit){
       s.x = columnCenterX(col) - (s.def.structureDisplayWidth || 0) / 2; s.structureCol = col;
       setMotion(s, "normal", { loop:true });
       applyFrame(s);
+      freeUnitsTrappedBy(s); // その場に誰かいたら、埋まって動けなくならないよう、その者を外へ押し出す
     }
   }
   removeUnit(unit);
+}
+// 望楼台・壁が建った、まさにその場所に誰か(多くは敵)が既に立っていた場合、めり込んで身動きが取れなくなるので、
+// 自らの後ろ側(来た方向)へ一マスぶん押し出して、外に出す
+function freeUnitsTrappedBy(s){
+  const ws = bodyWidth(s);
+  battle.units.forEach(u => {
+    if (u === s || u.dead || u.mounted || u.launched || u.laneMoving || u.perch || u.def.structureUnit) return;
+    if (!lanesOverlap(u.laneLo, u.laneHi, s.laneLo, s.laneHi)) return;
+    const wu = bodyWidth(u);
+    const overlap = Math.min(u.x + wu, s.x + ws) - Math.max(u.x, s.x);
+    if (overlap <= 0) return; // 重なっていなければ、そのまま
+    const back = u.side === "player" ? 1 : -1; // 自陣側(来た方向)へ戻す
+    const field = document.getElementById("battlefield");
+    const fw = field ? field.clientWidth : STAGE_W;
+    u.x = Math.max(30, Math.min(fw - 30 - wu, u.x + back * (overlap + GRID_CELL)));
+    applyFrame(u);
+  });
 }
 // ---- 望楼台に登る・壁の足場へ移る・台が壊れて吹き飛ぶ ----
 // 遠距離系(1区画・1戦列の大きさ)の味方は、望楼台にぶつかると梯子を登る。台の上には1人だけ。
@@ -6744,12 +6742,23 @@ function bodyWidth(u){
 }
 // 横に dx だけ動こうとしたとき、敵の体にぶつからずに動ける量を返す。
 // 例外(すり抜けられる)：ラッシャーの猛突進、passThroughEnemiesを持つキャラ、レーン移動中、宙に飛ばされている間
+const CASTLE_APPROACH_GAP = 60; // 城門の手前、これより先には誰も進めない(城にも当たり判定を持たせる)
 function moveWithCollision(unit, dx){
   if (!dx || !battle) return dx;
   if (unit.def.passThroughEnemies || unit.charging || unit.laneMoving || unit.launched || unit.mounted || unit.perch) return dx;
   const dir = dx > 0 ? 1 : -1;
   const wu = bodyWidth(unit);
   let allowed = Math.abs(dx);
+  // 城そのものにも、壁と同じように当たり判定を持たせる。左(dir<0)の先には敵城、右(dir>0)の先には自城がある。
+  // これがないと、攻撃中に少しずつ踏み込む仕様の犬などが、城へめり込み続けて画面の外まで進んでしまうことがあった
+  {
+    const field = document.getElementById("battlefield");
+    const fieldWidth = field ? field.clientWidth : STAGE_W;
+    const castleAllowed = dir < 0
+      ? Math.max(0, unit.x - CASTLE_APPROACH_GAP)
+      : Math.max(0, (fieldWidth - CASTLE_APPROACH_GAP) - (unit.x + wu));
+    allowed = Math.min(allowed, castleAllowed);
+  }
   let structAllowed = Infinity, structHit = null; // 味方の望楼台・壁による足止め
   battle.units.forEach(o => {
     if (o === unit || o.dead || o.mounted || o.launched || o.laneMoving || o.perch) return;
@@ -6826,8 +6835,11 @@ function findCoverShield(target, attacker){
 }
 
 function edgeDistance(a, b){
-  const aw = (a.def && a.def.hitboxWidth) || 0;
-  const bw = (b.def && b.def.hitboxWidth) || 0;
+  // hitboxWidthを指定していない普通のキャラは、ぶつかり判定(moveWithCollisionが使うbodyWidth)と
+  // 同じ幅をここでも使う。ここだけ幅0(点)で計算すると、ぶつかって止まった位置がまだ間合いの外と判定され、
+  // 双方が歩みを止めたまま攻撃に移れず、突っかかり続けることがあった
+  const aw = (a.def && a.def.hitboxWidth) || bodyWidth(a);
+  const bw = (b.def && b.def.hitboxWidth) || bodyWidth(b);
   const aLeft = a.x, aRight = a.x + aw;
   const bLeft = b.x, bRight = b.x + bw;
   if (aRight < bLeft) return bLeft - aRight;
@@ -7278,9 +7290,11 @@ function updateUnitAI(unit, dtMs){
     const speed = getEffectiveSpeed(unit, baseSpeed);
     const moveAmount = dir * speed * (dtMs/1000);
 
-    // 今の交戦相手を追っている最中でも、通り道に未交戦の非戦闘ユニットがいればすり抜けずに足止めする
+    // 今の交戦相手を追っている最中でも、通り道(自分と同じ戦列)に未交戦の非戦闘ユニットがいればすり抜けずに足止めする。
+    // 戦列が違えば、望楼台・壁など(noCombat)がどれだけ近くにあっても無視して通り過ぎる(遠距離は別途laneReachで届く)
     const passThroughBlocker = battle.units.find(other =>
       other !== unit.target && !other.dead && !other.mounted && !other.def.invulnerable && other.side !== unit.side && other.def.noCombat &&
+      lanesOverlap(unit.laneLo, unit.laneHi, other.laneLo, other.laneHi) &&
       Math.sign(other.x - unit.x) === dir &&
       Math.abs(other.x - unit.x) <= Math.abs(moveAmount)
     );
