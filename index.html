@@ -1124,6 +1124,9 @@ const CHAR_DEFS = {
     cost: 0, hp: 620, atk: 0, weight: 9999, walkSpeed: 0, attackRange: 0, detectionRange: 0,
     noCombat: true, immobile: true, structureUnit: true, structureKind: "platform", noRevive: true,
     hitboxWidth: 90, hpBarWidth: 80,
+    invertFacing: true,           // 梯子(絵の右側)を、自城の側(後ろ)に向ける
+    ladderFrac: 0.86,             // 梯子の位置(絵の左端からの割合)。遠距離の兵は、ここを登る
+    deckHeight: 210,              // 台の上の床の高さ(px)。登った兵は、この高さに立つ(胸壁で足元が隠れる)
     imageBase: IMG_WATCHTOWER,
     pixelScale: 260 / 1414,       // 望楼台の絵(高さ1414px)を約260pxに(戦列の高さの倍以上、5mの見た目)
     structureDisplayWidth: 95,    // マス目の真ん中に置くための、実際の表示幅
@@ -1140,6 +1143,7 @@ const CHAR_DEFS = {
     cost: 0, hp: 380, atk: 0, weight: 9999, walkSpeed: 0, attackRange: 0, detectionRange: 0,
     noCombat: true, immobile: true, structureUnit: true, structureKind: "wall", noRevive: true,
     hitboxWidth: 96, hpBarWidth: 80,
+    deckHeight: 210,              // 壁の上の足場の高さ(px)。望楼台から移ってきた兵が立つ
     imageBase: IMG_WATCHTOWER,
     pixelScale: 1,                // 横幅・高さとも、下のforcedDisplayで強制するので、ここは使わない
     forcedDisplayWidth: 100,      // 1マスぴったりの横幅にする(縦横比を保たず、断面をブロックのように敷き詰める)
@@ -3481,6 +3485,8 @@ function spawnUnit(kind, side, xOffset, opts){
     reviveTarget: null,           // ヒーラー専用：蘇生対象の死体
     reviveUsesLeft: def.reviveUsesMax || 0, // ヒーラー専用：残り蘇生回数
     frozenForRevive: false,       // 死体側：蘇生対象として固定され、消滅を待たされている
+    perch: null,                  // 望楼台・壁の上にいる間：{ col, lane, phase:"toLadder"|"climb"|"deck" }
+    towerDetourMs: 0,             // 望楼台を避けて戦列を移った直後の残り時間(ms)
     _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
   img._ownerUnit = unit;
@@ -3956,6 +3962,7 @@ const LAUNCH_GRAVITY = 1400; // px/s^2
 function launchUnit(target, attacker, opts){
   if (target.dead) return;
   if (target.def.immobile) return; // ゲートなど動かないものは、打ち上げ・吹き飛ばしを受けない
+  if (target.perch) return;         // 望楼台・壁の上にいる間は、打ち上げ・吹き飛ばしを受けない(台が崩れたときは別の処理)
   if (target.def.staggerOnLaunch){ startStagger(target, attacker); return; } // 巨体は宙に浮かない
   opts = opts || {};
   target.launched = true;
@@ -4089,6 +4096,229 @@ function finishPlacement(unit){
   }
   removeUnit(unit);
 }
+// ---- 望楼台に登る・壁の足場へ移る・台が壊れて吹き飛ぶ ----
+// 遠距離系(1区画・1戦列の大きさ)の味方は、望楼台にぶつかると梯子を登る。台の上には1人だけ。
+// 次の者が登ると、台にいた者から順に、同じ列(マス目)で隣り合って続く壁の足場へ、1つずつ外へ移る(壁4枚なら、台と合わせて5人)。
+// 台の上・壁の上にいる間は、射程が1.2倍になり、戦列に関係なく全ての戦列の敵を狙える。近接の敵からは狙われない(遠距離の攻撃は届く)
+const TOWER_RANGE_MULT = 1.2;   // 台の上での射程の倍率
+const TOWER_CLIMB_MS = 1000;    // 梯子を登りきるまでの時間(1倍速)
+const TOWER_DETOUR_MS = 3000;   // 台を避けて隣の戦列へ移ったあと、軍令の戦列へ戻ろうとしない時間
+function isBigAlly(def){ return (def.laneSpan || 1) >= 3 || (def.heightM || 0) >= 5; } // 壁の下(扉)を通れない大きさ(3戦列以上、または高さ5m以上)
+function canClimbTower(unit){
+  return unit.side === "player" && unit.def.ranged && (unit.def.laneSpan || 1) === 1 &&
+    !unit.perch && !unit.mounted && !unit.def.structureUnit && !unit.bearerOf;
+}
+// 味方の建造物が、この味方の行く手を塞ぐか：望楼台は誰も通れない。壁は、大きい味方だけが通れない
+function structureBlocksAlly(unit, s){
+  if (unit.def.structureUnit || unit.buildTargetX != null) return false; // 望楼兵(築きに向かう途中)は、建造物をすり抜ける
+  if (s.def.structureKind === "platform") return true;
+  return isBigAlly(unit.def);
+}
+function perchedAt(col, lane){
+  return battle.units.find(u => !u.dead && u.perch && u.perch.col === col && u.perch.lane === lane);
+}
+// 望楼台から上(dir=1)・下(dir=-1)へ、途切れずに続く壁の戦列の一覧(近い順)
+function towerChain(platform, dir){
+  const out = [];
+  for (let l = platform.lane + dir; l >= 0 && l < GRID_LANES; l += dir){
+    const w = findStructureAt(platform.structureCol, l);
+    if (!w || w.def.structureKind !== "wall") break;
+    out.push(l);
+  }
+  return out;
+}
+// 新しく1人が登れるか。登れるなら、どちら側の足場へ、何人ずらすかを返す(満員ならnull)
+function towerShiftPlan(platform){
+  const col = platform.structureCol;
+  if (!perchedAt(col, platform.lane)) return { dir: 0 }; // 台が空いていれば、そのまま登る
+  const opts = [];
+  [1, -1].forEach(dir => {
+    const chain = towerChain(platform, dir);
+    const k = chain.findIndex(l => !perchedAt(col, l));
+    if (k !== -1) opts.push({ dir, chain, k });
+  });
+  if (!opts.length) return null;
+  const least = Math.min.apply(null, opts.map(o => o.k)); // ずらす人数が少ない側を選ぶ(同じなら、ランダム)
+  const cand = opts.filter(o => o.k === least);
+  return cand[Math.floor(Math.random() * cand.length)];
+}
+// 足場の居場所を、外側から順に1つずつずらす(実際の移動はupdatePerchAIが、1人ずつ歩かせる)
+function shiftTowerChain(platform, plan){
+  const col = platform.structureCol;
+  for (let i = plan.k; i >= 1; i--){
+    const u = perchedAt(col, plan.chain[i - 1]);
+    if (u) u.perch.lane = plan.chain[i];
+  }
+  const top = perchedAt(col, platform.lane);
+  if (top) top.perch.lane = plan.chain[0];
+}
+function perchHalfW(unit){ return ((unit._bodyW || 44) / 0.55) / 2; }
+function towerLadderX(unit, platform){
+  const W = platform._displayWidth || platform.def.structureDisplayWidth || 95;
+  const frac = platform.facing === 1 ? (platform.def.ladderFrac || 0.86) : 1 - (platform.def.ladderFrac || 0.86);
+  return platform.x + frac * W - perchHalfW(unit);
+}
+function startClimb(unit, platform, plan){
+  if (plan.dir) shiftTowerChain(platform, plan);
+  unit.perch = { col: platform.structureCol, lane: platform.lane, phase: "toLadder" }; // この時点で台の上の場所を押さえる
+  unit.target = null;
+  unit.cmdLane = null;
+  if (unit.motion !== "walk" && unit.def.frameCounts.walk) setMotion(unit, "walk", { loop:true });
+}
+function clearPerch(unit){
+  unit.perch = null;
+  unit.elevated = false;
+  if (unit.laneTween){ const to = unit.laneTween.toLane; unit.laneTween = null; unit.laneMoving = false; setUnitLane(unit, to); }
+  else setUnitLane(unit, unit.lane); // 描く順番(手前・奥)を、普段どおりに戻す
+}
+// 望楼台・壁が崩れた：上にいた兵は、吹き飛びモーションで後ろへ飛ばされ、ダウン→起き上がりのあと、普段どおりに戻る
+function throwFromTower(unit){
+  if (unit.dead || !unit.perch) return;
+  const onGround = unit.perch.phase === "toLadder";
+  const h = unit.rideY || 0;
+  clearPerch(unit);
+  unit.rideY = 0;
+  unit.target = null;
+  if (onGround || !unit.def.frameCounts.blowback){
+    // まだ梯子の前にいた(または吹き飛びの絵がない)：その場に下ろして、普段どおりに戻す
+    applyFrame(unit);
+    afterReaction(unit);
+    return;
+  }
+  const back = unit.side === "player" ? 1 : -1; // 後ろ(自城の側)
+  launchUnit(unit, null, { upSpeed: 300, knockback: true });
+  unit.launchY = h; // 台の高さから落ちる
+  const g = LAUNCH_GRAVITY, v = unit.launchVY;
+  const airtime = (v + Math.sqrt(v * v + 2 * g * h)) / g;
+  const field = document.getElementById("battlefield");
+  const room = back > 0 ? (field.clientWidth - 60 - (unit._displayWidth || 60)) - unit.x : unit.x - 30;
+  unit.launchVX = back * Math.max(0, Math.min(2 * GRID_CELL, room)) / airtime; // 後ろへ2区画ぶん(画面の端は越えない)
+  applyFrame(unit);
+}
+// 台の上で倒れた：その場から地面へ落ちる
+function dropDeadFromTower(unit){
+  clearPerch(unit);
+  addFxTask(dt => {
+    unit.rideY = Math.max(0, (unit.rideY || 0) - 900 * (dt / 1000));
+    if (unit.el.isConnected) applyFrame(unit);
+    return unit.rideY > 0;
+  });
+}
+// 望楼台にぶつかった味方：遠距離系で空きがあれば登る。登れなければ、上か下の戦列へランダムに移って避ける
+function handleTowerBlock(unit, s){
+  if (unit.side !== "player" || unit.perch || unit.laneTween || unit.launched || unit.restrained || unit.mounted) return;
+  const approach = unit.def.approachMotion || "run";
+  if (unit.motion !== "walk" && unit.motion !== approach && unit.motion !== "idle") return; // 攻撃中などは、そのまま
+  if (s.def.structureKind !== "platform") return; // 壁の前で止まった大きい味方は、その場で待つ
+  if (canClimbTower(unit)){
+    const plan = towerShiftPlan(s);
+    if (plan){ startClimb(unit, s, plan); return; }
+  }
+  if ((unit.def.laneSpan || 1) !== 1) return; // 2戦列以上の大きさは、横へ避けられないので、その場で止まる
+  const opts = [unit.lane - 1, unit.lane + 1].filter(l => laneAllowed(l));
+  if (!opts.length) return; // 1戦列だけの戦線では、避けられずに台の前で止まる
+  const to = opts[Math.floor(Math.random() * opts.length)];
+  unit.target = null;
+  unit.towerDetourMs = TOWER_DETOUR_MS;
+  startLaneStep(unit, to, 450);
+}
+// 台の上・壁の上にいる兵の行動
+function findTowerTarget(unit){
+  const range = (unit.def.attackRange || 0) * TOWER_RANGE_MULT;
+  const minR = unit.def.minAttackRange || 0;
+  let best = null, bd = Infinity;
+  battle.units.forEach(o => {
+    if (o.dead || o.side === unit.side || o.mounted || o.def.invulnerable) return;
+    if (o === unit.dodgedPastUnit) return;
+    const d = edgeDistance(unit, o); // 戦列は問わない(両隣までしか届かない兵でも、台の上からは端から端まで届く)
+    if (d > range || d < minR) return;
+    if (d < bd){ bd = d; best = o; }
+  });
+  return best;
+}
+function updatePerchAI(unit, dtMs){
+  const p = unit.perch, def = unit.def;
+  const platform = findPlatformInColumn(p.col);
+  const stand = findStructureAt(p.col, p.lane);
+  if (!platform || !stand){ throwFromTower(unit); return; } // 足場がなくなった
+  const deck = stand.def.deckHeight || 210;
+
+  if (p.phase === "toLadder"){
+    const lx = towerLadderX(unit, platform);
+    const dx = lx - unit.x;
+    if (Math.abs(dx) > 3){
+      unit.facing = dx > 0 ? 1 : -1;
+      unit.x += Math.sign(dx) * Math.min(Math.abs(dx), (def.walkSpeed || 40) * (dtMs / 1000));
+      if (unit.motion !== "walk" && def.frameCounts.walk) setMotion(unit, "walk", { loop:true });
+      applyFrame(unit);
+      return;
+    }
+    unit.x = lx;
+    p.phase = "climb";
+    unit.elevated = true; // 梯子に取りついたら、近接の敵からは届かない
+    unit.el.style.zIndex = String(laneZ(unit) + 2); // 梯子は、台の手前に描く
+    return;
+  }
+  if (p.phase === "climb"){
+    unit.x = towerLadderX(unit, platform);
+    unit.rideY = Math.min(deck, (unit.rideY || 0) + deck * (dtMs / TOWER_CLIMB_MS));
+    if (unit.motion !== "walk" && def.frameCounts.walk) setMotion(unit, "walk", { loop:true });
+    applyFrame(unit);
+    if (unit.rideY >= deck){
+      p.phase = "deck";
+      unit.facing = unit.side === "player" ? -1 : 1;
+      setMotion(unit, "idle", { loop:true });
+    }
+    return;
+  }
+
+  // 台の上・壁の上：胸壁の奥に立つ(足元は胸壁に隠れる)
+  unit.rideY = deck;
+  unit.x = columnCenterX(p.col) - perchHalfW(unit);
+  unit.el.style.zIndex = String(laneZ(unit) - 1);
+  const attackMotion = def.attackMotionName || "attack";
+  if (unit.motion !== "idle" && unit.motion !== "walk" && unit.motion !== (def.approachMotion || "run") && unit.motion !== "discover"){
+    applyFrame(unit);
+    return; // 撃っている最中・怯み中は、終わるまで待つ
+  }
+  // 足場の移動(台から壁へ、壁から外の壁へ)：1人ずつ、隣の足場へ歩いて移る
+  if (unit.laneTween) return;
+  if (unit.lane !== p.lane){
+    const step = p.lane > unit.lane ? unit.lane + 1 : unit.lane - 1;
+    unit.facing = unit.side === "player" ? -1 : 1;
+    if (unit.motion !== "walk" && def.frameCounts.walk) setMotion(unit, "walk", { loop:true });
+    startLaneStep(unit, step, 550);
+    return;
+  }
+  if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true });
+  if (!def.ranged) return;
+
+  const enemy = findTowerTarget(unit);
+  let shoot = false;
+  unit.target = null;
+  if (enemy){
+    unit.target = enemy;
+    unit.facing = Math.sign(unitCenterX(enemy) - unitCenterX(unit)) || (unit.side === "player" ? -1 : 1); // 後ろへ抜けた敵にも、向き直って撃つ
+    shoot = true;
+  } else {
+    const field = document.getElementById("battlefield");
+    const castleX = unit.side === "player" ? 60 : field.clientWidth - 60;
+    if (Math.abs(unitCenterX(unit) - castleX) <= (def.attackRange || 0) * TOWER_RANGE_MULT){
+      unit.facing = unit.side === "player" ? -1 : 1;
+      shoot = true; // 敵城が射程に入った
+    }
+  }
+  if (!shoot){ unit.facing = unit.side === "player" ? -1 : 1; applyFrame(unit); return; }
+  unit.attackHadTarget = !!unit.target;
+  setMotion(unit, attackMotion, {
+    onEnd: () => {
+      if (unit.dead) return;
+      if (unit.perch) setMotion(unit, "idle", { loop:true });
+      else afterReaction(unit);
+    }
+  });
+}
+
 // HPの割合に応じて、望楼台・壁の見た目を切り替える(城の損傷表現と同じ考え方)
 function updateStructureStage(u){
   const stages = u.def.structureStageMotions; if (!stages) return;
@@ -4108,6 +4338,8 @@ function spawnStructureFx(u, type){
 }
 // 望楼台・壁が崩れるときの、専用の処理(通常の「down」ではなく「collapsed」を使い、望楼台は同じ列の壁も道連れにする)
 function collapseStructure(target){
+  battle.units.filter(u => !u.dead && u.perch && u.perch.col === target.structureCol && u.perch.lane === target.lane)
+    .forEach(u => throwFromTower(u)); // 上にいた兵(梯子を登っている途中の兵も)は、後ろへ吹き飛ばされる
   setMotion(target, "collapsed", { loop:true });
   spawnStructureFx(target, "impact");
   let wait = 0;
@@ -4688,7 +4920,7 @@ function commandStep(unit, dtMs){
   if (cmd.type === "attack"){
     if (isCmdr) return false;
     const T = cmd.target;
-    if (unit.cmdLane != null && unit.lane !== unit.cmdLane && !unit.laneTween) startLaneStep(unit, unit.cmdLane, 600); // 戦列をまたいで移る
+    if (unit.cmdLane != null && unit.lane !== unit.cmdLane && !unit.laneTween && !(unit.towerDetourMs > 0)) startLaneStep(unit, unit.cmdLane, 600); // 戦列をまたいで移る
     const blocker = firstEnemyAhead(unit);
     unit.target = (blocker && edgeDistance(unit, blocker) <= (def.attackRange || 0) + 30) ? blocker : T; // 通り道に敵がいれば、まず倒す
     return false; // あとは、通常のAIが、標的へ向かって進む
@@ -4709,7 +4941,7 @@ function commandStep(unit, dtMs){
   };
   const moveToCell = () => {
     const gc = unit.guardCell;
-    if (unit.lane !== gc.lane && !unit.laneTween) startLaneStep(unit, gc.lane, 500);
+    if (unit.lane !== gc.lane && !unit.laneTween && !(unit.towerDetourMs > 0)) startLaneStep(unit, gc.lane, 500); // 望楼台を避けた直後は、しばらく戻らない
     const dx = gc.x - unit.x;
     if (Math.abs(dx) > 6){
       unit.x += moveWithCollision(unit, (dx > 0 ? 1 : -1) * speed * (dtMs / 1000));
@@ -5986,12 +6218,13 @@ function fireProjectile(unit){
   // 発射位置・着弾位置の高さは、撃つ側と狙う側それぞれのレーンの足元を基準にする
   const muzzleOff = (def.muzzleOffsetBottom != null ? def.muzzleOffsetBottom : 110) - 74;
   const shooterBase = unit.baseB || 74;
-  const targetBase = capturedTarget ? (capturedTarget.baseB || 74) : shooterBase;
+  const targetBase = capturedTarget ? (capturedTarget.baseB || 74) + (capturedTarget.perch ? (capturedTarget.rideY || 0) : 0) : shooterBase; // 台の上の相手は、その高さへ
   const groundMuzzleBottom = targetBase + muzzleOff;
   // フォートレスの背中から撃つときは、デッキの高さから発射する(矢は地上の相手へ向かって降下する)
   // 弾の大きさ：背中に乗っているゴブリンは小さく描かれているので、矢もそれに合わせて小さくする
   const projScale = (unit.mounted ? (unit.scaleMult || 1) * 0.7 : 1) * (def.projectileScale || 1);
-  const muzzleBottom = unit.mounted ? shooterBase + (unit.rideY || 0) + muzzleOff * (unit.scaleMult || 1) : shooterBase + muzzleOff;
+  const muzzleBottom = unit.mounted ? shooterBase + (unit.rideY || 0) + muzzleOff * (unit.scaleMult || 1)
+    : shooterBase + (unit.perch ? (unit.rideY || 0) : 0) + muzzleOff; // 望楼台の上からは、台の高さから撃ち下ろす
 
   if (def.fxMuzzleFlash){
     spawnFx(def.imageBase + def.fxMuzzleFlash, muzzleX, { flip: dir < 0, lifespan: 150, height: Math.round(39 * projScale), bottom: muzzleBottom });
@@ -6328,20 +6561,25 @@ function bodyWidth(u){
 // 例外(すり抜けられる)：ラッシャーの猛突進、passThroughEnemiesを持つキャラ、レーン移動中、宙に飛ばされている間
 function moveWithCollision(unit, dx){
   if (!dx || !battle) return dx;
-  if (unit.def.passThroughEnemies || unit.charging || unit.laneMoving || unit.launched || unit.mounted) return dx;
+  if (unit.def.passThroughEnemies || unit.charging || unit.laneMoving || unit.launched || unit.mounted || unit.perch) return dx;
   const dir = dx > 0 ? 1 : -1;
   const wu = bodyWidth(unit);
   let allowed = Math.abs(dx);
+  let structAllowed = Infinity, structHit = null; // 味方の望楼台・壁による足止め
   battle.units.forEach(o => {
-    if (o === unit || o.dead || o.side === unit.side || o.mounted || o.launched || o.laneMoving) return;
+    if (o === unit || o.dead || o.mounted || o.launched || o.laneMoving || o.perch) return;
+    const ally = o.side === unit.side;
+    if (ally && !(o.def.structureUnit && structureBlocksAlly(unit, o))) return; // 味方は、すり抜けられる(望楼台・大きい味方にとっての壁は例外)
     if (o.def.invulnerable || o.def.passThroughEnemies) return; // 壊せない巨大ゲートなどは、ぶつからない
     if (!lanesOverlap(unit.laneLo, unit.laneHi, o.laneLo, o.laneHi)) return;
     const wo = bodyWidth(o);
     const uc = unit.x + wu / 2, oc = o.x + wo / 2;
-    if (dir > 0 ? !(oc > uc) : !(oc < uc)) return; // 進む方向の先にいる敵だけが対象
-    const gap = dir > 0 ? o.x - (unit.x + wu) : unit.x - (o.x + wo);
-    allowed = Math.min(allowed, Math.max(0, gap));
+    if (dir > 0 ? !(oc > uc) : !(oc < uc)) return; // 進む方向の先にいる相手だけが対象
+    const gap = Math.max(0, dir > 0 ? o.x - (unit.x + wu) : unit.x - (o.x + wo));
+    allowed = Math.min(allowed, gap);
+    if (ally && gap < structAllowed){ structAllowed = gap; structHit = o; }
   });
+  if (structHit && structAllowed <= allowed && structAllowed < 0.5) handleTowerBlock(unit, structHit); // 望楼台に着いた：登る、または横へ避ける
   return dir * allowed;
 }
 
@@ -6350,13 +6588,13 @@ function moveWithCollision(unit, dx){
 function resolveEnemyOverlap(unit, dtMs){
   if (!unit.needsPullBack) return; // 自分の能力(レーン移動・吹き飛びの着地など)で動いたユニットだけが、重なりを解消する
   if (!battle || unit.dead || unit.def.immobile || unit.def.passThroughEnemies || unit.charging || unit.launched ||
-      unit.laneMoving || unit.mounted || unit.bearerOf || (unit.def.hitboxWidth || 0) >= 200) return;
+      unit.laneMoving || unit.mounted || unit.bearerOf || unit.perch || (unit.def.hitboxWidth || 0) >= 200){ unit.needsPullBack = false; return; }
   const wu = bodyWidth(unit);
   const uc = unit.x + wu / 2;
   const fwd = unit.side === "player" ? -1 : 1; // 進む方向
   let pullBack = 0, pushFront = 0;
   battle.units.forEach(o => {
-    if (o === unit || o.dead || o.side === unit.side || o.mounted || o.launched || o.laneMoving) return;
+    if (o === unit || o.dead || o.side === unit.side || o.mounted || o.launched || o.laneMoving || o.perch) return;
     if (o.def.invulnerable || o.def.passThroughEnemies) return;
     if (!lanesOverlap(unit.laneLo, unit.laneHi, o.laneLo, o.laneHi)) return;
     const wo = bodyWidth(o);
@@ -6440,6 +6678,7 @@ function afterReaction(unit){
 function killUnit(target){
   target.dead = true;
   target.target = null;
+  if (target.perch) dropDeadFromTower(target); // 台の上・壁の上で倒れた：地面へ落ちる
   if (target.def.structureUnit){ collapseStructure(target); return; } // 望楼台・壁は、専用の崩れ方をする
   // 屍：敵味方を問わず、倒れたユニットの値段に応じてたまる(ゲートなど値段のないものは、たまらない)
   if (battle && target.def.cost > 0){
@@ -6560,7 +6799,7 @@ function applyDamageToUnit(target, amount, attacker){
   // 女王のバリア：範囲内の味方(4m以下)は、敵の遠距離攻撃を受けない
   if (attacker && attacker.def.ranged && (target.def.heightM || 2) <= 4 && isShielded(target)) return;
   // 楯衛の肩代わり：撃ってくる戦列と同じ戦列で、味方の前に立つ盾兵が、ガードできる状態なら、遠距離攻撃を代わりに防ぐ
-  if (attacker && attacker.def.ranged && !target.def.canGuard && !attacker.def.splashRadius &&
+  if (attacker && attacker.def.ranged && !target.def.canGuard && !attacker.def.splashRadius && !target.perch &&
       !(attacker.def.attackFlags && (attacker.def.attackFlags.ignoresGuard || attacker.def.attackFlags.breaksShield))){
     const cover = findCoverShield(target, attacker);
     if (cover){
@@ -6731,6 +6970,8 @@ function updateUnitAI(unit, dtMs){
     return;
   }
 
+  if (unit.perch){ updatePerchAI(unit, dtMs); return; }         // 望楼台・壁の上：その場から、全ての戦列を撃つ(軍令は受けない)
+  if (unit.towerDetourMs > 0) unit.towerDetourMs = Math.max(0, unit.towerDetourMs - dtMs);
   if (def.immobile){ updateGateAI(unit, dtMs); return; }        // ゲート：動かず、時間が来たら召喚する
   if (unit.cmd && commandStep(unit, dtMs)) return;              // 軍令(守り・待機・進撃)を受けている間の動き
   if (unit.bearerOf){ updateBearerAI(unit); return; }            // キングの担ぎ手：担いでいる間は攻撃しない
@@ -7422,6 +7663,7 @@ function renderUnitInfo(){
     if (u.cmd) line("軍令 " + CMD_LABEL[u.cmd.type]);
   }
   if (u.shakenMs > 0) line("動揺");
+  if (u.perch && u.perch.phase === "deck") line((findStructureAt(u.perch.col, u.perch.lane) || {}).def?.structureKind === "wall" ? "壁の上　射程1.2倍・全戦列" : "望楼台の上　射程1.2倍・全戦列");
   const row = document.createElement("div"); row.className = "ui-row";
   if (u.side === "player" && u.role && COMMANDER_ROLES.indexOf(u.role) !== -1){
     const b = document.createElement("button"); b.textContent = "軍令を出す";
