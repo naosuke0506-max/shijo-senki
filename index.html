@@ -406,6 +406,27 @@
   #cmd-panel button.sel{ border-color:#f0cf6a; color:#f0cf6a; background:#2a2412; }
   #cmd-panel button:disabled{ opacity:.35; }
   #cmd-panel .cmd-active{ display:flex; justify-content:space-between; align-items:center; font-size:.66rem; color:#e0b050; padding:3px 0; border-bottom:1px solid var(--line-dim); }
+  /* チャリオット：乗せる4人を選ぶパネル */
+  #chariot-picker{ display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:9;
+    width:min(460px, 88%); max-height:80%; overflow-y:auto; background:rgba(10,8,5,.97); border:1px solid #8a6a1e; padding:10px; }
+  #chariot-picker .cp-head{ color:#f0cf6a; font-size:.82rem; margin-bottom:8px; text-align:center; }
+  #chariot-picker .cp-slots{ display:flex; gap:6px; justify-content:center; margin-bottom:10px; }
+  #chariot-picker .cp-slot{ width:52px; height:52px; border:1px solid var(--line-dim); background:#151109; position:relative; }
+  #chariot-picker .cp-slot img{ width:100%; height:100%; object-fit:cover; display:block; }
+  #chariot-picker .cp-slot.empty{ display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:.6rem; }
+  #chariot-picker .cp-slot .cp-x{ position:absolute; top:-6px; right:-6px; width:16px; height:16px; border-radius:50%;
+    background:#3a1414; border:1px solid #7a2a2a; color:#e0a0a0; font-size:.6rem; line-height:14px; text-align:center; }
+  #chariot-picker .cp-sec{ font-size:.6rem; color:var(--text-dim); margin:6px 0 3px; text-align:center; }
+  #chariot-picker .cp-list{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center; margin-bottom:10px; }
+  #chariot-picker .cp-opt{ width:48px; height:48px; padding:0; border:1px solid var(--line-dim); background:#151109; position:relative; overflow:hidden; }
+  #chariot-picker .cp-opt img{ width:100%; height:100%; object-fit:cover; display:block; }
+  #chariot-picker .cp-opt .cp-cost{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.75); font-size:.52rem; color:#c9a6ff; text-align:center; }
+  #chariot-picker .cp-total{ text-align:center; font-size:.72rem; color:var(--text); margin-bottom:8px; }
+  #chariot-picker .cp-total b{ color:#f0cf6a; }
+  #chariot-picker .cp-buttons{ display:flex; gap:8px; justify-content:center; }
+  #chariot-picker .cp-buttons button{ font-size:.7rem; padding:6px 14px; background:#1a1710; border:1px solid var(--line-dim); color:var(--text); border-radius:2px; }
+  #chariot-picker .cp-buttons button.cp-confirm{ border-color:#f0cf6a; color:#f0cf6a; }
+  #chariot-picker .cp-buttons button:disabled{ opacity:.35; }
   #grid-toggle{ position:absolute; right:92px; top:8px; z-index:6; font-size:.62rem; padding:8px 10px; color:var(--text-dim); }
   #ground-line{ position:absolute; left:0; right:0; bottom:74px; height:2px; background-color:#000000; }
 
@@ -708,6 +729,7 @@
     <div id="unit-info"></div>
     <button id="cmd-open-btn" data-reading="ぐんれい">軍令</button>
     <div id="cmd-panel"></div>
+    <div id="chariot-picker"></div>
     </div><!-- /battlefield-frame -->
 
     <div id="battle-bottombar">
@@ -792,6 +814,9 @@ const IMG_BATTERING_RAM = REPO_BASE + "images/battering_ram_repo_upload/";
 const ICON_BATTERING_RAM = REPO_BASE + "icons/battering_ram_icon.png";
 const IMG_CHARIOT = REPO_BASE + "images/chariot_repo_upload/";
 const ICON_CHARIOT = REPO_BASE + "icons/chariot_icon.png";
+const IMG_MEDIC = REPO_BASE + "images/medic_repo_upload/";
+const ICON_MEDIC = REPO_BASE + "icons/medic_icon.png";
+const IMG_FX_COMMON2 = REPO_BASE + "images/fx_repo_upload/"; // 軍医の回復エフェクトなど、共通置き場
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -2160,16 +2185,16 @@ const CHAR_DEFS = {
     name: "戦車",
     rank: null,
     race: "human",
-    cost: 3200,
+    cost: 1800,                // 車体そのものの値段。実際の召喚額は、ここに選んだ4人ぶんの値段を加えた合計になる
     hp: 300,
     atk: 60,                  // 轢き攻撃のダメージ(数値は仮)
     weight: 700,              // 轢き攻撃・轢かれる側、双方の体重比べに使う(仮)
-    laneSpan: 2,
     walkSpeed: 55,            // 通常の徒歩兵より速い(仮)
     chariotUnit: true,
     ignoresUnits: true,       // 敵とぶつかって止まらず、轢き攻撃(専用の当たり判定)で押し進む
     trampleHitRadius: 60,     // 轢き攻撃(往路)の間合い
-    riderKinds: ["arquebusier","arquebusier","soldier","soldier"], // 暫定の顔ぶれ(本来は布陣で選ぶ想定。未実装)
+    canPickRiders: true,      // 召喚前に、乗せる4人を戦場外のパネルで選ぶ(値段は選んだ4人ぶん加算される)
+    riderKinds: ["arquebusier","arquebusier","soldier","soldier"], // 選ばなかった場合の既定(通常は選択パネルで上書きされる)
     riderSlotFracs: [0.30, 0.42, 0.58, 0.70], // 荷台の中の4人の立ち位置(車体の幅に対する割合)
     riderScale: 0.6,
     riderDeckFrac: 0.32,      // 車体の高さのうち、荷台の床の高さの割合
@@ -2192,6 +2217,42 @@ const CHAR_DEFS = {
       flinch:   [300,300,300],
       blowback: [520,400],
       down:     [325,265,350,500]
+    }
+  },
+
+  medic: {
+    reading: "ぐんい",             // 名前の読み(長押しで表示)
+    intro: "槌を担がず、倒れた戦友のもとへ真っ先に駆けつける。戦わぬ代わりに、死してなお助け起こす。",
+    name: "軍医",
+    rank: null,
+    race: "human",
+    cost: 900,
+    hp: 24,
+    atk: 0,
+    weight: 24,
+    walkSpeed: 34,
+    noCombat: true,
+    canRescue: true,            // 同じレーンの味方が死んだ瞬間、死体を目の前へ運び治療を始める
+    rescueCooldownMs: 10000,    // 治療のあと、次に動けるまでのクールタイム(10秒)
+    reviveInvulnMs: 3000,       // 生き返った側は、しばらく攻撃を受けない
+    fxReviveAura: { count:3, prefix:"fx_heal_", durations:[225,225,225], imageBase: IMG_FX_COMMON2 }, // 緑十字の回復エフェクト
+    icon: ICON_MEDIC,
+    imageBase: IMG_MEDIC,
+    // 実寸スケール：歩行コマの切り抜き高さ(521px)を基準に、兵士と同じ表示身長92pxに合わせる
+    pixelScale: 92 / 521,
+    // 待機コマだけ、他のコマの約1.7倍の大きさで作られてしまったため、個別に縮小補正
+    motionScale: { idle: 521 / 881 },
+    frameCounts: {
+      idle:1, walk:4, treat:5, flinch:3, blowback:4, down:1, getup:2
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [260,260,260,260],
+      treat:    [900,925,1200,600,440], // 応急処置(治療)。終わるまでこのモーションを続ける
+      flinch:   [250,250,250],
+      blowback: [265,265,350,450],
+      down:     [1000],
+      getup:    [340,340]
     }
   }
 };
@@ -2407,7 +2468,7 @@ const STAGES = [
   //   その大群を、決めた時間だけ耐え抜けば、その瞬間に勝利(敵城を落として勝つことも、引き続きできる) ----
   { id:"rampart", name:"砦野", reading:"とりでの", menu:{ tag:"五陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"屍城に近き最後の野。ここに柵を結い、迫り来る鬼の大群を、堰き止めねばならぬ。",
-    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot"] }, // 破城槌・チャリオットは動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
+    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot","medic"] }, // 破城槌・チャリオット・軍医は動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
     enemyCastleHp:5200, playerCastleHp:7500, startCorpse:3500, corpseGainRate:1.0, castleDmgTaken:{ player:0.9 },
     finalWaveAt:60, survivalDuration:120, // 開始から60秒(1分)で最終波、それから120秒(2分)耐え抜けば勝利。1分までは敵は一切出ない
     warnings:[
@@ -3311,6 +3372,7 @@ function updateGuide(){
 function startBattle(stage){
   roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
   battle && (battle.repairPickPending = null); repairHighlightEl = null; // 前の戦闘のハイライト状態を持ち越さない
+  const cpEl = document.getElementById("chariot-picker"); if (cpEl){ cpEl.style.display = "none"; cpEl.innerHTML = ""; }
   const spb = document.getElementById("btn-speed"); if (spb) spb.textContent = "×1";
   infoUI.unit = null; const uib = document.getElementById("unit-info"); if (uib) uib.style.display = "none";
   cmdUI.open = false; cmdUI.cmdrId = null; cmdUI.branch = null; cmdUI.pickTarget = false; cmdUI.pickFormation = false;
@@ -3341,6 +3403,7 @@ function startBattle(stage){
     roleUsed: {},                  // 役職のキャラを、この試合で何体出したか(総大将は1度きり)
     placementPending: null,        // 望楼兵などの設置系：召喚後、戦場をタップして場所を選んでいる間の状態
     repairPickPending: null,       // 修復兵：召喚後、戦場をタップして直す対象を選んでいる間の状態
+    chariotPickPending: null,      // チャリオット：召喚前に、乗せる4人を選んでいる間の状態
     corpse: (stage.startCorpse != null ? stage.startCorpse : START_CORPSE),          // 屍(全キャラの召喚資金)。最初に少し持っていて、あとは倒れたユニットの分だけたまる。時間では増えない
     selectedLanes: new Set(),      // 召喚するレーン(下から0〜4)。複数選べて、選んだレーンごとに1体ずつ出る。1つも選んでいないと召喚できない
     time: 0,                       // 戦闘の経過時間(秒)
@@ -3455,10 +3518,108 @@ function skillCd(unit, ms){
   return (unit.role === "special" && unit.cmd && unit.cmd.type === "hold") ? ms * CMD_BUFF.specialCd : ms;
 }
 
+// チャリオット：召喚前に、乗せる4人(1戦列分のキャラのみ)を選ぶパネル。選んだ4人ぶんの値段も合計に上乗せする
+function startChariotBoardingPick(kind){
+  const def = CHAR_DEFS[kind];
+  const lanes = Array.from(battle.selectedLanes);
+  if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; }
+  battle.chariotPickPending = { kind, lane: lanes[0], slots: [null, null, null, null] };
+  renderChariotPicker();
+}
+function chariotEligibleKinds(){
+  return (state.selectedUnits || []).filter(k => {
+    const d = CHAR_DEFS[k];
+    if (!d) return false;
+    if ((d.laneSpan || 1) !== 1) return false; // 1戦列・1マス分のキャラのみ乗れる
+    if (d.canPlaceStructure || d.canPickRepairTarget || d.canPickRiders) return false; // 専用の召喚手順を持つものは乗せられない
+    if (d.chariotUnit || d.ignoresUnits) return false; // 破城槌など、それ自体が大きな車輌のものは乗せられない
+    return true;
+  });
+}
+function chariotPickTotalCost(){
+  const p = battle.chariotPickPending;
+  if (!p) return 0;
+  const base = getDeployCost(CHAR_DEFS[p.kind]);
+  const riders = p.slots.reduce((sum, k) => sum + (k ? getDeployCost(CHAR_DEFS[k]) : 0), 0);
+  return base + riders;
+}
+function renderChariotPicker(){
+  const panel = document.getElementById("chariot-picker");
+  const p = battle.chariotPickPending;
+  if (!p){ panel.style.display = "none"; panel.innerHTML = ""; return; }
+  const def = CHAR_DEFS[p.kind];
+  const total = chariotPickTotalCost();
+  const filled = p.slots.filter(Boolean).length;
+  let html = '<div class="cp-head">' + def.name + '：乗せる4人を選べ</div>';
+  html += '<div class="cp-slots">';
+  p.slots.forEach((k, i) => {
+    if (k){
+      const d = CHAR_DEFS[k];
+      html += '<button class="cp-slot" data-slot="' + i + '"><img src="' + d.icon + '" alt=""><span class="cp-x">×</span></button>';
+    } else {
+      html += '<div class="cp-slot empty">' + (i + 1) + '</div>';
+    }
+  });
+  html += '</div>';
+  html += '<div class="cp-sec">戦列1つ分のキャラから選べる(同じ顔ぶれも可)</div>';
+  html += '<div class="cp-list">';
+  chariotEligibleKinds().forEach(k => {
+    const d = CHAR_DEFS[k];
+    html += '<button class="cp-opt" data-kind="' + k + '"' + (filled >= 4 ? ' disabled' : '') + '><img src="' + d.icon + '" alt=""><span class="cp-cost">' + getDeployCost(d) + '</span></button>';
+  });
+  html += '</div>';
+  html += '<div class="cp-total">合計　<b>' + Math.floor(total) + '</b>　屍</div>';
+  html += '<div class="cp-buttons"><button class="cp-cancel-btn">取消</button><button class="cp-confirm"' + (filled < 4 ? ' disabled' : '') + '>出撃</button></div>';
+  panel.innerHTML = html;
+  panel.style.display = "block";
+  panel.querySelectorAll(".cp-opt").forEach(btn => btn.addEventListener("click", () => addChariotRider(btn.dataset.kind)));
+  panel.querySelectorAll(".cp-slot[data-slot]").forEach(btn => btn.addEventListener("click", () => removeChariotRider(Number(btn.dataset.slot))));
+  const cancelBtn = panel.querySelector(".cp-cancel-btn");
+  if (cancelBtn) cancelBtn.addEventListener("click", cancelChariotBoarding);
+  const confirmBtn = panel.querySelector(".cp-confirm");
+  if (confirmBtn) confirmBtn.addEventListener("click", confirmChariotBoarding);
+}
+function addChariotRider(kind){
+  const p = battle.chariotPickPending;
+  if (!p) return;
+  const idx = p.slots.findIndex(s => !s);
+  if (idx === -1) return;
+  p.slots[idx] = kind;
+  renderChariotPicker();
+}
+function removeChariotRider(idx){
+  const p = battle.chariotPickPending;
+  if (!p) return;
+  p.slots[idx] = null;
+  renderChariotPicker();
+}
+function cancelChariotBoarding(){
+  battle.chariotPickPending = null;
+  renderChariotPicker();
+}
+function confirmChariotBoarding(){
+  const p = battle.chariotPickPending;
+  if (!p || p.slots.some(s => !s)) return;
+  const total = chariotPickTotalCost();
+  const cur = currencyKey(CHAR_DEFS[p.kind]);
+  if (battle[cur] < total){ showToast("屍が足りぬ"); return; }
+  battle[cur] -= total;
+  updateWalletUI();
+  const chariot = spawnUnit(p.kind, "player", 0, { lane: p.lane });
+  chariot.deployedKind = p.kind;
+  chariot.riderKinds = p.slots.slice();
+  boardChariotRiders(chariot);
+  chariot.chariotPhase = "advance1";
+  setMotion(chariot, "walk", { loop:true });
+  battle.chariotPickPending = null;
+  renderChariotPicker();
+}
+
 function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
   if (def.canPlaceStructure){ startPlacementPick(kind); return; } // 設置系：戦列ではなく、戦場をタップして場所を選ぶ
   if (def.canPickRepairTarget){ confirmOrStartRepairPick(kind); return; } // 修復兵：戦列ではなく、戦場でタップして選んだ対象(ハイライト中)を直す
+  if (def.canPickRiders){ startChariotBoardingPick(kind); return; } // チャリオット：戦場ではなく、乗せる4人を選ぶパネルを開く
   const cost = getDeployCost(def);
   const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
   if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; } // 先にレーンを選ばないと召喚できない
@@ -3484,12 +3645,6 @@ function tryDeploy(kind){
     pickLeader(big);
     applyRole(big, roleOfKind(kind));
     battle.roleUsed[kind] = (battle.roleUsed[kind] || 0) + 1;
-    if (def.chariotUnit){
-      // 出現したら、まず4人を乗せてから、1マス前進して轢き攻撃(往路)を始める
-      boardChariotRiders(big);
-      big.chariotPhase = "advance1";
-      setMotion(big, "walk", { loop:true });
-    }
     updateWalletUI();
     return;
   }
@@ -3687,6 +3842,7 @@ function spawnUnit(kind, side, xOffset, opts){
     chariotRiders: null,          // チャリオット本体専用：今乗せている4人
     chariotAdvanceTarget: null,   // チャリオット本体専用：出現後に1マス進む目標x
     chariotSlot: null,            // チャリオットの乗員専用：荷台の中の立ち位置(0〜3)
+    medicCooldown: 0,             // 軍医専用：次に治療できるまでの残り時間(ms)
     _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
   img._ownerUnit = unit;
@@ -6319,7 +6475,7 @@ function updateFortressCorpse(unit){
 // 乗せる(布陣で選んだ4人を積む。今は暫定でdef.riderKindsの固定の顔ぶれ)
 function boardChariotRiders(unit){
   const def = unit.def;
-  const kinds = def.riderKinds || [];
+  const kinds = unit.riderKinds || def.riderKinds || [];
   unit.chariotRiders = kinds.map((kind, i) => {
     const r = spawnUnit(kind, unit.side, 0, {});
     mountChariotRider(r, unit, i);
@@ -7163,6 +7319,7 @@ function killUnit(target){
   if (target.def.race === "goblin"){
     tryAutoRevive(target);
   }
+  tryMedicRescue(target); // 軍医：同じレーンの味方が死んだ瞬間、死体を目の前へ運んで治療を始める
 
   setMotion(target, "down", {
     onEnd: () => {
@@ -7217,6 +7374,73 @@ function startRevive(healer, corpse){
   });
 }
 
+// 軍医：同じレーンの味方が死んだ瞬間、手が空いていて(治療中でなく、クールタイム明けの)軍医がいれば、
+// その死体を瞬間移動させて目の前に置き、治療(応急処置)を始める
+function tryMedicRescue(corpse){
+  if (!battle || corpse.def.noRevive) return;
+  const medic = battle.units.find(u =>
+    !u.dead && u.def.canRescue && !u.isReviving && u.side === corpse.side &&
+    (u.medicCooldown || 0) <= 0 && lanesOverlap(u.lane, u.lane, corpse.laneLo, corpse.laneHi)
+  );
+  if (!medic) return;
+  startMedicRescue(medic, corpse);
+}
+function startMedicRescue(medic, corpse){
+  medic.isReviving = true;
+  medic.reviveMotionName = "treat";
+  medic.reviveTarget = corpse;
+  corpse.frozenForRevive = true; // 治療が終わる/中断されるまで、死体を消滅させずに固定する
+
+  // 死体を、軍医の目の前(進行方向の少し先)へ瞬間移動させる
+  const dir = medic.side === "player" ? -1 : 1;
+  corpse.x = medic.x + dir * 40;
+  corpse.facing = -dir;
+  applyFrame(corpse);
+
+  setMotion(medic, "treat", {
+    onEnd: () => {
+      medic.isReviving = false;
+      medic.reviveMotionName = null;
+      medic.reviveTarget = null;
+      medic.medicCooldown = medic.def.rescueCooldownMs || 10000;
+      completeMedicRescue(medic, corpse);
+    }
+  });
+}
+function completeMedicRescue(medic, corpse){
+  corpse.frozenForRevive = false;
+  corpse.dead = false;
+  corpse.hp = corpse.hpMax; // 全回復
+  corpse.reviveInvulnMs = medic.def.reviveInvulnMs || 0;
+  corpse.target = null;
+  applyFrame(corpse);
+  playReviveFx(corpse, medic.def.fxReviveAura);
+  const fallback = corpse.def.frameCounts.walk ? "walk" : (corpse.def.approachMotion || "walk");
+  if (corpse.def.frameCounts.getup){
+    setMotion(corpse, "getup", { onEnd: () => { if (!corpse.dead) setMotion(corpse, fallback, { loop:true }); } });
+  } else {
+    setMotion(corpse, fallback, { loop:true });
+  }
+  if (!medic.dead) setMotion(medic, "idle", { loop:true }); // 軍医自身は、巫鬼と違って代償なく生き残る
+}
+// 蘇生・治療完了の瞬間に、対象の体の中心へ重ねて出す一連のエフェクト(黒背景は透過に変換して使う)
+function playReviveFx(unit, fx){
+  if (!fx) return;
+  for (let i = 0; i < fx.count; i++){
+    setTimeout(() => {
+      if (unit.dead) return;
+      const H = unit._displayHeight || 92;
+      const cx = unit.x + (unit._displayWidth || 0) / 2;
+      const el = spawnFx(keyedFxSrc(fx.imageBase + fx.prefix + (i + 1) + ".png", FX_KEY_HEAL), cx, {
+        height: Math.round(H * 0.6), bottom: Math.round((unit.baseB || 74) + (unit.rideY || 0) + H * 0.25), lifespan: fx.durations[i]
+      });
+      if (el){
+        el.style.mixBlendMode = "normal";
+        el.style.transform = "translateX(" + cx + "px) translateX(-50%)";
+      }
+    }, i * (fx.durations[i] || 200));
+  }
+}
 function completeRevive(healer, corpse){
   corpse.frozenForRevive = false;
   corpse.dead = false;
@@ -7239,8 +7463,10 @@ function updateRevive(dtMs){
   if (!battle) return;
   battle.units.forEach(u => {
     if (!u.isReviving) return;
-    if (u.motion !== "revive"){
+    const expectMotion = u.reviveMotionName || "revive"; // 軍医は"treat"、巫鬼は従来通り"revive"
+    if (u.motion !== expectMotion){
       u.isReviving = false;
+      u.reviveMotionName = null;
       const corpse = u.reviveTarget;
       u.reviveTarget = null;
       if (corpse){
@@ -7688,6 +7914,7 @@ function battleStep(dt){
     if (unit.attackArmorMs > 0) unit.attackArmorMs = Math.max(0, unit.attackArmorMs - dt);
     if (unit.shakenMs > 0) unit.shakenMs = Math.max(0, unit.shakenMs - dt);
     if (unit.shieldCooldown > 0) unit.shieldCooldown = Math.max(0, unit.shieldCooldown - dt);
+    if (unit.medicCooldown > 0) unit.medicCooldown = Math.max(0, unit.medicCooldown - dt);
     if (unit.meteorCooldown > 0) unit.meteorCooldown = Math.max(0, unit.meteorCooldown - dt);
     if (unit.barrierMs > 0) unit.barrierMs = Math.max(0, unit.barrierMs - dt);
     updateLaneTween(unit, dt);
