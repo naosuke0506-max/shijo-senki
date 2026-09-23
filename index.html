@@ -444,6 +444,9 @@
   @keyframes guidePulse{ 0%,100%{ box-shadow:0 0 0 1px #c9a24a, 0 0 6px rgba(240,207,106,.4);} 50%{ box-shadow:0 0 0 2px #f0cf6a, 0 0 20px rgba(240,207,106,.95);} }
 
   /* ===== 城の損傷・命中・陥落の演出 ===== */
+  /* 修復兵：直す対象として選び、ハイライトしている建物(自城・望楼台・壁) */
+  .repair-highlight{ filter: drop-shadow(0 0 8px #6cff9a) drop-shadow(0 0 16px #6cff9a); animation: repairPulse 1.1s ease-in-out infinite; }
+  @keyframes repairPulse{ 0%,100%{ filter: drop-shadow(0 0 6px #6cff9a) drop-shadow(0 0 12px #6cff9a); } 50%{ filter: drop-shadow(0 0 12px #9dffb8) drop-shadow(0 0 22px #9dffb8); } }
   .castle .w-cracks{ position:absolute; inset:0; opacity:0; transition:opacity .6s; background-repeat:repeat-y; background-size:64px 240px;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='240'><g fill='none' stroke='%230a0605' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 10 L18 38 L12 62 L30 96 L24 120'/><path d='M52 28 L40 58 L52 84 L44 116'/><path d='M14 150 L30 176 L22 204 L40 232'/><path d='M58 168 L46 196 L58 226'/></g><g fill='none' stroke='%230a0605' stroke-width='1.1' opacity='.7'><path d='M18 38 L36 44'/><path d='M40 58 L26 66'/><path d='M30 176 L50 184'/><path d='M12 62 L2 72'/></g></svg>"); }
   .castle.d1 .w-cracks{ opacity:.5; } .castle.d2 .w-cracks{ opacity:.85; } .castle.d3 .w-cracks{ opacity:1; }
@@ -785,6 +788,10 @@ const IMG_QUEEN = REPO_BASE + "images/queen_repo_upload/";
 const ICON_QUEEN = REPO_BASE + "icons/queen_icon.png";
 const IMG_KING = REPO_BASE + "images/king_repo_upload/";
 const ICON_KING = REPO_BASE + "icons/king_icon.png";
+const IMG_BATTERING_RAM = REPO_BASE + "images/battering_ram_repo_upload/";
+const ICON_BATTERING_RAM = REPO_BASE + "icons/battering_ram_icon.png";
+const IMG_CHARIOT = REPO_BASE + "images/chariot_repo_upload/";
+const ICON_CHARIOT = REPO_BASE + "icons/chariot_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -2084,6 +2091,7 @@ const CHAR_DEFS = {
     canGuard: false,
     attackFlags: { breaksShield: true }, // 岩の直撃は盾を破壊する
     poisonImmune: true, // 図体が大きく毒が効かない
+    countsAsBuilding: true, // 建物として扱う(破城槌など「建物のみ攻撃」のキャラの対象になる)
     icon: ICON_CATAPULT,
     imageBase: IMG_CATAPULT,
     pixelScale: 152 / 426, // 高さ2.8m(兵士1.7m=92px比で約152px)
@@ -2102,6 +2110,89 @@ const CHAR_DEFS = {
       down:     [300,350,420,500,1000]
     },
     attackImpactFrame: 7 // throw_8(発射の瞬間)
+  },
+
+  batteringRam: {
+    reading: "はじょうつい",             // 名前の読み(長押しで表示)
+    intro: "巨大な鉄兜の槌を打ち鳴らし、城門・櫓を打ち砕く攻城の車。雑兵には目もくれぬ。",
+    name: "破城槌",
+    rank: null,
+    race: "human",
+    cost: 2600,
+    hp: 260,
+    atk: 45,
+    weight: 600,               // 轢き攻撃などの体重比べに使う(仮)
+    walkSpeed: 18,
+    attackRange: 90,
+    detectionRange: 300,       // 敵ユニットは無視するので、実質「建物」を見つけるための距離
+    ignoresUnits: true,        // 敵ユニットは一切無視し、城・建物(扱いのもの)だけを狙って進む
+    bonusVsBuilding: 3.0,      // 建物・城への特攻(高火力)。数値は仮
+    superArmorDuringAttack: true, // 攻撃(体当たり)の最中は怯まない
+    attackMotionName: "attack",
+    approachMotion: "walk",    // 発見後も、専用の接近コマは持たず、歩行をそのまま流用する(礫車の"roll"と同じ考え方)
+    approachSpeed: 18,         // 上のapproachMotion="walk"と対になる速度(未指定だとNaNになるため、歩行と同じ値を指定)
+    canGuard: false,
+    icon: ICON_BATTERING_RAM,
+    imageBase: IMG_BATTERING_RAM,
+    // 実寸スケール：歩行コマの切り抜き高さ(464px)を基準に、車体の高さ約2.4m相当(130px)へ換算
+    pixelScale: 130 / 464,
+    // 待機コマだけ、他のコマの約1.65倍の大きさで作られてしまったため、個別に縮小補正
+    motionScale: { idle: 464 / 771 },
+    hitboxWidth: 260,          // 槌の柄が長く突き出た、横幅の大きいユニット用
+    frameCounts: {
+      idle:1, walk:2, discover:2, attack:4, flinch:3, blowback:2, down:5
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [255,255,255],
+      discover: [285,285],       // 敵ではなく、建物を発見したときのコマ
+      attack:   [320,450,250,250],
+      flinch:   [265,265,265],
+      blowback: [295,375],       // 吹き飛び・かち上げ共通
+      down:     [270,395,270,270,400]
+    },
+    attackImpactFrame: 2 // attack_2(激突の瞬間)
+  },
+
+  chariot: {
+    reading: "せんしゃ",             // 名前の読み(長押しで表示)
+    intro: "二頭立ての戦車。兵を四人乗せ、敵城の間近まで駆け抜けては、また戻る。",
+    name: "戦車",
+    rank: null,
+    race: "human",
+    cost: 3200,
+    hp: 300,
+    atk: 60,                  // 轢き攻撃のダメージ(数値は仮)
+    weight: 700,              // 轢き攻撃・轢かれる側、双方の体重比べに使う(仮)
+    laneSpan: 2,
+    walkSpeed: 55,            // 通常の徒歩兵より速い(仮)
+    chariotUnit: true,
+    ignoresUnits: true,       // 敵とぶつかって止まらず、轢き攻撃(専用の当たり判定)で押し進む
+    trampleHitRadius: 60,     // 轢き攻撃(往路)の間合い
+    riderKinds: ["arquebusier","arquebusier","soldier","soldier"], // 暫定の顔ぶれ(本来は布陣で選ぶ想定。未実装)
+    riderSlotFracs: [0.30, 0.42, 0.58, 0.70], // 荷台の中の4人の立ち位置(車体の幅に対する割合)
+    riderScale: 0.6,
+    riderDeckFrac: 0.32,      // 車体の高さのうち、荷台の床の高さの割合
+    canGuard: false,
+    icon: ICON_CHARIOT,
+    imageBase: IMG_CHARIOT,
+    // 実寸スケール：歩行コマの切り抜き高さ(516px)を基準に、車体の高さ約2.46m相当(133px)へ換算
+    pixelScale: 133 / 516,
+    // 待機コマだけ、他のコマの約1.7倍の大きさで作られてしまったため、個別に縮小補正
+    motionScale: { idle: 516 / 877 },
+    hitboxWidth: 250,
+    frameCounts: {
+      idle:1, walk:3, discover:1, attack:5, flinch:3, blowback:2, down:4
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [210,210,210],
+      discover: [1000],
+      attack:   [250,250,275,240,250],  // 轢き攻撃(往路)の間、ループし続ける
+      flinch:   [300,300,300],
+      blowback: [520,400],
+      down:     [325,265,350,500]
+    }
   }
 };
 
@@ -2316,7 +2407,7 @@ const STAGES = [
   //   その大群を、決めた時間だけ耐え抜けば、その瞬間に勝利(敵城を落として勝つことも、引き続きできる) ----
   { id:"rampart", name:"砦野", reading:"とりでの", menu:{ tag:"五陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"屍城に近き最後の野。ここに柵を結い、迫り来る鬼の大群を、堰き止めねばならぬ。",
-    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower"] },
+    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot"] }, // 破城槌・チャリオットは動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
     enemyCastleHp:5200, playerCastleHp:7500, startCorpse:3500, corpseGainRate:1.0, castleDmgTaken:{ player:0.9 },
     finalWaveAt:60, survivalDuration:120, // 開始から60秒(1分)で最終波、それから120秒(2分)耐え抜けば勝利。1分までは敵は一切出ない
     warnings:[
@@ -3219,6 +3310,7 @@ function updateGuide(){
 
 function startBattle(stage){
   roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
+  battle && (battle.repairPickPending = null); repairHighlightEl = null; // 前の戦闘のハイライト状態を持ち越さない
   const spb = document.getElementById("btn-speed"); if (spb) spb.textContent = "×1";
   infoUI.unit = null; const uib = document.getElementById("unit-info"); if (uib) uib.style.display = "none";
   cmdUI.open = false; cmdUI.cmdrId = null; cmdUI.branch = null; cmdUI.pickTarget = false; cmdUI.pickFormation = false;
@@ -3366,7 +3458,7 @@ function skillCd(unit, ms){
 function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
   if (def.canPlaceStructure){ startPlacementPick(kind); return; } // 設置系：戦列ではなく、戦場をタップして場所を選ぶ
-  if (def.canPickRepairTarget){ startRepairTargetPick(kind); return; } // 修復兵：戦列ではなく、戦場をタップして直す対象を選ぶ
+  if (def.canPickRepairTarget){ confirmOrStartRepairPick(kind); return; } // 修復兵：戦列ではなく、戦場でタップして選んだ対象(ハイライト中)を直す
   const cost = getDeployCost(def);
   const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
   if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; } // 先にレーンを選ばないと召喚できない
@@ -3392,6 +3484,12 @@ function tryDeploy(kind){
     pickLeader(big);
     applyRole(big, roleOfKind(kind));
     battle.roleUsed[kind] = (battle.roleUsed[kind] || 0) + 1;
+    if (def.chariotUnit){
+      // 出現したら、まず4人を乗せてから、1マス前進して轢き攻撃(往路)を始める
+      boardChariotRiders(big);
+      big.chariotPhase = "advance1";
+      setMotion(big, "walk", { loop:true });
+    }
     updateWalletUI();
     return;
   }
@@ -3585,6 +3683,10 @@ function spawnUnit(kind, side, xOffset, opts){
     towerDetourMs: 0,             // 望楼台を避けて戦列を移った直後の残り時間(ms)
     repairTarget: null,           // 修復兵専用：直す対象。{ kind:"castle" } または { kind:"structure", ref:望楼台や壁のユニット }
     repairCooldown: 0,            // 修復兵専用：次に回復判定するまでの残り時間(ms)
+    chariotPhase: null,           // チャリオット本体専用：advance1|charging|returning
+    chariotRiders: null,          // チャリオット本体専用：今乗せている4人
+    chariotAdvanceTarget: null,   // チャリオット本体専用：出現後に1マス進む目標x
+    chariotSlot: null,            // チャリオットの乗員専用：荷台の中の立ち位置(0〜3)
     _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
   img._ownerUnit = unit;
@@ -3652,6 +3754,7 @@ function getBuffFactor(unit, key){
 // commit=true のときだけ、先手の「最初の一撃」を使ったことにする
 function attackBonus(unit, target, commit){
   let m = (unit.def.bonusVsRace && unit.def.bonusVsRace[target.def.race]) || 1;
+  if (unit.def.bonusVsBuilding && (target.def.structureUnit || target.def.countsAsBuilding)) m *= unit.def.bonusVsBuilding; // 破城槌：建物への特攻
   if (unit.def.bonusVsNoCombat && target.def.noCombat) m *= unit.def.bonusVsNoCombat; // 斥候：非戦闘の支援役(穽鬼・鼓鬼・巫鬼など)への追加ダメージ
   if (unit.role === "assault" && target.role) m *= roleCfg("assault").roleHunterMult;
   if (unit.role === "vanguard" && unit.lastStrikeTarget !== target){
@@ -4166,12 +4269,37 @@ function commitPlacement(kind, col, lane){
   u.deployedKind = kind;
   return true;
 }
-// 修復兵：召喚ボタンを押すと、戦場をタップして直す対象(自城・望楼台・壁)を選ぶモードに入る
-function startRepairTargetPick(kind){
+// 修復兵：召喚ボタンを押すと、戦場をタップして直す対象(自城・望楼台・壁)を選ぶモードに入る。
+// タップしただけでは召喚されず、その建物がハイライトされるだけ。ハイライトされた状態でもう一度ボタンを押すと、初めて召喚される
+let repairHighlightEl = null;
+function repairTargetEl(target){
+  return target.kind === "castle" ? document.querySelector("#battlefield .castle.player") : target.ref.el;
+}
+function setRepairHighlight(target){
+  clearRepairHighlight();
+  const el = target && repairTargetEl(target);
+  if (el){ el.classList.add("repair-highlight"); repairHighlightEl = el; }
+}
+function clearRepairHighlight(){
+  if (repairHighlightEl){ repairHighlightEl.classList.remove("repair-highlight"); repairHighlightEl = null; }
+}
+function confirmOrStartRepairPick(kind){
   const def = CHAR_DEFS[kind];
+  const pending = battle.repairPickPending;
+  if (pending && pending.kind === kind){
+    if (!pending.target){ showToast("先に、直す建物を戦場でお選びください"); return; } // ハイライトされていなければ、まだ召喚できない
+    if (pending.target.kind === "structure" && pending.target.ref.dead){
+      showToast("その建物は、もう無い"); pending.target = null; clearRepairHighlight(); return;
+    }
+    if (commitRepairTarget(kind, pending.target)){
+      clearRepairHighlight();
+      battle.repairPickPending = null;
+    }
+    return;
+  }
   const cost = getDeployCost(def);
   if (battle.corpse < cost){ showToast("屍が足りぬ"); return; }
-  battle.repairPickPending = { kind };
+  battle.repairPickPending = { kind, target: null };
   showToast(def.name + "：直す建物を、戦場でお選びください(自城も可)");
 }
 // タップした場所に、直せる建物(自城・望楼台・壁)があるかを調べる
@@ -6111,6 +6239,7 @@ function updateMountedAI(unit){
 
 function updateMount(unit, dtMs){
   if (!unit.mounted) return;
+  if (unit.mount && unit.mount.def.chariotUnit){ syncChariotRider(unit); return; } // チャリオットの乗員は、専用の同期を使う
   if (unit.dismounting) updateDismount(unit, dtMs);
   else syncRiderToMount(unit);
 }
@@ -6183,6 +6312,135 @@ function finishDismount(r){
 // 倒れたフォートレスは、背中のゴブリンが全員降りきるまで消えない
 function updateFortressCorpse(unit){
   if (unit.dead && unit.riders && unit.downFinished && !hasRidersLeft(unit)) removeUnit(unit);
+}
+
+/* ---------- チャリオット：兵を積んで敵城の間近まで運び、また戻って積み直す ---------- */
+
+// 乗せる(布陣で選んだ4人を積む。今は暫定でdef.riderKindsの固定の顔ぶれ)
+function boardChariotRiders(unit){
+  const def = unit.def;
+  const kinds = def.riderKinds || [];
+  unit.chariotRiders = kinds.map((kind, i) => {
+    const r = spawnUnit(kind, unit.side, 0, {});
+    mountChariotRider(r, unit, i);
+    return r;
+  });
+}
+function mountChariotRider(r, mount, slotIndex){
+  r.mounted = true;
+  r.mount = mount;
+  r.chariotSlot = slotIndex;
+  r.scaleMult = mount.def.riderScale || 0.6;
+  r.uhpEl.style.display = "none";
+  r.target = null;
+  setMotion(r, "idle", { loop:true });
+  copyLane(r, mount, -1); // チャリオットと同じレーン扱い(画像の奥側に描く)
+  syncChariotRider(r);
+}
+// 乗っている兵の見た目の位置を、チャリオットの現在位置・向きに合わせる(荷台の中の決まった位置に並ぶ)
+function syncChariotRider(r){
+  const m = r.mount;
+  if (!m || m.dead){ return; }
+  const W = m._displayWidth || 280;
+  const H = m._displayHeight || 130;
+  const fracs = m.def.riderSlotFracs || [0.3, 0.42, 0.58, 0.7];
+  const frac = fracs[r.chariotSlot] != null ? fracs[r.chariotSlot] : 0.5;
+  const fe = m.facing === 1 ? frac : 1 - frac;
+  const rw = (r._displayWidth || 20) * (r.scaleMult || 1);
+  r.x = m.x + fe * W - rw / 2;
+  r.rideY = H * (m.def.riderDeckFrac != null ? m.def.riderDeckFrac : 0.32);
+  r.facing = m.facing;
+  applyFrame(r);
+}
+// 敵城の目の前で、乗せていた4人を降ろす(独立したユニットとして、その場で戦い始める)
+function dropoffChariotRiders(unit){
+  const riders = unit.chariotRiders || [];
+  riders.forEach((r, i) => {
+    if (r.dead) return;
+    r.mounted = false;
+    r.mount = null;
+    r.scaleMult = 1;
+    r.rideY = 0;
+    r.uhpEl.style.display = "";
+    const lane = i % 2 === 0 ? unit.laneLo : unit.laneHi; // チャリオットの2レーンへ、交互に振り分ける
+    setUnitLane(r, lane);
+    r.x = unit.x + (i - (riders.length - 1) / 2) * 30;
+    r.facing = unit.side === "player" ? -1 : 1;
+    r.target = null;
+    const fallback = r.def.frameCounts.walk ? "walk" : (r.def.approachMotion || "walk");
+    setMotion(r, fallback, { loop:true });
+    applyFrame(r);
+  });
+  unit.chariotRiders = [];
+}
+// チャリオットの一連の動き：出現→1マス前進→停止して積む→敵城近くまで轢き進む(スーパーアーマー)→
+// 降ろす→振り向く→自城近くまで戻る→また積む→…の繰り返し
+function updateChariotAI(unit, dtMs){
+  if (unit.dead) return;
+  const def = unit.def;
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field ? field.clientWidth : STAGE_W;
+  const homeDir = unit.side === "player" ? -1 : 1;   // 自陣から敵城へ向かう方向
+  const wu = def.hitboxWidth || 0;
+  // 城そのものにも当たり判定があり(CASTLE_APPROACH_GAP)、実際に進める限界はそこで決まる。
+  // 「敵城の一マス手前」「自城の前まで戻る」は、その限界を基準に計算する
+  const enemyGateX = unit.side === "player" ? (CASTLE_APPROACH_GAP + GRID_CELL) : (fieldWidth - CASTLE_APPROACH_GAP - wu - GRID_CELL);
+  const homeGateX = unit.side === "player" ? (fieldWidth - CASTLE_APPROACH_GAP - wu) : CASTLE_APPROACH_GAP;
+
+  if (unit.chariotPhase === "advance1"){
+    if (unit.chariotAdvanceTarget == null) unit.chariotAdvanceTarget = unit.x + homeDir * GRID_CELL;
+    const dx = unit.chariotAdvanceTarget - unit.x;
+    if (Math.abs(dx) <= 2){
+      unit.chariotPhase = "charging";
+      setMotion(unit, "attack", { loop:true }); // 轢き攻撃(往路)のループへ
+      return;
+    }
+    unit.x += moveWithCollision(unit, Math.sign(dx) * getEffectiveSpeed(unit, def.walkSpeed) * (dtMs / 1000));
+    applyFrame(unit);
+    return;
+  }
+
+  if (unit.chariotPhase === "charging" || unit.chariotPhase === "returning"){
+    const dir = unit.chariotPhase === "charging" ? homeDir : -homeDir;
+    unit.facing = dir;
+    if (unit.chariotPhase === "charging"){
+      // 轢き攻撃：進路上の敵と鉢合わせたら、重さを比べる。勝てば吹き飛ばして轢き潰し、負ければ自分が壊れる
+      const hitRadius = def.trampleHitRadius || 60;
+      const enemySide = unit.side === "player" ? "enemy" : "player";
+      const victim = battle.units.find(o =>
+        !o.dead && !o.mounted && o.side === enemySide && !o.def.invulnerable &&
+        lanesOverlap(unit.laneLo, unit.laneHi, o.laneLo, o.laneHi) &&
+        Math.sign(o.x - unit.x) === dir && edgeDistance(unit, o) <= hitRadius
+      );
+      if (victim){
+        if ((victim.def.weight || 0) > (def.weight || 0)){
+          unit.hp = 0;
+          killUnit(unit); // 体重で負けた：チャリオットごと破壊される
+          return;
+        }
+        applyDamageToUnit(victim, getEffectiveAtk(unit), unit);
+        if (!victim.dead) launchUnit(victim, unit, { upSpeed: 300, knockback: true }); // 轢き攻撃は吹き飛ばし効果を持つ
+      }
+    }
+    unit.x += moveWithCollision(unit, dir * getEffectiveSpeed(unit, def.walkSpeed) * (dtMs / 1000));
+    applyFrame(unit);
+
+    if (unit.chariotPhase === "charging" && (unit.side === "player" ? unit.x <= enemyGateX : unit.x >= enemyGateX)){
+      dropoffChariotRiders(unit);
+      unit.chariotPhase = "returning";
+      setMotion(unit, "walk", { loop:true }); // 復路は、素早くただ戻るだけ(轢きはしない)
+      return;
+    }
+    if (unit.chariotPhase === "returning" && (unit.side === "player" ? unit.x >= homeGateX : unit.x <= homeGateX)){
+      boardChariotRiders(unit);
+      unit.chariotPhase = "advance1";
+      unit.chariotAdvanceTarget = null;
+      unit.facing = homeDir;
+      setMotion(unit, "walk", { loop:true });
+      return;
+    }
+    return;
+  }
 }
 
 // 打ち上げ・吹き飛ばしは宙に浮かず、大きくよろめいて後退する
@@ -6586,12 +6844,13 @@ function resolveAttackImpact(unit){
     applyDamageToUnit(unit.target, getEffectiveAtk(unit) * attackBonus(unit, unit.target, true), unit);
     return;
   }
+  const buildingMult = unit.def.bonusVsBuilding || 1; // 破城槌：城そのものへも建物特攻が乗る
   if (unit.side === "player"){
-    battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit));
+    battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit) * buildingMult);
     updateCastleBars();
     if (battle.enemyCastleHp <= 0) endBattle(true);
   } else {
-    battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit));
+    battle.playerCastleHp = Math.max(0, battle.playerCastleHp - getEffectiveAtk(unit) * getCastleDamageMult(unit) * buildingMult);
     updateCastleBars();
     if (battle.playerCastleHp <= 0) endBattle(false);
   }
@@ -6717,6 +6976,7 @@ function updateCharge(unit, dtMs){
 // 追加の被弾があっても別の反応モーションに上書きされない(スーパーアーマー)
 function isSuperArmored(unit, attacker){
   if (attacker && attacker.def.attackFlags && attacker.def.attackFlags.ignoresSuperArmor) return false; // スーパーアーマー無効の一撃は貫通する
+  if (unit.chariotPhase === "charging") return true; // チャリオット：轢き攻撃(往路)の最中はスーパーアーマー
   if (unit.def && unit.def.alwaysSuperArmored) return true; // 常時スーパーアーマー(ラッシャーなど)
   if (unit.transforming) return true; // 女王の第二形態への移行中は中断されない
   if (unit.def && unit.def.superArmorMotions && unit.def.superArmorMotions.indexOf(unit.motion) !== -1) return true; // 特定のモーション中だけスーパーアーマー(女王の近接・メテオ詠唱・シールド)
@@ -6764,6 +7024,7 @@ function moveWithCollision(unit, dx){
     if (o === unit || o.dead || o.mounted || o.launched || o.laneMoving || o.perch) return;
     const ally = o.side === unit.side;
     if (ally && !(o.def.structureUnit && structureBlocksAlly(unit, o))) return; // 味方は、すり抜けられる(望楼台・大きい味方にとっての壁は例外)
+    if (!ally && unit.def.ignoresUnits && !o.def.countsAsBuilding && !o.def.structureUnit) return; // 破城槌：建物(扱い)以外の敵は、素通りする
     if (o.def.invulnerable || o.def.passThroughEnemies) return; // 壊せない巨大ゲートなどは、ぶつからない
     if (!lanesOverlap(unit.laneLo, unit.laneHi, o.laneLo, o.laneHi)) return;
     const wo = bodyWidth(o);
@@ -6875,6 +7136,11 @@ function afterReaction(unit){
 function killUnit(target){
   target.dead = true;
   target.target = null;
+  if (target.chariotRiders && target.chariotRiders.length){
+    // チャリオットが(体重負け・被弾のどちらであれ)壊れた瞬間、乗っていた者は全員死ぬ
+    target.chariotRiders.forEach(r => { if (!r.dead){ r.dead = true; r.mounted = false; r.mount = null; removeUnit(r); } });
+    target.chariotRiders = [];
+  }
   if (target.perch) dropDeadFromTower(target); // 台の上・壁の上で倒れた：地面へ落ちる
   if (target.def.structureUnit){ collapseStructure(target); return; } // 望楼台・壁は、専用の崩れ方をする
   // 屍：敵味方を問わず、倒れたユニットの値段に応じてたまる(ゲートなど値段のないものは、たまらない)
@@ -6986,7 +7252,10 @@ function updateRevive(dtMs){
 }
 
 function applyDamageToUnit(target, amount, attacker){
-  if (target.dead || target.mounted) return; // フォートレスの背中に乗っている間は攻撃を受けない
+  if (target.dead) return;
+  // フォートレスの背中や、チャリオットに乗っている間は攻撃を受けない。
+  // ただしチャリオットの乗員だけは例外で、遠距離攻撃(弓など)なら乗ったままでも狙い撃たれる
+  if (target.mounted && !(target.mount && target.mount.def.chariotUnit && attacker && attacker.def.ranged)) return;
   if (target.def.invulnerable) return;       // 巨大ゲートは壊せない
   if (target.reviveInvulnMs > 0) return;     // 蘇生直後の無敵時間中
   // 担がれているキングは、遠距離攻撃(空中に届く攻撃)でしか攻撃できない
@@ -7065,7 +7334,7 @@ function applyDamageToUnit(target, amount, attacker){
   if (target.def.structureUnit && target.hp > 0) updateStructureStage(target); // 望楼台・壁：傷の見た目を切り替える
 
   // 毒付与(弓兵の矢など)：蓄積式。閾値に達すると発動し、最大HPの一定割合を効果時間で分割して与える
-  if (attacker && attacker.def.poisonOnHit && target.hp > 0 && !target.def.poisonImmune){
+  if (attacker && attacker.def.poisonOnHit && target.hp > 0 && !target.def.poisonImmune && !target.def.structureUnit){ // 建物は生き物ではないので、毒などの状態異常は効かない
     const stackPerHit = attacker.def.poisonStackPerHit || 0;
     const threshold = attacker.def.poisonStackThreshold || 100;
     const poisonTriggered = addStatusGauge(target, "poison", stackPerHit, threshold); // 毒ゲージは、対象ごとに1つ(誰の矢でも同じゲージにたまる)
@@ -7084,7 +7353,7 @@ function applyDamageToUnit(target, amount, attacker){
   }
 
   // 出血付与(ゴブリン長の斬撃)：蓄積式。100%で発動し「最大HPの一定割合＋固定値」のダメージ
-  if (attacker && attacker.def.bleedStackPerHit && target.hp > 0 && !target.def.bleedImmune){
+  if (attacker && attacker.def.bleedStackPerHit && target.hp > 0 && !target.def.bleedImmune && !target.def.structureUnit){ // 建物は生き物ではないので、出血などの状態異常は効かない
     const threshold = attacker.def.bleedStackThreshold || 100;
     if (addStatusGauge(target, "bleed", attacker.def.bleedStackPerHit, threshold)){ // 出血ゲージも、対象ごとに1つ
       const bleedDmg = target.hpMax * (attacker.def.bleedMaxHpPercent || 0) + (attacker.def.bleedFixedDamage || 0);
@@ -7129,7 +7398,8 @@ function findNearestEnemyInRange(unit){
   let priority = null, priorityDist = Infinity; // 斥候：非戦闘の支援役がいれば、そちらを優先して探す
   battle.units.forEach(other => {
     if (other === unit || other.dead || other.side === unit.side) return;
-    if (other.mounted) return; // フォートレスの背中に乗っている間は狙えない
+    if (unit.def.ignoresUnits && !other.def.countsAsBuilding) return; // 破城槌：建物(扱い)以外の敵ユニットは眼中にない
+    if (other.mounted && !(other.mount && other.mount.def.chariotUnit && unit.def.ranged)) return; // フォートレスの背中や、チャリオットの上は狙えない(遠距離がチャリオットの乗員を狙う場合を除く)
     if (!canReachLane(unit, other)) return; // 自分のレーン(遠距離はさらに隣のレーン)にいない敵は、見つけられない・狙えない
     if (other.def.invulnerable) return; // 壊せない巨大ゲートは狙わない
     if (other.elevated && !(unit.def.ranged || unit.def.canHitAir)) return; // 担がれたキングは遠距離攻撃しか届かない
@@ -7162,10 +7432,12 @@ function updateUnitAI(unit, dtMs){
   if (unit.dead || unit.debugLock || unit.restrained || unit.launched || unit.charging) return;
   const def = unit.def;
 
-  if (unit.mounted){ // フォートレスの背中に乗っている間は、自分では移動しない
-    if (!unit.dismounting) updateMountedAI(unit);
+  if (unit.mounted){ // フォートレスの背中や、チャリオットに乗っている間は、自分では移動しない
+    if (!unit.dismounting) updateMountedAI(unit); // 乗ったまま、遠距離系だけは射程内を狙って撃てる(フォートレスと共通)
     return;
   }
+
+  if (def.chariotUnit){ updateChariotAI(unit, dtMs); return; } // チャリオット本体：専用の往復AI
 
   if (unit.perch){ updatePerchAI(unit, dtMs); return; }         // 望楼台・壁の上：その場から、全ての戦列を撃つ(軍令は受けない)
   if (unit.towerDetourMs > 0) unit.towerDetourMs = Math.max(0, unit.towerDetourMs - dtMs);
@@ -7292,7 +7564,7 @@ function updateUnitAI(unit, dtMs){
 
     // 今の交戦相手を追っている最中でも、通り道(自分と同じ戦列)に未交戦の非戦闘ユニットがいればすり抜けずに足止めする。
     // 戦列が違えば、望楼台・壁など(noCombat)がどれだけ近くにあっても無視して通り過ぎる(遠距離は別途laneReachで届く)
-    const passThroughBlocker = battle.units.find(other =>
+    const passThroughBlocker = !unit.def.ignoresUnits && battle.units.find(other =>
       other !== unit.target && !other.dead && !other.mounted && !other.def.invulnerable && other.side !== unit.side && other.def.noCombat &&
       lanesOverlap(unit.laneLo, unit.laneHi, other.laneLo, other.laneHi) &&
       Math.sign(other.x - unit.x) === dir &&
@@ -7912,11 +8184,13 @@ document.getElementById("battlefield").addEventListener("click", e => {
   if (!battle || battle.ended) return;
   const p = fieldPointToLogical(e);
   if (battle.repairPickPending){
-    const kind = battle.repairPickPending.kind;
     const target = repairTargetAtPoint(p.lx, p.ly);
-    if (target) commitRepairTarget(kind, target); else showToast("そこは直せぬ");
-    battle.repairPickPending = null;
-    return; // 対象待ちの間は、タップを対象選びだけに使う
+    if (!target){ showToast("そこは直せぬ"); return; }
+    const cur = battle.repairPickPending.target;
+    const same = cur && cur.kind === target.kind && (cur.kind === "castle" || cur.ref === target.ref);
+    if (same){ battle.repairPickPending.target = null; clearRepairHighlight(); } // 同じ所をもう一度タップで、選び直し
+    else { battle.repairPickPending.target = target; setRepairHighlight(target); }
+    return; // 対象待ちの間は、タップを対象選び(ハイライト)だけに使う。召喚は札をもう一度押す
   }
   if (battle.placementPending){
     const col = columnOfX(p.lx);
