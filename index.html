@@ -620,6 +620,9 @@
   .deploy-btn .cost-tag{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.75); font-size:.6rem; font-family:monospace; color:#c9a6ff; text-align:center; }
   .deploy-btn:disabled .cost-tag{ color:var(--text-dim); }
   .deploy-btn .role-tag{ position:absolute; top:2px; right:2px; font-size:.55rem; background:rgba(138,106,30,.92); color:#fff; padding:1px 3px; border-radius:2px; }
+  .deploy-btn .ready-tag{ position:absolute; top:2px; right:2px; font-size:.5rem; background:rgba(58,140,70,.92); color:#fff; padding:1px 3px; border-radius:2px; display:none; animation:readyTagPulse 1.2s ease-in-out infinite; }
+  .deploy-btn .ready-tag.shift-left{ right:auto; left:2px; } /* 同じ位置に役職名の札が出ている場合は、反対側にずらす */
+  @keyframes readyTagPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.55; } }
   .deploy-btn .cost-tag.corpse, .formation-slot .cost-tag.corpse{ color:#c9a6ff; } /* 屍で招集するキャラの値段は紫 */
   .unit-card .cost.corpse{ color:#b48ce8; }
   #top-right-money .corpse-num{ font-family:monospace; font-size:.85rem; color:#c9a6ff; line-height:1.1; margin-top:2px; }
@@ -3608,12 +3611,22 @@ function buildDeployRow(){
     btn.dataset.rname = def.name; btn.dataset.reading = def.reading || ""; btn.dataset.desc = unitDesc(def); btn.dataset.kind = kind;
     btn.innerHTML = `<img src="${def.icon}" alt="${def.name}"><span class="cost-tag${currencyKey(def) === "corpse" ? " corpse" : ""}">${getDeployCost(def)}</span>` +
       ((def.laneSpan || 1) > 1 ? `<span class="lane-tag">${def.laneSpan}戦列</span>` : "") +
-      (roleShort(kind) ? `<span class="role-tag">${roleShort(kind)}</span>` : "");
+      (roleShort(kind) ? `<span class="role-tag">${roleShort(kind)}</span>` : "") +
+      (def.returnsAfterDeploy ? `<span class="ready-tag${roleShort(kind) ? " shift-left" : ""}">準備完了</span>` : "");
     attachImgFallback(btn.querySelector("img"), def.name);
     btn.addEventListener("click", () => tryDeploy(kind));
     row.appendChild(btn);
   });
   updateWalletUI();
+  updateDeployReadyTags();
+}
+// 補充が済んだ(自城前で待機している)キャラの召喚札に、「準備完了」の札を出し入れする
+function updateDeployReadyTags(){
+  if (!battle) return;
+  document.querySelectorAll("#deploy-row .deploy-btn .ready-tag").forEach(tag => {
+    const kind = tag.closest(".deploy-btn").dataset.kind;
+    tag.style.display = findResuppliedUnit(kind) ? "block" : "none";
+  });
 }
 
 
@@ -4576,6 +4589,7 @@ function commitPlacement(kind, col, lane){
     u.buildTargetCol = col; u.buildTargetLane = lane; u.buildTargetX = columnCenterX(col);
     const fallback = u.def.frameCounts.walk ? "walk" : "idle";
     setMotion(u, fallback, { loop:true });
+    updateDeployReadyTags(); // 「準備完了」の札を消す
     return true;
   }
   const cost = getDeployCost(def);
@@ -6770,7 +6784,7 @@ function startCourierWatch(unit){
   unit.courierPhase = "watching";
   unit.facing = unit.side === "player" ? -1 : 1;
   setMotion(unit, "idle", { loop:true });
-  queueBanner((unit.watchLane + 1) + "列より、鬼の出現を予測……!", true, false);
+  queueBanner(LANE_LABELS[unit.watchLane] + "より、鬼の出現を予測……!", true, false);
 }
 // 新しく敵が現れるたび呼ぶ：見張り中の伝令兵の予測に当たっていないか、また既に的中済みの戦列(弱体化ゾーン)に
 // 新しく出た敵かどうかを判定する
@@ -6795,7 +6809,7 @@ function fireCourierSignal(unit, triggerEnemy){
   battle.courierDebuffZones = battle.courierDebuffZones || [];
   battle.courierDebuffZones.push({ lane: unit.watchLane, expiresAt });
   applyCourierDebuffDirect(triggerEnemy, expiresAt);
-  queueBanner("予測的中！　" + (unit.watchLane + 1) + "列を惑わす", true, false);
+  queueBanner("予測的中！　" + LANE_LABELS[unit.watchLane] + "を惑わす", true, false);
   setMotion(unit, "signal", { onEnd: () => removeUnit(unit) }); // 笛を鳴らし終えたら、役目を終えて消える
 }
 
@@ -8204,6 +8218,7 @@ function battleStep(dt){
         unit.resupplied = true; // 補充完了。次にプレイヤーが召喚ボタンを押すまで、その場で待つ
         if (unit.originalKind && unit.def !== CHAR_DEFS[unit.originalKind]) unit.def = CHAR_DEFS[unit.originalKind]; // 元の(装備を担いだ)姿に戻す
         setMotion(unit, "idle", { loop:true });
+        updateDeployReadyTags(); // 「準備完了」の札を出す
       }
     }
     if (unit.meteorCooldown > 0) unit.meteorCooldown = Math.max(0, unit.meteorCooldown - dt);
