@@ -817,6 +817,10 @@ const ICON_CHARIOT = REPO_BASE + "icons/chariot_icon.png";
 const IMG_MEDIC = REPO_BASE + "images/medic_repo_upload/";
 const ICON_MEDIC = REPO_BASE + "icons/medic_icon.png";
 const IMG_FX_COMMON2 = REPO_BASE + "images/fx_repo_upload/"; // 軍医の回復エフェクトなど、共通置き場
+const IMG_COURIER = REPO_BASE + "images/courier_repo_upload/";
+const ICON_COURIER = REPO_BASE + "icons/courier_icon.png";
+const IMG_SPIKE_BARRICADE = REPO_BASE + "images/spike_barricade_repo_upload/";
+const ICON_SPIKE_BARRICADE = REPO_BASE + "icons/spike_barricade_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -1127,6 +1131,8 @@ const CHAR_DEFS = {
     noCombat: true,           // 索敵・攻撃・追走をしない
     canPlaceStructure: true,  // 「設置」の対象になる。召喚すると、マス目を指定するモードに入る
     placementCooldownMs: 18000, // 個数ではなく、クールタイムで再び使えるようにする
+    returnsAfterDeploy: true,   // 築き終えたら消えず、自城へ戻って補充を待つ(拒馬兵と共通の仕組み)
+    resupplyCooldownMs: 100000, // 台・壁は重いぶん、補充にも長めの時間がかかる(仮)
     structureBuildMs: 2665,   // build_1〜5の合計(1回きり、ループしない)
     parryable: true,
     guardable: false,
@@ -2254,6 +2260,134 @@ const CHAR_DEFS = {
       down:     [1000],
       getup:    [340,340]
     }
+  },
+
+  // 拒馬兵：柵(拒馬)を担いだ状態。設置系(canPlaceStructure)で、築き終えると素手の姿(spikeBarricadeBare)に
+  // 切り替わって自城へ戻る。柵を担いでいる間は、打ち上げ・吹き飛ばしを受け付けない(noKnockback)。
+  // 専用の吹き飛び・ダウン絵は無いので、その間に力尽きた場合は素手のダウン姿を使う(killUnit側で自動的に切り替え)
+  spikeBarricade: {
+    reading: "きょばへい",
+    intro: "棘だらけの拒馬(柵)を担ぎ、指定の場所に築いて敵の突進を阻む。築き終えると、身一つで自城へ戻る。",
+    name: "拒馬兵",
+    rank: null,
+    race: "human",
+    cost: 500,
+    hp: 30,
+    atk: 0,
+    weight: 60,
+    walkSpeed: 26,             // 重い柵を担いでいるぶん、やや遅い(仮)
+    noCombat: true,
+    canPlaceStructure: true,
+    structureBuildKind: "spikeBarricadeStructure",
+    returnsAfterDeploy: true,  // 築き終えたら消えず、自城へ戻って補充を待つ(望楼兵と共通の仕組み)
+    buildMotionName: "place",
+    bareDef: "spikeBarricadeBare", // 築き終えたあと・力尽きたときに切り替える素手の姿
+    noKnockback: true,         // 柵を担いでいる間は、打ち上げ・吹き飛ばしを受け付けない
+    placementCooldownMs: 18000,
+    resupplyCooldownMs: 60000, // 自城へ戻ってから、次に送り出せるまでの時間(60秒ほど)
+    structureBuildMs: 1050,    // place_1〜3の合計(1回きり、ループしない)
+    icon: ICON_SPIKE_BARRICADE,
+    imageBase: IMG_SPIKE_BARRICADE,
+    // 実寸スケール：歩行コマの切り抜き高さ(519px)を基準に、兵士と同じ表示身長92pxに合わせる
+    pixelScale: 92 / 519,
+    // 待機コマだけ、他のコマの約1.7倍の大きさで作られてしまったため、個別に縮小補正
+    motionScale: { idle: 519 / 861 },
+    hitboxWidth: 130,          // 担いだ柵の分、横に大きい
+    frameCounts: {
+      idle:1, walk:4, place:3, flinch:3
+    },
+    frameDurations: {
+      idle:   [1000],
+      walk:   [295,295,295,295],
+      place:  [350,350,350],
+      flinch: [295,295,295]     // 防御(踏ん張り)の絵を、柵持ち状態の怯みとして流用
+    }
+  },
+  // 拒馬兵：柵を置き終えた後・力尽きた後の、素手の姿。自城へ歩いて戻り、そこで待機する
+  spikeBarricadeBare: {
+    reading: "きょばへい",
+    intro: "柵を置き終え、身一つで自城へ戻る拒馬兵。",
+    name: "拒馬兵",
+    hiddenFromFormation: true, // 編成画面には出さない(装備ありの方から自動的に切り替わる)
+    rank: null,
+    race: "human",
+    cost: 500,
+    hp: 30,
+    atk: 0,
+    weight: 40,
+    walkSpeed: 34,
+    noCombat: true,
+    icon: ICON_SPIKE_BARRICADE,
+    imageBase: IMG_SPIKE_BARRICADE,
+    imagePrefix: "bare_",
+    pixelScale: 92 / 518,
+    motionScale: {},
+    frameCounts: {
+      idle:1, walk:4, flinch:3, blowback:4, down:1, getup:2
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [250,250,250,250],
+      flinch:   [265,265,265],
+      blowback: [315,315,315,315],
+      down:     [1000],
+      getup:    [345,345]
+    }
+  },
+  // 拒馬(柵)：拒馬兵が築く建造物。プレイヤーが直接召喚することはないので、布陣画面には出さない
+  spikeBarricadeStructure: {
+    reading: "きょば", intro: "棘だらけの木組みの柵。敵の突進を阻む。", name: "拒馬",
+    hiddenFromFormation: true, rank: null, race: "object",
+    cost: 0, hp: 220, atk: 0, weight: 9999, walkSpeed: 0, attackRange: 0, detectionRange: 0,
+    noCombat: true, immobile: true, structureUnit: true, structureKind: "barricade", noRevive: true,
+    hitboxWidth: 90, hpBarWidth: 80,
+    imageBase: IMG_SPIKE_BARRICADE,
+    pixelScale: 97 / 482,          // 高さ1.8m相当(兵士1.7m=92px比で約97px)
+    motionForcedSize: { normal: { width: 91, height: 97 } }, // 通常時は、いつも同じ大きさで表示する(崩れた後は瓦礫らしい形のまま)
+    structureDisplayWidth: 90,
+    frameCounts: { normal:1, idle:1, collapsed:1 },
+    frameDurations: { normal:[1000], idle:[1000], collapsed:[1000] },
+    frameFileMap: { normal:"barricade_normal.png", idle:"barricade_normal.png", collapsed:"barricade_collapsed.png" },
+    structureStageMotions: ["normal"] // HPの割合による段階は無く、0で直接collapsedになる
+  },
+
+  // 伝令兵：戦わず、敵城の前まで走り抜けて戻り、鬼が出るであろう戦列を(大きく)告げる。
+  // 告げた戦列から実際に鬼が現れると、角笛を鳴らして「予測的中」を告げ、その戦列に80秒間、弱体化をかける。
+  // 鳴らし終えたら、役目を終えて消える
+  courier: {
+    reading: "でんれいへい",
+    intro: "駆け抜けて敵城を探り、戻って鬼の出方を告げる。当たれば角笛を鳴らし、その戦列を惑わす。",
+    name: "伝令兵",
+    rank: null,
+    race: "human",
+    cost: 700,
+    hp: 20,
+    atk: 0,
+    weight: 20,
+    walkSpeed: 70,             // 素早い(仮)
+    noCombat: true,
+    ignoresUnits: true,        // 敵に構わず駆け抜ける
+    courierUnit: true,
+    predictionDebuffMs: 80000,     // 予測が当たった戦列にかける、弱体化の持続時間(80秒)
+    predictionDebuffAtkMult: 0.7,  // 弱体化の内容(攻撃力-30%。数値は仮)
+    icon: ICON_COURIER,
+    imageBase: IMG_COURIER,
+    // 実寸スケール：歩行コマの切り抜き高さ(928px)を基準に、兵士と同じ表示身長92pxに合わせる
+    pixelScale: 92 / 928,
+    // 待機コマだけ、他のコマより大きく作られてしまったため、個別に縮小補正
+    motionScale: { idle: 928 / 1166 },
+    frameCounts: {
+      idle:1, walk:4, signal:3, flinch:2, blowback:4, down:1, getup:2
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [250,250,250,250],
+      signal:   [550,1250,450],  // 角笛を吹き鳴らす
+      flinch:   [350,350],
+      blowback: [295,325,345,275],
+      down:     [1000],
+      getup:    [395,395]
+    }
   }
 };
 
@@ -2468,7 +2602,7 @@ const STAGES = [
   //   その大群を、決めた時間だけ耐え抜けば、その瞬間に勝利(敵城を落として勝つことも、引き続きできる) ----
   { id:"rampart", name:"砦野", reading:"とりでの", menu:{ tag:"五陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"屍城に近き最後の野。ここに柵を結い、迫り来る鬼の大群を、堰き止めねばならぬ。",
-    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot","medic"] }, // 破城槌・チャリオット・軍医は動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
+    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot","medic","courier","spikeBarricade"] }, // 動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
     enemyCastleHp:5200, playerCastleHp:7500, startCorpse:3500, corpseGainRate:1.0, castleDmgTaken:{ player:0.9 },
     finalWaveAt:60, survivalDuration:120, // 開始から60秒(1分)で最終波、それから120秒(2分)耐え抜けば勝利。1分までは敵は一切出ない
     warnings:[
@@ -3842,6 +3976,15 @@ function spawnUnit(kind, side, xOffset, opts){
     chariotRiders: null,          // チャリオット本体専用：今乗せている4人
     chariotAdvanceTarget: null,   // チャリオット本体専用：出現後に1マス進む目標x
     chariotSlot: null,            // チャリオットの乗員専用：荷台の中の立ち位置(0〜3)
+    returningHome: false,         // 設置後、自城へ戻っている最中か(望楼兵・拒馬兵など)
+    awaitingResupply: false,      // 自城に戻り、補充のクールタイム待ち中か
+    resupplied: false,            // 補充が済み、次の指示を待って自城前で待機中か
+    resupplyCooldown: 0,          // 上のクールタイムの残り時間(ms)
+    resupplyCooldownMs: 0,        // 補充にかかる時間(ms)。召喚時にdefから引き継ぐ
+    originalKind: null,           // 補充システム用：素手などの姿から、元の種類へ戻すための参照
+    courierPhase: null,           // 伝令兵専用：scoutOut|scoutBack|watching|signaling
+    watchLane: null,              // 伝令兵専用：見張っている戦列
+    courierDebuffUntil: 0,        // 伝令兵の予測的中による弱体化の、解除時刻(battle.time基準)
     medicCooldown: 0,             // 軍医専用：次に治療できるまでの残り時間(ms)
     _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
@@ -4319,6 +4462,7 @@ const LAUNCH_GRAVITY = 1400; // px/s^2
 function launchUnit(target, attacker, opts){
   if (target.dead) return;
   if (target.def.immobile) return; // ゲートなど動かないものは、打ち上げ・吹き飛ばしを受けない
+  if (target.def.noKnockback) return; // 拒馬を担いでいる間など、打ち上げ・吹き飛ばしを受け付けない状態
   if (target.perch) return;         // 望楼台・壁の上にいる間は、打ち上げ・吹き飛ばしを受けない(台が崩れたときは別の処理)
   if (target.def.staggerOnLaunch){ startStagger(target, attacker); return; } // 巨体は宙に浮かない
   opts = opts || {};
@@ -4402,6 +4546,13 @@ function findPlatformInColumn(col){
 // 召喚ボタンから、設置系のキャラを選んだとき：戦場をタップして、築く場所(列・戦列)を選ぶモードに入る
 function startPlacementPick(kind){
   const def = CHAR_DEFS[kind];
+  const waiting = findResuppliedUnit(kind);
+  if (waiting){
+    battle.placementPending = { kind, reuseUnit: waiting };
+    const ov = document.getElementById("grid-overlay"); if (ov) ov.style.display = "";
+    showToast(def.name + "：築く場所を、戦場でお選びください(補充済み、屍はかからない)");
+    return;
+  }
   const cost = getDeployCost(def);
   battle.placementCooldowns = battle.placementCooldowns || {};
   const remain = (battle.placementCooldowns[kind] || 0);
@@ -4411,10 +4562,22 @@ function startPlacementPick(kind){
   const ov = document.getElementById("grid-overlay"); if (ov) ov.style.display = ""; // 場所を選ぶ間は、普段の表示設定に関わらずマス目を見せる
   showToast(def.name + "：築く場所を、戦場でお選びください");
 }
-// 選んだマス目に、実際に召喚し、そこへ向かわせる(この時点で屍を払い、クールタイムを起こす)
+// 選んだマス目に、実際に召喚し、そこへ向かわせる(この時点で屍を払い、クールタイムを起こす)。
+// 既に補充済みの待機ユニットがいれば、新規召喚せずそれを送り出す(屍はかからない)
 function commitPlacement(kind, col, lane){
   const def = CHAR_DEFS[kind];
   if (findStructureAt(col, lane)){ showToast("そこには、すでに何かある"); return false; }
+  const pending = battle.placementPending;
+  if (pending && pending.reuseUnit && !pending.reuseUnit.dead){
+    const u = pending.reuseUnit;
+    u.resupplied = false;
+    u.buildStarted = false; // 再出撃なので、建設中フラグを立て直す
+    setUnitLane(u, lane);
+    u.buildTargetCol = col; u.buildTargetLane = lane; u.buildTargetX = columnCenterX(col);
+    const fallback = u.def.frameCounts.walk ? "walk" : "idle";
+    setMotion(u, fallback, { loop:true });
+    return true;
+  }
   const cost = getDeployCost(def);
   if (battle.corpse < cost){ showToast("屍が足りぬ"); return false; }
   battle.corpse -= cost; updateWalletUI();
@@ -4423,6 +4586,8 @@ function commitPlacement(kind, col, lane){
   const u = spawnUnit(kind, "player", 0, { lane });
   u.buildTargetCol = col; u.buildTargetLane = lane; u.buildTargetX = columnCenterX(col);
   u.deployedKind = kind;
+  u.originalKind = kind;                          // 補充システム用：素手状態から元に戻すときの、本来の種類
+  u.resupplyCooldownMs = def.resupplyCooldownMs || 0;
   return true;
 }
 // 修復兵：召喚ボタンを押すと、戦場をタップして直す対象(自城・望楼台・壁)を選ぶモードに入る。
@@ -4548,28 +4713,65 @@ function updateBuilderAI(unit, dtMs){
   }
   unit.x = unit.buildTargetX; applyFrame(unit);
   unit.buildStarted = true;
-  setMotion(unit, "build", { onEnd: () => finishPlacement(unit) });
+  const buildMotion = unit.def.buildMotionName || "build";
+  setMotion(unit, buildMotion, { onEnd: () => finishPlacement(unit) });
 }
 function finishPlacement(unit){
   if (!unit.dead){
     const col = unit.buildTargetCol, lane = unit.buildTargetLane;
     if (!findStructureAt(col, lane)){
-      const kind = findPlatformInColumn(col) ? "watchtowerWall" : "watchtowerPlatform";
+      const kind = unit.def.structureBuildKind || (findPlatformInColumn(col) ? "watchtowerWall" : "watchtowerPlatform");
       const s = spawnUnit(kind, "player", 0, { lane });
       s.x = columnCenterX(col) - (s.def.structureDisplayWidth || 0) / 2; s.structureCol = col;
       setMotion(s, "normal", { loop:true });
       applyFrame(s);
-      freeUnitsTrappedBy(s); // その場に誰かいたら、埋まって動けなくならないよう、その者を外へ押し出す
+      freeUnitsTrappedBy(s, unit); // その場に誰かいたら、埋まって動けなくならないよう、その者を外へ押し出す(築いた本人は除く)
     }
+  }
+  if (unit.def.returnsAfterDeploy && !unit.dead){
+    startReturnHome(unit); // 築き終えたら消えず、身一つで自城へ戻り、また使えるようになる
+    return;
   }
   removeUnit(unit);
 }
+// 築き終えた・役目を終えた設置系のキャラが、消えずに自城へ戻る。戻り着くとクールタイムに入り、
+// 明ければ(素手→元の姿に戻って)待機し、次にプレイヤーが同じ召喚ボタンを押した時に、新規召喚の代わりに送り出される
+function startReturnHome(unit){
+  if (unit.def.bareDef) unit.def = CHAR_DEFS[unit.def.bareDef]; // 見た目があるものは、素手の姿に切り替える(拒馬兵など)
+  unit.buildTargetCol = null; unit.buildTargetLane = null; unit.buildTargetX = null;
+  unit.returningHome = true;
+  unit.target = null;
+  unit.facing = unit.side === "player" ? 1 : -1; // 振り向く
+  const fallback = unit.def.frameCounts.walk ? "walk" : "idle";
+  setMotion(unit, fallback, { loop:true });
+}
+function updateReturnHomeAI(unit, dtMs){
+  const def = unit.def;
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field ? field.clientWidth : STAGE_W;
+  // 出現位置(自城前)と同じ境界を目指す。ここより奥へは、他の移動処理と同じく誰も進めない
+  const homeX = unit.side === "player" ? fieldWidth - 90 : 90;
+  const dx = homeX - unit.x;
+  if (Math.abs(dx) <= 20){ // 城の当たり判定の際、最後の数pxは自然と足踏みが続く(縮む一方の余地を詰め続ける)ので、閾値はゆったり取る
+    unit.returningHome = false;
+    unit.awaitingResupply = true;
+    unit.resupplyCooldown = unit.resupplyCooldownMs || 0;
+    setMotion(unit, "idle", { loop:true });
+    return;
+  }
+  unit.x += moveWithCollision(unit, Math.sign(dx) * getEffectiveSpeed(unit, def.walkSpeed) * (dtMs / 1000));
+  applyFrame(unit);
+}
+// 補充が済み、次の指示を待って自城前で待機している、この種類の既存ユニット(いなければnull)
+function findResuppliedUnit(kind){
+  return battle && battle.units.find(u => !u.dead && u.originalKind === kind && u.resupplied);
+}
 // 望楼台・壁が建った、まさにその場所に誰か(多くは敵)が既に立っていた場合、めり込んで身動きが取れなくなるので、
 // 自らの後ろ側(来た方向)へ一マスぶん押し出して、外に出す
-function freeUnitsTrappedBy(s){
+function freeUnitsTrappedBy(s, builder){
   const ws = bodyWidth(s);
   battle.units.forEach(u => {
-    if (u === s || u.dead || u.mounted || u.launched || u.laneMoving || u.perch || u.def.structureUnit) return;
+    if (u === s || u === builder || u.dead || u.mounted || u.launched || u.laneMoving || u.perch || u.def.structureUnit) return;
     if (!lanesOverlap(u.laneLo, u.laneHi, s.laneLo, s.laneHi)) return;
     const wu = bodyWidth(u);
     const overlap = Math.min(u.x + wu, s.x + ws) - Math.max(u.x, s.x);
@@ -6531,6 +6733,72 @@ function dropoffChariotRiders(unit){
 }
 // チャリオットの一連の動き：出現→1マス前進→停止して積む→敵城近くまで轢き進む(スーパーアーマー)→
 // 降ろす→振り向く→自城近くまで戻る→また積む→…の繰り返し
+/* ---------- 伝令兵：敵城を探って戻り、鬼の出方を予測。的中したら角笛でその戦列を惑わす ---------- */
+const COURIER_DEBUFF_SOURCE = { def: { buffAtkMult: 0.7 } }; // 予測的中による弱体化の印(全伝令兵で共通)
+function updateCourierAI(unit, dtMs){
+  if (unit.dead) return;
+  const def = unit.def;
+  const field = document.getElementById("battlefield");
+  const fieldWidth = field ? field.clientWidth : STAGE_W;
+  const wu = def.hitboxWidth || 0;
+  const enemyGateX = unit.side === "player" ? CASTLE_APPROACH_GAP + GRID_CELL : fieldWidth - CASTLE_APPROACH_GAP - GRID_CELL - wu;
+  const homeGateX = unit.side === "player" ? fieldWidth - 90 : 90; // 出現位置と同じ境界(自城前)まで戻る
+  if (!unit.courierPhase) unit.courierPhase = "scoutOut";
+
+  if (unit.courierPhase === "scoutOut"){
+    const dir = unit.side === "player" ? -1 : 1;
+    unit.facing = dir;
+    unit.x += moveWithCollision(unit, dir * getEffectiveSpeed(unit, def.walkSpeed) * (dtMs / 1000));
+    applyFrame(unit);
+    if (unit.side === "player" ? unit.x <= enemyGateX : unit.x >= enemyGateX) unit.courierPhase = "scoutBack";
+    return;
+  }
+  if (unit.courierPhase === "scoutBack"){
+    const dir = unit.side === "player" ? 1 : -1;
+    unit.facing = dir;
+    unit.x += moveWithCollision(unit, dir * getEffectiveSpeed(unit, def.walkSpeed) * (dtMs / 1000));
+    applyFrame(unit);
+    if (unit.side === "player" ? unit.x >= homeGateX : unit.x <= homeGateX) startCourierWatch(unit);
+    return;
+  }
+  // "watching"(見張り中)・"signaling"(角笛の最中)は、その場で待つだけ
+}
+function startCourierWatch(unit){
+  const stage = battle.stage;
+  const lanes = (stage && stage.lanes && stage.lanes.length) ? stage.lanes : [0, 1, 2, 3, 4];
+  unit.watchLane = lanes[Math.floor(Math.random() * lanes.length)];
+  unit.courierPhase = "watching";
+  unit.facing = unit.side === "player" ? -1 : 1;
+  setMotion(unit, "idle", { loop:true });
+  queueBanner((unit.watchLane + 1) + "列より、鬼の出現を予測……!", true, false);
+}
+// 新しく敵が現れるたび呼ぶ：見張り中の伝令兵の予測に当たっていないか、また既に的中済みの戦列(弱体化ゾーン)に
+// 新しく出た敵かどうかを判定する
+function onEnemySpawned(u){
+  if (!battle || u.side !== "enemy") return;
+  battle.units.forEach(c => {
+    if (c.dead || !c.def.courierUnit || c.courierPhase !== "watching") return;
+    if (c.watchLane === u.lane) fireCourierSignal(c, u);
+  });
+  (battle.courierDebuffZones || []).forEach(z => {
+    if (z.lane === u.lane && battle.time < z.expiresAt) applyCourierDebuffDirect(u, z.expiresAt);
+  });
+}
+function applyCourierDebuffDirect(unit, expiresAt){
+  if (!unit.buffSources) unit.buffSources = new Set();
+  unit.buffSources.add(COURIER_DEBUFF_SOURCE);
+  unit.courierDebuffUntil = Math.max(unit.courierDebuffUntil || 0, expiresAt);
+}
+function fireCourierSignal(unit, triggerEnemy){
+  unit.courierPhase = "signaling";
+  const expiresAt = battle.time + (unit.def.predictionDebuffMs || 80000) / 1000;
+  battle.courierDebuffZones = battle.courierDebuffZones || [];
+  battle.courierDebuffZones.push({ lane: unit.watchLane, expiresAt });
+  applyCourierDebuffDirect(triggerEnemy, expiresAt);
+  queueBanner("予測的中！　" + (unit.watchLane + 1) + "列を惑わす", true, false);
+  setMotion(unit, "signal", { onEnd: () => removeUnit(unit) }); // 笛を鳴らし終えたら、役目を終えて消える
+}
+
 function updateChariotAI(unit, dtMs){
   if (unit.dead) return;
   const def = unit.def;
@@ -6758,9 +7026,10 @@ function advanceUnit(unit, dtMs){
         if (unit.onMotionEnd){
           const cb = unit.onMotionEnd;
           unit.onMotionEnd = null;
-          cb(unit);
+          cb(unit); // コールバックの中でsetMotionする場合、そちらが既に描画済みなので、二重に描画しない(連続してsrcを差し替えると、稀に読み込みが失敗することがあった)
+        } else {
+          applyFrame(unit);
         }
-        applyFrame(unit);
         return;
       }
     }
@@ -7290,6 +7559,9 @@ function afterReaction(unit){
 }
 
 function killUnit(target){
+  if (target.def.bareDef && !target.def.frameCounts.down){
+    target.def = CHAR_DEFS[target.def.bareDef]; // 何かを担いだまま死んだ：専用のダウン絵は無いので、素手の姿に切り替えてから倒れる
+  }
   target.dead = true;
   target.target = null;
   if (target.chariotRiders && target.chariotRiders.length){
@@ -7664,6 +7936,10 @@ function updateUnitAI(unit, dtMs){
   }
 
   if (def.chariotUnit){ updateChariotAI(unit, dtMs); return; } // チャリオット本体：専用の往復AI
+  if (def.courierUnit){ updateCourierAI(unit, dtMs); return; } // 伝令兵：専用の往復・見張りAI
+
+  if (unit.returningHome){ updateReturnHomeAI(unit, dtMs); return; } // 設置後、自城へ戻っている最中(望楼兵・拒馬兵など)
+  if (unit.awaitingResupply || unit.resupplied) return; // 自城で、クールタイム明け・次の指示を待っている間は、その場に留まる
 
   if (unit.perch){ updatePerchAI(unit, dtMs); return; }         // 望楼台・壁の上：その場から、全ての戦列を撃つ(軍令は受けない)
   if (unit.towerDetourMs > 0) unit.towerDetourMs = Math.max(0, unit.towerDetourMs - dtMs);
@@ -7886,12 +8162,14 @@ function battleStep(dt){
     if (w.msg) queueBanner(w.msg, false, true); // 敵の出現の告知(赤い文字)
     const wu = spawnUnit(w.kind, "enemy", w.xOffset || 0, { lane: w.lane });
     if (w.role) applyRole(wu, w.role); // 敵の役職(enemyWavesの role に general/elder/captain/chief)
+    onEnemySpawned(wu); // 伝令兵：予測していた戦列に敵が現れたか判定する
     // 馭獣鬼(鬼犬2匹つき)など、召喚すると子分も連れてくるキャラは、敵側でも同じように一緒に出す
     (wu.def.summons || []).forEach(s => {
       const subLanes = summonLanes(wu.lane, s.count);
       for (let i = 0; i < s.count; i++){
         const offset = (i - (s.count - 1) / 2) * 26;
-        spawnUnit(s.kind, "enemy", (w.xOffset || 0) + offset, { lane: subLanes[i] });
+        const sub = spawnUnit(s.kind, "enemy", (w.xOffset || 0) + offset, { lane: subLanes[i] });
+        onEnemySpawned(sub);
       }
     });
   }
@@ -7915,6 +8193,19 @@ function battleStep(dt){
     if (unit.shakenMs > 0) unit.shakenMs = Math.max(0, unit.shakenMs - dt);
     if (unit.shieldCooldown > 0) unit.shieldCooldown = Math.max(0, unit.shieldCooldown - dt);
     if (unit.medicCooldown > 0) unit.medicCooldown = Math.max(0, unit.medicCooldown - dt);
+    if (unit.courierDebuffUntil && battle.time >= unit.courierDebuffUntil){
+      if (unit.buffSources) unit.buffSources.delete(COURIER_DEBUFF_SOURCE);
+      unit.courierDebuffUntil = 0;
+    }
+    if (unit.awaitingResupply){
+      unit.resupplyCooldown = Math.max(0, (unit.resupplyCooldown || 0) - dt);
+      if (unit.resupplyCooldown <= 0){
+        unit.awaitingResupply = false;
+        unit.resupplied = true; // 補充完了。次にプレイヤーが召喚ボタンを押すまで、その場で待つ
+        if (unit.originalKind && unit.def !== CHAR_DEFS[unit.originalKind]) unit.def = CHAR_DEFS[unit.originalKind]; // 元の(装備を担いだ)姿に戻す
+        setMotion(unit, "idle", { loop:true });
+      }
+    }
     if (unit.meteorCooldown > 0) unit.meteorCooldown = Math.max(0, unit.meteorCooldown - dt);
     if (unit.barrierMs > 0) unit.barrierMs = Math.max(0, unit.barrierMs - dt);
     updateLaneTween(unit, dt);
