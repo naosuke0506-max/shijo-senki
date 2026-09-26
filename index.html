@@ -7041,11 +7041,12 @@ function playIncendiaryBurst(unit){
     setTimeout(() => {
       if (!battle) return;
       const frameNum = (i % 3) + 1; // 3枚を繰り返して使う
+      // 元の絵は左から噴き出る向き。右向き(dir>0)はそのまま、左向き(dir<0)は反転させる
       const el = spawnFx(keyedFxSrc(IMG_FX_COMMON2 + "fx_burn_" + frameNum + ".png", FX_KEY_DEFAULT), muzzleX, {
-        height: 150, bottom: (unit.baseB || 74) - 10, lifespan: durations[i] + 80, flip: dir > 0
+        height: 90, bottom: (unit.baseB || 74) - 10, lifespan: durations[i] + 80, flip: dir < 0
       });
       // 中央寄せ(-50%)は、反転(scaleX)より先に効かせないと、反転時にずれる向きが逆になる
-      if (el) el.style.transform = "translateX(" + muzzleX + "px) translateX(-50%)" + (dir > 0 ? " scaleX(-1)" : "");
+      if (el) el.style.transform = "translateX(" + muzzleX + "px) translateX(-50%)" + (dir < 0 ? " scaleX(-1)" : "");
     }, i * 200);
   }
 }
