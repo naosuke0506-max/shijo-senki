@@ -920,7 +920,7 @@ const CHAR_DEFS = {
     name: "鎗卒",
     rank: null, // 後日決定
     race: "human",
-    cost: 450,
+    cost: 600,
     hp: 38,
     atk: 11,
     weight: 68,
@@ -964,7 +964,7 @@ const CHAR_DEFS = {
     name: "狼筅手",
     rank: null,
     race: "human",
-    cost: 450,
+    cost: 600,
     hp: 44,
     atk: 8,
     weight: 66,
@@ -972,8 +972,10 @@ const CHAR_DEFS = {
     attackRange: 70,
     detectionRange: 240,
     laneReach: 1,                 // 自分の戦列と、両隣の戦列まで届く(計3戦列)
-    areaHitReach: 70,             // 近接は範囲攻撃：前方この距離以内の、届く戦列の敵全員に当たる
+    areaHitReach: 70,             // 近接は範囲攻撃：前方この距離以内の、届く戦列のうち、レーンごとに最も近い敵1体にのみ当たる(hitOnePerLane)
+    hitOnePerLane: true,           // 群れ全滅ではなく、各戦列いちばん近い敵1体だけがダメージを受ける(火力より制圧役)
     attackFlags: { sideHitbox: true }, // 側面判定つきの薙ぎ払い：餓鬼の回避で避けられない
+    canDisarmTraps: true,          // 近接で踏み込むと、起動前後を問わず罠そのものを壊せる(斥候と共通)
     pullToOwnLane: true,          // 薙ぎ払いの後、上の戦列の敵1体と、下の戦列の敵1体(それぞれ最も近い敵)を、自分の戦列へ引き寄せる。目の前の戦列の敵は動かさない
     entangleMs: 2000,             // 引き寄せた敵を、絡めて2秒間、動けなくする
     approachMotion: "sneak",
@@ -1010,7 +1012,7 @@ const CHAR_DEFS = {
     name: "甲冑兵",
     rank: null,
     race: "human",
-    cost: 650,
+    cost: 900,
     hp: 85,
     atk: 9,
     weight: 110,
@@ -1065,6 +1067,7 @@ const CHAR_DEFS = {
     noCombatLaneReach: 1,            // 戦わぬ敵にだけ、隣のレーンまで踏み込んで攻撃できる
     canEngageBehind: true,           // 背後に回り込まれても、振り向いて追いかけ、戦える(回避した餓鬼を逃さない)
     netResistant: true,              // 罠を見切り、踏んでも引っかからない
+    canDisarmTraps: true,            // 近接で踏み込むと、起動前後を問わず罠そのものを壊せる
     parryable: true,
     guardable: false,
     bleedOnHit: false,
@@ -1216,7 +1219,7 @@ const CHAR_DEFS = {
     name: "楯衛",
     rank: null,
     race: "human",
-    cost: 500,
+    cost: 750,
     hp: 66,
     atk: 7,
     weight: 85,
@@ -1311,7 +1314,6 @@ const CHAR_DEFS = {
   trapper: {
     reading: "せいき",             // 名前の読み(長押しで表示)
     intro: "陥穽を仕掛くる鬼。嵌まりし者、逃るる術なし。",
-    trapCells: [18, 10],        // 罠を置くマス(左から数えた列)。以前は3つだったが、2つに
     name: "穽鬼",
     rank: null,
     race: "goblin",
@@ -1322,6 +1324,8 @@ const CHAR_DEFS = {
     walkSpeed: 35,
     noCombat: true,             // 鼓舞兵と同じく索敵・攻撃・追走をしない
     canTrap: true,
+    trapperUnit: true,          // 専用AI：チェックポイントで1つ置く→自城へ戻る→クールタイム→また出撃、を繰り返す
+    trapResupplyCooldownMs: 80000, // 帰還後、次に出撃するまでのクールタイム(約80秒)
     trapArmDelayMs: 1500,       // 設置後、起動可能になるまでの時間(この間は隠蔽状態)
     trapTriggerRadius: 55,      // 敵がこの半径に入ると起動
     netRestrainDurationMs: Infinity, // 既定は無限拘束。敵側でnetResistant/netBreakTimeMsにより個別上書き
@@ -2369,7 +2373,7 @@ const CHAR_DEFS = {
     name: "伝令兵",
     rank: null,
     race: "human",
-    cost: 700,
+    cost: 1000,
     hp: 20,
     atk: 0,
     weight: 20,
@@ -2407,7 +2411,7 @@ const CHAR_DEFS = {
     name: "火槍手",
     rank: null,
     race: "human",
-    cost: 800,
+    cost: 1500,
     hp: 30,
     atk: 0,             // 直接ダメージは持たず、地面に広がる炎(fireZoneDps)で焼く
     weight: 55,
@@ -2503,7 +2507,7 @@ const CHAR_DEFS = {
     name: "指揮官",
     rank: null,
     race: "human",
-    cost: 3800,
+    cost: 6000,
     hp: 140,
     atk: 45,
     weight: 100,
@@ -2516,7 +2520,7 @@ const CHAR_DEFS = {
     createsSlashWave: true,     // 命中の瞬間、斬道の衝撃波を前方へ走らせ、途中の敵を貫通する
     slashWaveDamage: 45,
     slashWaveSpeed: 900,        // 斬道が前方へ走る速さ(px/秒、仮)
-    slashWaveRange: 400,        // 斬道が届く距離(仮)
+    slashWaveRange: 700,        // 斬道が届く距離(7マスぶん)
     hornAbility: true,          // 角笛：全軍にスーパーアーマー+被ダメージ大幅軽減を付与する。出現した瞬間に一度吹き、以後はクールタイムごとに自動で吹く
     hornCooldownMs: 60000,      // 角笛のクールタイム(仮)
     hornBuffDurationS: 50,      // 効果の持続時間(50秒)
@@ -4078,7 +4082,6 @@ function spawnUnit(kind, side, xOffset, opts){
     dodgedPastUnit: null, // 回避してすれ違った相手(この相手とは戦わない)
     buffSources: new Set(), // このユニットを鼓舞したドラマー(死ぬとバフが消える)
     inspireCooldown: 0,     // 鼓舞兵専用：次に発動判定できるまでの残り時間
-    trapCheckpointIndex: 0,        // 罠兵専用：18マス目→10マス目のうち、次に設置すべき地点の番号(0〜2、2で設置完了)
     restrained: false,            // 罠に拘束されている間はtrue(AI停止・ガード/回避不可)
     restrainRemainingMs: 0,       // 拘束の残り時間(Infinityなら自力脱出しない)
     launched: false,              // 打ち上げ/吹き飛ばし中はtrue(AI停止・見た目が浮く)
@@ -4364,39 +4367,70 @@ function updateInspire(unit, dtMs){
 
 /* ---------- 罠兵：罠の設置 ---------- */
 
-// 罠兵が設置できる3地点(自軍城前・ステージ中間・敵城前)のx座標を返す
-function getTrapCheckpoints(unit){
-  // 罠を置くマス(自軍が右にいる場合の、左から数えた列番号)。敵側の罠兵は、左右を反転したマスに置く
-  const cols = Math.floor(STAGE_W / GRID_CELL);
-  const cells = unit.def.trapCells || [18, 10];
-  return cells.map(c => {
-    const col = unit.side === "player" ? c : cols + 1 - c;
-    return (col - 0.5) * GRID_CELL; // マスの中心
-  });
+// 罠を置く位置をランダムに1マス選ぶ(望楼兵の設置と同じ考え方で、戦場のどこかに自由に置く。両端の1マスずつは除く)
+function pickRandomTrapColumnX(){
+  const cols = Math.max(3, Math.floor(STAGE_W / GRID_CELL));
+  const col = 2 + Math.floor(Math.random() * (cols - 3));
+  return (col - 0.5) * GRID_CELL;
 }
 
-// 罠兵の罠設置判定：自軍城前→ステージ中間→敵城前の順に、その地点へ辿り着いた時だけ1つ設置する。
-// 各地点は一度設置したら二度と使わない(合計で最大2個: 18マス目と10マス目)。
-function updateTrapper(unit, dtMs){
+// 罠兵：チェックポイント(18マス目・10マス目を交互に)まで歩いて1つ置いたら、振り向いて自城へ戻り、
+// クールタイム(既定80秒)が明けたら、また次のチェックポイントへ向けて出撃する、という巡回を繰り返す
+function updateTrapperAI(unit, dtMs){
+  if (unit.dead) return;
   const def = unit.def;
-  if (!def.canTrap || unit.dead || unit.restrained) return;
-  if (unit.motion !== "walk") return; // 設置中・怯み中などは判定しない
+  if (!unit.trapPhase) unit.trapPhase = "advancing";
 
-  const checkpoints = getTrapCheckpoints(unit);
-  const idx = unit.trapCheckpointIndex || 0;
-  if (idx >= checkpoints.length) return; // 全地点とも設置済み
+  if (unit.trapPhase === "cooldown"){
+    unit.trapCooldownMs = (unit.trapCooldownMs || 0) - dtMs;
+    if (unit.trapCooldownMs <= 0){
+      unit.trapPhase = "advancing";
+      setMotion(unit, "walk", { loop:true });
+    }
+    return;
+  }
 
-  const targetX = checkpoints[idx];
-  const forwardDir = unit.side === "player" ? -1 : 1;
-  const reachTolerance = 3; // 敵城前(最終停止地点)がわずかに手前で止まっても到達扱いにする
-  const reached = forwardDir < 0 ? unit.x <= targetX + reachTolerance : unit.x >= targetX - reachTolerance;
-  if (!reached) return;
+  if (unit.trapPhase === "returning"){
+    const dir = unit.side === "player" ? 1 : -1;
+    unit.facing = dir;
+    const field = document.getElementById("battlefield");
+    const fieldWidth = field ? field.clientWidth : STAGE_W;
+    const homeX = unit.side === "player" ? fieldWidth - 90 : 90;
+    unit.x += moveWithCollision(unit, dir * getEffectiveSpeed(unit, def.walkSpeed) * (dtMs / 1000));
+    applyFrame(unit);
+    const reached = unit.side === "player" ? unit.x >= homeX : unit.x <= homeX;
+    if (reached){
+      unit.trapPhase = "cooldown";
+      unit.trapCooldownMs = def.trapResupplyCooldownMs || 80000;
+      setMotion(unit, "idle", { loop:true });
+    }
+    return;
+  }
 
+  if (unit.trapPhase === "placing") return; // モーションのonEndで次の状態(returning)へ移る
+
+  // "advancing"：出撃のたびランダムに選んだ1マスへ向けて歩く(望楼兵と同じく、場所は固定しない)
+  if (unit.trapTargetX == null) unit.trapTargetX = pickRandomTrapColumnX();
+  const targetX = unit.trapTargetX;
+  const forwardDir = targetX >= unit.x ? 1 : -1;
+  unit.facing = forwardDir;
+
+  if (unit.motion !== "walk") setMotion(unit, "walk", { loop:true });
+  const reachTolerance = 3;
+  const reached = Math.abs(unit.x - targetX) <= reachTolerance;
+  if (!reached){
+    unit.x += moveWithCollision(unit, forwardDir * getEffectiveSpeed(unit, def.walkSpeed) * (dtMs / 1000));
+    applyFrame(unit);
+    return;
+  }
+
+  unit.trapPhase = "placing";
   setMotion(unit, "place_trap", {
     onEnd: () => {
       if (unit.dead) return;
       spawnTrap(unit, targetX);
-      unit.trapCheckpointIndex = idx + 1;
+      unit.trapTargetX = null; // 次の出撃時、また新しい場所をランダムに選び直す
+      unit.trapPhase = "returning";
       setMotion(unit, "walk", { loop:true });
     }
   });
@@ -4451,6 +4485,12 @@ function updateTraps(dtMs){
         lanesOverlap(trap.lane, trap.lane, u.laneLo, u.laneHi) &&
         Math.abs(u.x - trap.x) <= trigR
       );
+      // 斥候・狼筅手など、近接で罠そのものを壊せるキャラが踏んだ場合は、起動せず罠だけ消える
+      if (nearby.some(u => u.def.canDisarmTraps)){
+        trap.removed = true;
+        trap.el.remove();
+        return;
+      }
       const stepping = nearby.filter(u => !u.def.netResistant); // 耐性持ちは罠にかからない
       if (stepping.length === 0) return; // 誰もいない、または耐性持ちしかいない間は起動しない
 
@@ -7033,11 +7073,23 @@ function updateCourierAI(unit, dtMs){
 function startCourierWatch(unit){
   const stage = battle.stage;
   const lanes = (stage && stage.lanes && stage.lanes.length) ? stage.lanes : [0, 1, 2, 3, 4];
-  unit.watchLane = lanes[Math.floor(Math.random() * lanes.length)];
+  if (lanes.length <= 1){
+    // 戦列が1つしかない戦線では「外れ」の余地がないので、そのままその戦列を予測する
+    unit.watchLanes = lanes.slice();
+    unit.excludedLane = null;
+  } else {
+    // ランダムに1戦列だけ除外し、残り全部を「予測した戦列」とする(外れる確率は低いが、皆無ではない)
+    const excluded = lanes[Math.floor(Math.random() * lanes.length)];
+    unit.excludedLane = excluded;
+    unit.watchLanes = lanes.filter(l => l !== excluded);
+  }
   unit.courierPhase = "watching";
   unit.facing = unit.side === "player" ? -1 : 1;
   setMotion(unit, "idle", { loop:true });
-  queueBanner(LANE_LABELS[unit.watchLane] + "より、鬼の出現を予測……!", true, false);
+  const msg = unit.excludedLane != null
+    ? (LANE_LABELS[unit.excludedLane] + "以外より、鬼の出現を予測……!")
+    : (LANE_LABELS[unit.watchLanes[0]] + "より、鬼の出現を予測……!");
+  queueBanner(msg, true, false);
 }
 // 新しく敵が現れるたび呼ぶ：見張り中の伝令兵の予測に当たっていないか、また既に的中済みの戦列(弱体化ゾーン)に
 // 新しく出た敵かどうかを判定する
@@ -7045,7 +7097,8 @@ function onEnemySpawned(u){
   if (!battle || u.side !== "enemy") return;
   battle.units.forEach(c => {
     if (c.dead || !c.def.courierUnit || c.courierPhase !== "watching") return;
-    if (c.watchLane === u.lane) fireCourierSignal(c, u);
+    if (c.watchLanes && c.watchLanes.includes(u.lane)) fireCourierSignal(c, u);
+    else fireCourierMiss(c); // 予測した戦列以外(=除外した1戦列)から出た場合は予測失敗
   });
   (battle.courierDebuffZones || []).forEach(z => {
     if (z.lane === u.lane && battle.time < z.expiresAt) applyCourierDebuffDirect(u, z.expiresAt);
@@ -7060,10 +7113,21 @@ function fireCourierSignal(unit, triggerEnemy){
   unit.courierPhase = "signaling";
   const expiresAt = battle.time + (unit.def.predictionDebuffMs || 80000) / 1000;
   battle.courierDebuffZones = battle.courierDebuffZones || [];
-  battle.courierDebuffZones.push({ lane: unit.watchLane, expiresAt });
+  (unit.watchLanes || [unit.watchLane]).forEach(lane => {
+    battle.courierDebuffZones.push({ lane, expiresAt });
+  });
   applyCourierDebuffDirect(triggerEnemy, expiresAt);
-  queueBanner("予測的中！　" + LANE_LABELS[unit.watchLane] + "を惑わす", true, false);
+  const laneMsg = unit.excludedLane != null
+    ? (LANE_LABELS[unit.excludedLane] + "以外の全戦列")
+    : LANE_LABELS[(unit.watchLanes || [unit.watchLane])[0]];
+  queueBanner("予測的中！　" + laneMsg + "を惑わす", true, false);
   setMotion(unit, "signal", { onEnd: () => removeUnit(unit) }); // 笛を鳴らし終えたら、役目を終えて消える
+}
+// 予測が外れた場合：角笛は鳴らさず、効果なしのまま静かに退場する
+function fireCourierMiss(unit){
+  unit.courierPhase = "signaling"; // 見張り状態から抜け、二重判定を防ぐ
+  queueBanner("予測外れ……", true, false);
+  removeUnit(unit);
 }
 
 // 炎の帯(地面に広がる炎)の見た目を、範囲に合わせて置く・伸ばす(fx_groundflameを敷き詰めてループさせる)
@@ -7131,7 +7195,7 @@ function updateSlashWaves(dtMs){
     const dx = w.dir * w.speed * (dtMs / 1000);
     w.x += dx;
     w.traveled += Math.abs(dx);
-    const attacker = { def: { attackFlags: {} }, side: w.side }; // 波ごとに作る(使い回すと、あとで側が食い違うおそれがある)
+    const attacker = { def: { attackFlags: { bypassGuard: true } }, side: w.side }; // 波ごとに作る(使い回すと、あとで側が食い違うおそれがある)。範囲攻撃のため盾のガードを無効化する
     // 今回動いた区間全体と、相手の体の幅を比べる(速い衝撃波が、細い当たり判定をすり抜けて貫通し損ねないように)
     const segMin = Math.min(prevX, w.x) - 20, segMax = Math.max(prevX, w.x) + 20;
     battle.units.forEach(u => {
@@ -7238,6 +7302,16 @@ function updateFireZones(dtMs){
       z.xMax = Math.min(fw - CASTLE_APPROACH_GAP, z.xMax + grow);
     }
     updateFireZoneVisual(z, dtMs);
+    // 火槍手・ガス缶の炎に触れた罠は、起動前・起動後を問わず消え去る(発動して拘束中の罠は対象外)
+    if (battle.traps && battle.traps.length){
+      battle.traps.forEach(trap => {
+        if (trap.removed || trap.state === "triggering" || trap.state === "holding") return;
+        if (!lanesOverlap(trap.lane, trap.lane, z.lane, z.lane)) return;
+        if (trap.x < z.xMin || trap.x > z.xMax) return;
+        trap.removed = true;
+        trap.el.remove();
+      });
+    }
     z.nextTick -= dtMs;
     if (z.nextTick > 0) return;
     z.nextTick += z.tickMs;
@@ -7444,11 +7518,19 @@ function resolveAreaHit(unit){
   const centerX = unit.x + (def.hitboxWidth || 0) / 2;
   if (def.fxStompDust) spawnStompDust(unit);
   const dmg = getEffectiveAtk(unit);
-  const hits = battle.units.filter(o =>
+  let hits = battle.units.filter(o =>
     !o.dead && !o.mounted && !o.elevated && !o.def.invulnerable && o.side === enemySide && canReachLane(unit, o) &&
     Math.sign(o.x - centerX) === forwardDir &&
     edgeDistance(unit, o) <= def.areaHitReach
   );
+  if (def.hitOnePerLane){ // 群れ全滅ではなく、レーンごとに最も近い敵1体だけを狙う(狼筅手など)
+    const nearestByLane = {};
+    hits.forEach(o => {
+      const cur = nearestByLane[o.lane];
+      if (!cur || edgeDistance(unit, o) < edgeDistance(unit, cur)) nearestByLane[o.lane] = o;
+    });
+    hits = Object.values(nearestByLane);
+  }
   hits.forEach(o => applyDamageToUnit(o, dmg, unit));
   if (def.pullToOwnLane) pullToOwnLane(unit, hits);
 }
@@ -8381,6 +8463,7 @@ function applyDamageToUnit(target, amount, attacker){
 
   const guardReady = def.canGuard && !target.shieldBroken &&
     target.guardCooldown <= 0 && !isSuperArmored(target, attacker) && !target.restrained &&
+    !attackerFlags.bypassGuard &&
     isAttackFromFront(target, attacker) &&
     (!attacker || lanesOverlap(target.lane, target.lane, attacker.laneLo, attacker.laneHi)); // 自分のレーンからの正面の攻撃だけガードできる(横のレーンからの攻撃は不可)
 
@@ -8520,6 +8603,7 @@ function updateUnitAI(unit, dtMs){
 
   if (def.chariotUnit){ updateChariotAI(unit, dtMs); return; } // チャリオット本体：専用の往復AI
   if (def.courierUnit){ updateCourierAI(unit, dtMs); return; } // 伝令兵：専用の往復・見張りAI
+  if (def.trapperUnit){ updateTrapperAI(unit, dtMs); return; } // 穽鬼：専用の「置く→帰る→クールタイム→また出る」巡回AI
 
   if (unit.returningHome){ updateReturnHomeAI(unit, dtMs); return; } // 設置後、自城へ戻っている最中(望楼兵・拒馬兵など)
   if (unit.awaitingResupply || unit.resupplied) return; // 自城で、クールタイム明け・次の指示を待っている間は、その場に留まる
@@ -8810,7 +8894,6 @@ function battleStep(dt){
     updateBuffAura(unit, dt);
     updateFlagBuff(unit);
     updateInspire(unit, dt);
-    updateTrapper(unit, dt);
     updateHealer(unit, dt);
     updatePoison(unit, dt);
     updatePoisonFx(unit, dt);
