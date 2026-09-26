@@ -2510,6 +2510,8 @@ const CHAR_DEFS = {
     walkSpeed: 30,
     attackRange: 95,
     attackMotionName: "attack",
+    approachMotion: "walk",    // 発見・接近専用のコマは持たず、歩行をそのまま流用する
+    approachSpeed: 30,         // 上のapproachMotion="walk"と対になる速度(未指定だとNaNになる)
     attackImpactFrames: [3, 7], // 10コマの攻撃のうち、4コマ目・8コマ目が実際の斬撃(斬道もここで発生させる)
     createsSlashWave: true,     // 命中の瞬間、斬道の衝撃波を前方へ走らせ、途中の敵を貫通する
     slashWaveDamage: 45,
