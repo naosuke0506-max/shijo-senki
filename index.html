@@ -828,6 +828,8 @@ const ICON_SPIKE_BARRICADE = REPO_BASE + "icons/spike_barricade_icon.png";
 const IMG_INCENDIARY = REPO_BASE + "images/incendiary_repo_upload/";
 const ICON_INCENDIARY = REPO_BASE + "icons/incendiary_icon.png";
 const IMG_GASCAN = REPO_BASE + "images/gascan_repo_upload/";
+const IMG_COMMANDER = REPO_BASE + "images/commander_repo_upload/";
+const ICON_COMMANDER = REPO_BASE + "icons/commander_icon.png";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -2491,6 +2493,53 @@ const CHAR_DEFS = {
     },
     structureStageMotions: ["normal", "dented"],
     chromaKeyMotions: ["burning", "exploding", "engulfed", "smoke"] // これらのコマは黒背景のまま渡されるので、表示時に透過処理する
+  },
+
+  // 指揮官：屍城軍・最後の一体。二連撃(それぞれで斬道の衝撃波が前方へ貫通していく)の近接兵。
+  // 角笛を吹き鳴らすと、その時ステージにいる味方全員に50秒間、スーパーアーマーと大幅な被ダメージ軽減を付与する
+  commander: {
+    reading: "しきかん",
+    intro: "屍城軍を率いる、頑丈な指揮官。二連撃は斬道の衝撃波を前方へ走らせ、貫通する。角笛は全軍を奮い立たせる。",
+    name: "指揮官",
+    rank: null,
+    race: "human",
+    cost: 3800,
+    hp: 140,
+    atk: 45,
+    weight: 100,
+    walkSpeed: 30,
+    attackRange: 95,
+    attackMotionName: "attack",
+    attackImpactFrames: [3, 7], // 10コマの攻撃のうち、4コマ目・8コマ目が実際の斬撃(斬道もここで発生させる)
+    createsSlashWave: true,     // 命中の瞬間、斬道の衝撃波を前方へ走らせ、途中の敵を貫通する
+    slashWaveDamage: 45,
+    slashWaveSpeed: 900,        // 斬道が前方へ走る速さ(px/秒、仮)
+    slashWaveRange: 400,        // 斬道が届く距離(仮)
+    hornAbility: true,          // 角笛：全軍にスーパーアーマー+被ダメージ大幅軽減を付与する
+    hornFirstDelayMs: 5000,     // 出撃後、最初の角笛までの時間(仮)
+    hornCooldownMs: 60000,      // 角笛のクールタイム(仮)
+    hornBuffDurationS: 50,      // 効果の持続時間(50秒)
+    hornDamageCutMult: 0.5,     // 被ダメージを大幅に軽減(仮に半減)
+    canGuard: false,
+    icon: ICON_COMMANDER,
+    imageBase: IMG_COMMANDER,
+    // 実寸スケール：歩行コマの切り抜き高さ(538px)を基準に、頑丈な指揮官らしく兵士よりやや大きい表示身長96pxに合わせる
+    pixelScale: 96 / 538,
+    // 待機コマだけ、他のコマの約1.7倍の大きさで作られてしまったため、個別に縮小補正
+    motionScale: { idle: 538 / 904 },
+    frameCounts: {
+      idle:1, walk:4, attack:10, flinch:3, blowback:2, down:1, getup:2, cmd:6
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [250,250,250,250],
+      attack:   [275,300,350,275,300,275,350,275,275,300],
+      flinch:   [275,275,275],
+      blowback: [550,550],
+      down:     [1000],
+      getup:    [500,500],
+      cmd:      [295,295,550,950,400,295] // 角笛を吹き鳴らす(この間、全軍にバフをかける)
+    }
   }
 };
 
@@ -2705,7 +2754,7 @@ const STAGES = [
   //   その大群を、決めた時間だけ耐え抜けば、その瞬間に勝利(敵城を落として勝つことも、引き続きできる) ----
   { id:"rampart", name:"砦野", reading:"とりでの", menu:{ tag:"五陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"屍城に近き最後の野。ここに柵を結い、迫り来る鬼の大群を、堰き止めねばならぬ。",
-    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot","medic","courier","spikeBarricade","incendiary"] }, // 動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
+    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot","medic","courier","spikeBarricade","incendiary","commander"] }, // 動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
     enemyCastleHp:5200, playerCastleHp:7500, startCorpse:3500, corpseGainRate:1.0, castleDmgTaken:{ player:0.9 },
     finalWaveAt:60, survivalDuration:120, // 開始から60秒(1分)で最終波、それから120秒(2分)耐え抜けば勝利。1分までは敵は一切出ない
     warnings:[
@@ -4118,6 +4167,8 @@ function spawnUnit(kind, side, xOffset, opts){
     burnStatusDamagePerMs: 0,      // 発動時に固定される、1msあたりのダメージ(最大HPの50%を20秒で)
     burningFxDef: null, burningFxEl: null, burningFxFrame: 0, burningFxTimer: 0,
     fireAttackFired: false,       // 火槍手専用：長く保持するコマの間、二重に発動していないか
+    hornCooldown: null, hornState: null,   // 指揮官専用：角笛のクールタイム・発動中かどうか
+    hornBuffUntil: 0, hornDamageCutMult: 1, // 指揮官の号令による、スーパーアーマー・被ダメージ軽減の効果(全員が持つ)
     exploding: false,             // ガス缶専用：誘爆の演出中かどうか
     explosionSide: null,          // ガス缶専用：どちらの火で誘爆したか(その逆側にのみダメージが向く)
     lastAttacker: null,           // 直前にこのユニットへ攻撃を当てた者(ガス缶が通常ダメージで力尽きた時などに使う)
@@ -4219,6 +4270,7 @@ function getDamageCutMultiplier(unit){
   if (unit.cmdMorale) f *= CMD_BUFF.morale;           // 部隊長の軍令による士気
   if (unit.cmdChiefGuard) f *= CMD_BUFF.chiefGuard;   // 組頭の軍令(守り・待機)による防御
   if (unit.footMorale) f *= CMD_BUFF.footMorale;      // 歩兵の士気(対象の役職と同じ戦列)
+  if (unit.hornBuffUntil && battle && battle.time < unit.hornBuffUntil) f *= (unit.hornDamageCutMult != null ? unit.hornDamageCutMult : 0.5); // 指揮官の号令：被ダメージ大幅軽減
   return f;
 }
 
@@ -4611,6 +4663,8 @@ function warmKeyedFx(){
   for (let i = 1; i <= 9; i++) keyedFxSrc(IMG_FX_COMMON2 + "fx_burn_" + i + ".png", FX_KEY_DEFAULT); // 火槍手：噴射のエフェクト(9コマ)
   for (let i = 1; i <= 3; i++) keyedFxSrc(IMG_FX_COMMON2 + "fx_groundflame_" + i + ".png", FX_KEY_DEFAULT); // 火槍手：地面に広がる炎のエフェクト
   for (let i = 1; i <= 4; i++) keyedFxSrc(IMG_FX_COMMON2 + "burn_fx_" + i + ".png", FX_KEY_DEFAULT); // 炎上の状態異常エフェクト
+  for (let i = 1; i <= 3; i++) keyedFxSrc(IMG_FX_COMMON2 + "slash_wave_" + i + ".png", FX_KEY_DEFAULT); // 指揮官：斬道の衝撃波
+  for (let i = 1; i <= 3; i++) keyedFxSrc(IMG_FX_COMMON2 + "cmd_wind_" + i + ".png", FX_KEY_DEFAULT); // 指揮官：角笛の風
 }
 
 // 毒状態の紫霧エフェクトをユニットの上に重ねてループ表示する(鼓舞バフのオーラと同じ仕組み)
@@ -7051,6 +7105,117 @@ function playIncendiaryBurst(unit){
   }
 }
 
+/* ---------- 指揮官：斬道の衝撃波(貫通)と、角笛(全軍バフ) ---------- */
+// 斬撃の瞬間、前方へ走り抜ける斬道の衝撃波を1本発生させる。途中の敵を貫通して、それぞれに1回だけ当たる
+function spawnSlashWave(unit){
+  if (!battle) return;
+  const def = unit.def;
+  const dir = unit.facing === 1 ? 1 : -1;
+  battle.slashWaves = battle.slashWaves || [];
+  battle.slashWaves.push({
+    x: unit.x + (unit._displayWidth || 0) / 2, lane: unit.lane, dir, side: unit.side,
+    speed: def.slashWaveSpeed || 900, damage: def.slashWaveDamage || def.atk || 0,
+    maxDist: def.slashWaveRange || 400, traveled: 0, hitSet: new Set(),
+    visFrame: 0, visTimer: 0, el: null
+  });
+}
+function updateSlashWaves(dtMs){
+  if (!battle || !battle.slashWaves || !battle.slashWaves.length) return;
+  const done = battle.slashWaves.filter(w => w.traveled >= w.maxDist);
+  done.forEach(w => { if (w.el) w.el.remove(); });
+  battle.slashWaves = battle.slashWaves.filter(w => w.traveled < w.maxDist);
+  const attacker = { def: { attackFlags: {} } };
+  battle.slashWaves.forEach(w => {
+    const prevX = w.x;
+    const dx = w.dir * w.speed * (dtMs / 1000);
+    w.x += dx;
+    w.traveled += Math.abs(dx);
+    attacker.side = w.side;
+    // 今回動いた区間全体と、相手の体の幅を比べる(速い衝撃波が、細い当たり判定をすり抜けて貫通し損ねないように)
+    const segMin = Math.min(prevX, w.x) - 20, segMax = Math.max(prevX, w.x) + 20;
+    battle.units.forEach(u => {
+      if (u.dead || u.side === w.side || u.mounted || u.perch || w.hitSet.has(u)) return;
+      if (!lanesOverlap(u.laneLo, u.laneHi, w.lane, w.lane)) return;
+      const uw = bodyWidth(u);
+      if (u.x + uw < segMin || u.x > segMax) return;
+      applyDamageToUnit(u, w.damage, attacker);
+      w.hitSet.add(u);
+    });
+    // 見た目：斬道そのものを、進んだ位置に重ねて表示する(黒背景は透過処理して使う)
+    const field = document.getElementById("battlefield");
+    if (field){
+      if (!w.el){
+        w.el = document.createElement("img");
+        w.el.className = "fx-sprite";
+        w.el.style.height = "70px";
+        field.appendChild(w.el);
+      }
+      w.visTimer -= dtMs;
+      if (w.visTimer <= 0){
+        w.visTimer += 120;
+        w.visFrame = (w.visFrame + 1) % 3;
+      }
+      w.el.src = keyedFxSrc(IMG_FX_COMMON2 + "slash_wave_" + (w.visFrame + 1) + ".png", FX_KEY_DEFAULT);
+      w.el.style.bottom = (laneFloor(w.lane) + 10) + "px";
+      w.el.style.transform = "translateX(" + w.x + "px) translateX(-50%)" + (w.dir > 0 ? " scaleX(-1)" : "");
+    }
+  });
+}
+// 角笛：出撃後しばらくしてから、あるいは前回から一定時間ごとに、自動で吹き鳴らす
+function updateCommanderHorn(unit, dtMs){
+  if (unit.dead || !unit.def.hornAbility || unit.hornState) return;
+  if (unit.hornCooldown == null) unit.hornCooldown = unit.def.hornFirstDelayMs || 5000;
+  unit.hornCooldown -= dtMs;
+  if (unit.hornCooldown > 0) return;
+  if (unit.motion !== "walk" && unit.motion !== "idle") return; // 戦闘・怯み等の最中は、区切りの良いタイミングまで待つ
+  startCommanderHorn(unit);
+}
+function startCommanderHorn(unit){
+  unit.hornState = "using";
+  applyHornBuff(unit);
+  setMotion(unit, "cmd", {
+    onEnd: () => {
+      unit.hornState = null;
+      unit.hornCooldown = unit.def.hornCooldownMs || 60000;
+      if (!unit.dead){
+        const fallback = unit.def.frameCounts.walk ? "walk" : (unit.def.approachMotion || "walk");
+        setMotion(unit, fallback, { loop:true });
+      }
+    }
+  });
+  playHornWindFx(unit); // motionを"cmd"にしてから呼ぶ(先に呼ぶと、まだ"cmd"でないため1回も発動しない)
+}
+// その瞬間ステージにいる味方全員に、スーパーアーマーと被ダメージ大幅軽減を付与する(50秒)
+function applyHornBuff(unit){
+  if (!battle) return;
+  const until = battle.time + (unit.def.hornBuffDurationS || 50);
+  battle.units.forEach(u => {
+    if (u.dead || u.side !== unit.side) return;
+    u.hornBuffUntil = Math.max(u.hornBuffUntil || 0, until);
+    u.hornDamageCutMult = unit.def.hornDamageCutMult != null ? unit.def.hornDamageCutMult : 0.5;
+  });
+}
+// 角笛のコマの間、左右に鏡写しで風(砂煙)のエフェクトをループ表示する
+function playHornWindFx(unit){
+  const totalMs = (unit.def.frameDurations.cmd || []).reduce((a, b) => a + b, 0) || 2800;
+  let elapsed = 0, frame = 0;
+  const step = () => {
+    if (unit.dead || unit.motion !== "cmd") return;
+    const cx = unit.x + (unit._displayWidth || 0) / 2;
+    const bottom = (unit.baseB || 74) - 10;
+    [-1, 1].forEach(side => {
+      const el = spawnFx(keyedFxSrc(IMG_FX_COMMON2 + "cmd_wind_" + (frame + 1) + ".png", FX_KEY_DEFAULT), cx, {
+        height: 110, bottom, lifespan: 260, flip: side > 0
+      });
+      if (el) el.style.transform = "translateX(" + (cx + side * 70) + "px) translateX(-50%)" + (side > 0 ? " scaleX(-1)" : "");
+    });
+    frame = (frame + 1) % 3;
+    elapsed += 220;
+    if (elapsed < totalMs) setTimeout(step, 220);
+  };
+  step();
+}
+
 /* ---------- 火槍手(焼却兵)とガス缶：地面に広がる炎、ガス缶の誘爆 ---------- */
 // 炎の帯(地面に広がる炎)を1つ登録する。側(side)と反対側の陣営にだけ、継続ダメージを与える
 function addFireZone(z){
@@ -7663,6 +7828,7 @@ function resolveAttackImpact(unit){
     startIncendiaryAttack(unit);
     return;
   }
+  if (unit.def.createsSlashWave) spawnSlashWave(unit); // 指揮官：斬撃のたび、斬道の衝撃波を前方へ走らせる(通常の命中判定は、このあとに続けて行う)
   // 多段攻撃の途中で対象が倒れた場合、残りの段は空振りにする(城へダメージが流れないように)
   if (unit.def.attackImpactFrames && unit.attackHadTarget && (!unit.target || unit.target.dead)) return;
   if (unit.def.areaHitReach){
@@ -7806,6 +7972,7 @@ function updateCharge(unit, dtMs){
 // 追加の被弾があっても別の反応モーションに上書きされない(スーパーアーマー)
 function isSuperArmored(unit, attacker){
   if (attacker && attacker.def.attackFlags && attacker.def.attackFlags.ignoresSuperArmor) return false; // スーパーアーマー無効の一撃は貫通する
+  if (unit.hornBuffUntil && battle && battle.time < unit.hornBuffUntil) return true; // 指揮官の号令：一定時間、全軍スーパーアーマー
   if (unit.chariotPhase === "charging") return true; // チャリオット：轢き攻撃(往路)の最中はスーパーアーマー
   if (unit.def && unit.def.alwaysSuperArmored) return true; // 常時スーパーアーマー(ラッシャーなど)
   if (unit.transforming) return true; // 女王の第二形態への移行中は中断されない
@@ -8605,6 +8772,7 @@ function battleStep(dt){
   }
   updateFinalWaveTimer();
   updateFireZones(dt); // 地面に広がる炎(火槍手・ガス缶)の、成長・継続ダメージ・ガス缶の巻き込み
+  updateSlashWaves(dt); // 指揮官：斬道の衝撃波の移動・貫通ダメージ
 
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
@@ -8647,6 +8815,7 @@ function battleStep(dt){
     updatePoisonFx(unit, dt);
     updateBurningStatus(unit, dt);
     updateBurningFx(unit, dt);
+    updateCommanderHorn(unit, dt);
     updateLaunch(unit, dt);
     updateCharge(unit, dt);
     updateUnitAI(unit, dt);
