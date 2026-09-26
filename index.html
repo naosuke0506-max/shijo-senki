@@ -2412,6 +2412,8 @@ const CHAR_DEFS = {
     attackRange: 110,   // 槍兵(95)より少し長い
     canPickGascanSite: true, // 召喚前に、ガス缶を据え置く場所を戦場で選ぶ
     attackMotionName: "attack",
+    approachMotion: "walk",    // 発見・接近専用のコマは持たず、歩行をそのまま流用する
+    approachSpeed: 28,         // 上のapproachMotion="walk"と対になる速度(未指定だとNaNになる)
     createsFireZone: true, // 対象を問わず、前方を焼き払う(resolveAttackImpactを専用処理に差し替える)
     attackFlags: { fire: true }, // この攻撃は「火炎属性」：ガス缶に触れると即座に誘爆させる
     fireZoneDps: 14,     // 地面に広がる炎の、1秒あたりのダメージ(仮)
@@ -8241,7 +8243,11 @@ function updateUnitAI(unit, dtMs){
     const found = findNearestEnemyInRange(unit);
     if (found && unit.motion === walkFallback){
       unit.target = found;
-      setMotion(unit, "discover", { onEnd: () => setMotion(unit, approachMotion, { loop:true }) });
+      if (def.frameCounts.discover){
+        setMotion(unit, "discover", { onEnd: () => setMotion(unit, approachMotion, { loop:true }) });
+      } else {
+        setMotion(unit, approachMotion, { loop:true }); // 発見の絵を持たないキャラは、そのまま接近コマへ
+      }
       return;
     }
     if (!found && unit.target){
