@@ -762,7 +762,7 @@
    ========================================================= */
 // @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
 // コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
-const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@7149411/";
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@6144bab/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
@@ -824,6 +824,9 @@ const IMG_COURIER = REPO_BASE + "images/courier_repo_upload/";
 const ICON_COURIER = REPO_BASE + "icons/courier_icon.png";
 const IMG_SPIKE_BARRICADE = REPO_BASE + "images/spike_barricade_repo_upload/";
 const ICON_SPIKE_BARRICADE = REPO_BASE + "icons/spike_barricade_icon.png";
+const IMG_INCENDIARY = REPO_BASE + "images/incendiary_repo_upload/";
+const ICON_INCENDIARY = REPO_BASE + "icons/incendiary_icon.png";
+const IMG_GASCAN = REPO_BASE + "images/gascan_repo_upload/";
 
 // 画像読み込みに失敗した場合のフォールバック(キャラ名の頭文字を表示するプレースホルダー)
 function attachImgFallback(imgEl, label){
@@ -2287,7 +2290,7 @@ const CHAR_DEFS = {
     bareDef: "spikeBarricadeBare", // 築き終えたあと・力尽きたときに切り替える素手の姿
     noKnockback: true,         // 柵を担いでいる間は、打ち上げ・吹き飛ばしを受け付けない
     placementCooldownMs: 18000,
-    resupplyCooldownMs: 60000, // 自城へ戻ってから、次に送り出せるまでの時間(60秒ほど)
+    resupplyCooldownMs: 45000, // 自城へ戻ってから、次に送り出せるまでの時間(45秒)
     structureBuildMs: 1050,    // place_1〜3の合計(1回きり、ループしない)
     icon: ICON_SPIKE_BARRICADE,
     imageBase: IMG_SPIKE_BARRICADE,
@@ -2391,6 +2394,96 @@ const CHAR_DEFS = {
       down:     [1000],
       getup:    [395,395]
     }
+  },
+
+  // 火槍手(焼却兵)：長柄の火炎放射で、前方3マス(自分のマスは含まない)を「地面に広がる炎」で焼き払う。
+  // 噴射・ガス缶いずれの炎も「火炎属性」の攻撃で、味方が付けた炎は敵にだけ、敵が付けた炎は味方にだけ効く
+  incendiary: {
+    reading: "かそうへい",
+    intro: "長柄の火炎放射で、地を這うように焼き払う。噴き出す黒煙のせいか、煙による効果を受けつけない。",
+    name: "火槍手",
+    rank: null,
+    race: "human",
+    cost: 800,
+    hp: 30,
+    atk: 0,             // 直接ダメージは持たず、地面に広がる炎(fireZoneDps)で焼く
+    weight: 55,
+    walkSpeed: 28,
+    attackRange: 110,   // 槍兵(95)より少し長い
+    canPickGascanSite: true, // 召喚前に、ガス缶を据え置く場所を戦場で選ぶ
+    attackMotionName: "attack",
+    createsFireZone: true, // 対象を問わず、前方を焼き払う(resolveAttackImpactを専用処理に差し替える)
+    attackFlags: { fire: true }, // この攻撃は「火炎属性」：ガス缶に触れると即座に誘爆させる
+    fireZoneDps: 14,     // 地面に広がる炎の、1秒あたりのダメージ(仮)
+    fireZoneDurationS: 6, // 噴射でできた炎が、燃え続ける時間(仮)
+    smokeImmune: true,   // 特殊能力：煙による効果(汚染など)を受けつけない
+    canGuard: false,
+    icon: ICON_INCENDIARY,
+    imageBase: IMG_INCENDIARY,
+    // 実寸スケール：歩行コマの切り抜き高さ(489px)を基準に、兵士と同じ表示身長92pxに合わせる
+    pixelScale: 92 / 489,
+    // 待機コマだけ、他のコマの約1.7倍の大きさで作られてしまったため、個別に縮小補正
+    motionScale: { idle: 489 / 830 },
+    frameCounts: {
+      idle:1, walk:4, attack:3, flinch:3, blowback:4, down:1, getup:2
+    },
+    frameDurations: {
+      idle:     [1000],
+      walk:     [275,275,275,275],
+      attack:   [350,2500,350],   // 中央のコマ(噴射・保持)の間に、前方が焼き払われる
+      flinch:   [285,285,285],
+      blowback: [300,300,300,400],
+      down:     [1000],
+      getup:    [335,335]
+    },
+    attackImpactFrame: 1 // attack_2(噴射を保っている間)
+  },
+
+  // ガス缶：火槍手の召喚時に、戦場の好きなマス目へ据え置く。生き物ではなく攻撃もしない。
+  // 通常のダメージでHPが尽きるか、火炎属性の一撃を受けた瞬間(体力に関係なく)に誘爆する。
+  // 誘爆すると、中心の戦列を含む前後2戦列(計5戦列)へ爆発ダメージを与え、同時にその5戦列いっぱいに炎が広がっていく
+  gascan: {
+    reading: "がすかん",
+    intro: "火槍手が戦場に据え置く、据え置き型のガス缶。燃料が詰まっており、火が触れると爆発する。",
+    name: "ガス缶",
+    hiddenFromFormation: true, // 直接編成には出さない(火槍手の召喚に付随して置く)
+    rank: null,
+    race: "object",
+    cost: 0,
+    hp: 140,
+    atk: 0,
+    weight: 9999,
+    walkSpeed: 0,
+    noCombat: true, immobile: true, structureUnit: true, structureKind: "gascan", noRevive: true,
+    ignitesInstantly: true, // 火炎属性の攻撃を受けると、体力に関係なく即座に爆発する
+    explodesOnDeath: true,  // 通常のダメージでHPが尽きたときも、同じ爆発の演出になる
+    blastDamage: 60,        // 爆発そのものの、即時ダメージ(仮)
+    blastRadius: 200,       // 爆発そのものの、即時ダメージが届く横幅(仮)
+    fireZoneDps: 14,        // 爆発の後、広がっていく炎の、1秒あたりのダメージ(仮)
+    fireGrowSpeed: 150,     // 炎が戦列いっぱいに広がっていく速さ(px/秒、仮)
+    hitboxWidth: 40, hpBarWidth: 60,
+    icon: ICON_INCENDIARY,
+    imageBase: IMG_GASCAN,
+    // 実寸スケール：通常時の切り抜き高さ(494px)を基準に、缶の高さ約1.3m相当(70px)へ換算
+    pixelScale: 70 / 494,
+    // 爆発の演出だけは、缶そのものより大きく(炎が周りに広がる絵のため)、同じ大きさで統一して表示する
+    motionForcedSize: {
+      burning:  { width: 108, height: 118 },
+      exploding:{ width: 220, height: 120 },
+      engulfed: { width: 220, height: 120 },
+      smoke:    { width: 220, height: 120 }
+    },
+    structureDisplayWidth: 40,
+    frameCounts: { normal:1, idle:1, dented:1, burning:1, exploding:1, engulfed:1, smoke:1 },
+    frameDurations: {
+      normal:[1000], idle:[1000], dented:[1000],
+      burning:[600], exploding:[550], engulfed:[800], smoke:[1800]
+    },
+    frameFileMap: {
+      normal:"gascan_1.png", idle:"gascan_1.png", dented:"gascan_2.png",
+      burning:"gascan_3.png", exploding:"gascan_4.png", engulfed:"gascan_5.png", smoke:"gascan_6.png"
+    },
+    structureStageMotions: ["normal", "dented"]
   }
 };
 
@@ -2605,7 +2698,7 @@ const STAGES = [
   //   その大群を、決めた時間だけ耐え抜けば、その瞬間に勝利(敵城を落として勝つことも、引き続きできる) ----
   { id:"rampart", name:"砦野", reading:"とりでの", menu:{ tag:"五陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
     intro:"屍城に近き最後の野。ここに柵を結い、迫り来る鬼の大群を、堰き止めねばならぬ。",
-    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot","medic","courier","spikeBarricade"] }, // 動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
+    lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot","medic","courier","spikeBarricade","incendiary"] }, // 動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
     enemyCastleHp:5200, playerCastleHp:7500, startCorpse:3500, corpseGainRate:1.0, castleDmgTaken:{ player:0.9 },
     finalWaveAt:60, survivalDuration:120, // 開始から60秒(1分)で最終波、それから120秒(2分)耐え抜けば勝利。1分までは敵は一切出ない
     warnings:[
@@ -3545,7 +3638,8 @@ function startBattle(stage){
     selectedLanes: new Set(),      // 召喚するレーン(下から0〜4)。複数選べて、選んだレーンごとに1体ずつ出る。1つも選んでいないと召喚できない
     time: 0,                       // 戦闘の経過時間(秒)
     nextWave: 0,                    // 次に出す敵ウェーブの番号
-    nextWarn: 0                     // 次に出す警告(warnings)の番号
+    nextWarn: 0,                    // 次に出す警告(warnings)の番号
+    fireZones: []                   // 地面に広がる炎(火槍手・ガス缶)
   };
 
   updateCastleBars();
@@ -3762,11 +3856,24 @@ function confirmChariotBoarding(){
   renderChariotPicker();
 }
 
+// 火槍手：召喚前に、ガス缶を置く場所を戦場で選ぶ(選んだ戦列ぶんの本人も、同時に召喚される)
+function startIncendiaryDeploy(kind){
+  const def = CHAR_DEFS[kind];
+  const lanes = Array.from(battle.selectedLanes);
+  if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; }
+  const cost = getDeployCost(def) * lanes.length;
+  if (battle.corpse < cost){ showToast("屍が足りぬ"); return; }
+  battle.placementPending = { kind: "gascan", forIncendiary: { kind, lanes } };
+  const ov = document.getElementById("grid-overlay"); if (ov) ov.style.display = "";
+  showToast(def.name + "：ガス缶を置く場所を、戦場でお選びください");
+}
+
 function tryDeploy(kind){
   const def = CHAR_DEFS[kind];
   if (def.canPlaceStructure){ startPlacementPick(kind); return; } // 設置系：戦列ではなく、戦場をタップして場所を選ぶ
   if (def.canPickRepairTarget){ confirmOrStartRepairPick(kind); return; } // 修復兵：戦列ではなく、戦場でタップして選んだ対象(ハイライト中)を直す
   if (def.canPickRiders){ startChariotBoardingPick(kind); return; } // チャリオット：戦場ではなく、乗せる4人を選ぶパネルを開く
+  if (def.canPickGascanSite){ startIncendiaryDeploy(kind); return; } // 火槍手：戦場をタップしてガス缶を据え置く場所を選ぶ
   const cost = getDeployCost(def);
   const lanes = Array.from(battle.selectedLanes).sort((a, b) => a - b);
   if (!lanes.length){ flashLaneButtons(); showLaneHint("先に戦列を選べ"); return; } // 先にレーンを選ばないと召喚できない
@@ -3998,6 +4105,9 @@ function spawnUnit(kind, side, xOffset, opts){
     courierPhase: null,           // 伝令兵専用：scoutOut|scoutBack|watching|signaling
     watchLane: null,              // 伝令兵専用：見張っている戦列
     courierDebuffUntil: 0,        // 伝令兵の予測的中による弱体化の、解除時刻(battle.time基準)
+    exploding: false,             // ガス缶専用：誘爆の演出中かどうか
+    explosionSide: null,          // ガス缶専用：どちらの火で誘爆したか(その逆側にのみダメージが向く)
+    lastAttacker: null,           // 直前にこのユニットへ攻撃を当てた者(ガス缶が通常ダメージで力尽きた時などに使う)
     medicCooldown: 0,             // 軍医専用：次に治療できるまでの残り時間(ms)
     _displayWidth: 0        // 直近ロード完了した画像の表示幅(px)。オーラ位置計算に使用
   };
@@ -4578,9 +4688,27 @@ function startPlacementPick(kind){
 // 選んだマス目に、実際に召喚し、そこへ向かわせる(この時点で屍を払い、クールタイムを起こす)。
 // 既に補充済みの待機ユニットがいれば、新規召喚せずそれを送り出す(屍はかからない)
 function commitPlacement(kind, col, lane){
+  const pending = battle.placementPending;
+  if (pending && pending.forIncendiary){
+    // 火槍手：ガス缶を選んだ場所に据え置き、選んでおいた戦列へ本人(たち)を召喚する
+    if (findStructureAt(col, lane)){ showToast("そこには、すでに何かある"); return false; }
+    const info = pending.forIncendiary;
+    const def = CHAR_DEFS[info.kind];
+    const totalCost = getDeployCost(def) * info.lanes.length;
+    if (battle.corpse < totalCost){ showToast("屍が足りぬ"); return false; }
+    battle.corpse -= totalCost; updateWalletUI();
+    const can = spawnUnit("gascan", "player", 0, { lane });
+    can.x = columnCenterX(col) - (can.def.structureDisplayWidth || 0) / 2; can.structureCol = col;
+    setMotion(can, "normal", { loop:true });
+    applyFrame(can);
+    info.lanes.forEach(l => {
+      const u = spawnUnit(info.kind, "player", 0, { lane: l });
+      u.deployedKind = info.kind;
+    });
+    return true;
+  }
   const def = CHAR_DEFS[kind];
   if (findStructureAt(col, lane)){ showToast("そこには、すでに何かある"); return false; }
-  const pending = battle.placementPending;
   if (pending && pending.reuseUnit && !pending.reuseUnit.dead){
     const u = pending.reuseUnit;
     u.resupplied = false;
@@ -5033,7 +5161,8 @@ function updateStructureStage(u){
 }
 // 衝撃煙(命中直後)・落下の砂埃(崩れた後)を、望楼台・壁の位置に重ねて出す
 function spawnStructureFx(u, type){
-  const src = IMG_WATCHTOWER + (type === "impact" ? "impact_smoke.png" : "fall_dust.png");
+  const base = u.def.imageBase || IMG_WATCHTOWER;
+  const src = base + (type === "impact" ? "impact_smoke.png" : "fall_dust.png");
   const h = type === "impact" ? 160 : 120;
   spawnFx(src, u.x + (u.def.hitboxWidth || 0) / 2 - h / 2, { height: h, bottom: (u.baseB || 74) - (type === "impact" ? 20 : 30), lifespan: type === "impact" ? 500 : 1400 });
 }
@@ -6813,6 +6942,93 @@ function fireCourierSignal(unit, triggerEnemy){
   setMotion(unit, "signal", { onEnd: () => removeUnit(unit) }); // 笛を鳴らし終えたら、役目を終えて消える
 }
 
+/* ---------- 火槍手(焼却兵)とガス缶：地面に広がる炎、ガス缶の誘爆 ---------- */
+// 炎の帯(地面に広がる炎)を1つ登録する。側(side)と反対側の陣営にだけ、継続ダメージを与える
+function addFireZone(z){
+  battle.fireZones = battle.fireZones || [];
+  battle.fireZones.push(Object.assign({ nextTick: 0, tickMs: 500 }, z));
+}
+// 毎ティック、炎の帯の成長・継続ダメージ・ガス缶の巻き込みを処理する(battleStepから1回だけ呼ぶ)
+function updateFireZones(dtMs){
+  if (!battle || !battle.fireZones || !battle.fireZones.length) return;
+  const field = document.getElementById("battlefield");
+  const fw = field ? field.clientWidth : STAGE_W;
+  battle.fireZones = battle.fireZones.filter(z => z.expiresAt == null || battle.time < z.expiresAt);
+  battle.fireZones.forEach(z => {
+    if (z.growing){
+      const grow = (z.growSpeed || 150) * (dtMs / 1000);
+      z.xMin = Math.max(CASTLE_APPROACH_GAP, z.xMin - grow);
+      z.xMax = Math.min(fw - CASTLE_APPROACH_GAP, z.xMax + grow);
+    }
+    z.nextTick -= dtMs;
+    if (z.nextTick > 0) return;
+    z.nextTick += z.tickMs;
+    const fireAttacker = { def: { attackFlags: { fire: true } }, side: z.side };
+    battle.units.forEach(u => {
+      if (u.dead || u.mounted || u.perch) return;
+      if (!lanesOverlap(u.laneLo, u.laneHi, z.lane, z.lane)) return;
+      const ucx = u.x + bodyWidth(u) / 2;
+      if (ucx < z.xMin || ucx > z.xMax) return;
+      if (u.def.ignitesInstantly){ explodeGasCan(u, fireAttacker); return; } // 火はどちら側のガス缶でも、敵味方に関係なく誘爆させる
+      if (u.side === z.side) return; // 火元と同じ陣営の、生きているキャラには効かない
+      applyDamageToUnit(u, (z.dps || 12) * (z.tickMs / 1000), fireAttacker);
+    });
+  });
+}
+// 火槍手：噴射攻撃(攻撃モーション中の合図フレームで呼ばれる)。自分のマスを含めず、前方3マスを焼き払う
+function startIncendiaryAttack(unit){
+  const def = unit.def;
+  const dir = unit.side === "player" ? -1 : 1;
+  const from = unit.x + dir * GRID_CELL * 0.5;   // 自分のマスのすぐ先から
+  const to = from + dir * GRID_CELL * 3;         // 前方3マスぶん
+  addFireZone({
+    lane: unit.lane, xMin: Math.min(from, to), xMax: Math.max(from, to), side: unit.side,
+    dps: def.fireZoneDps || 12, growing: false, tickMs: 500,
+    expiresAt: battle.time + (def.fireZoneDurationS || 6)
+  });
+}
+// ガス缶の誘爆：火炎属性の一撃(体力に関係なく即座)か、通常のダメージでHPが尽きたときに呼ばれる
+function explodeGasCan(can, igniter){
+  if (can.exploding || can.dead) return;
+  can.exploding = true;
+  can.explosionSide = (igniter && igniter.side) || (can.lastAttacker && can.lastAttacker.side) || "enemy";
+  playGasCanStage(can, 0);
+}
+const GASCAN_STAGES = ["burning", "exploding", "engulfed", "smoke"];
+function playGasCanStage(can, i){
+  const stage = GASCAN_STAGES[i];
+  setMotion(can, stage, {
+    onEnd: () => {
+      if (stage === "exploding") doGasCanBlast(can); // 爆発の瞬間に、ダメージと延焼を発生させる
+      if (i + 1 < GASCAN_STAGES.length) playGasCanStage(can, i + 1);
+      else { can.dead = true; removeUnit(can); }
+    }
+  });
+}
+function doGasCanBlast(can){
+  const def = can.def;
+  const side = can.explosionSide || "enemy";
+  const targetSide = side === "player" ? "enemy" : "player";
+  const centerLane = can.lane;
+  const lanes = [];
+  for (let l = centerLane - 2; l <= centerLane + 2; l++) if (l >= 0 && l < GRID_LANES) lanes.push(l);
+  const cx = can.x + bodyWidth(can) / 2;
+  const blastRadius = def.blastRadius || 200; // 爆発そのものの、即時ダメージが届く範囲(仮)
+  const attacker = { def: { attackFlags: { fire: true } }, side };
+  battle.units.forEach(u => {
+    if (u.dead || u.side !== targetSide || u.mounted) return;
+    if (!lanes.includes(u.lane)) return;
+    const ucx = u.x + bodyWidth(u) / 2;
+    if (Math.abs(ucx - cx) > blastRadius) return;
+    applyDamageToUnit(u, def.blastDamage || 60, attacker);
+  });
+  // 同時に、爆発した場所から戦列いっぱいに広がる炎を、巻き込んだ5戦列すべてに残す
+  lanes.forEach(l => addFireZone({
+    lane: l, xMin: cx - 4, xMax: cx + 4, side,
+    dps: def.fireZoneDps || 12, growing: true, growSpeed: def.fireGrowSpeed || 150, tickMs: 500
+  }));
+}
+
 function updateChariotAI(unit, dtMs){
   if (unit.dead) return;
   const def = unit.def;
@@ -7272,6 +7488,7 @@ function updateBuffAura(unit, dtMs){
 
 function resolveAttackImpact(unit){
   if (!battle || battle.ended) return;
+  if (unit.def.createsFireZone){ startIncendiaryAttack(unit); return; } // 火槍手：対象を問わず、前方を焼き払う
   // 多段攻撃の途中で対象が倒れた場合、残りの段は空振りにする(城へダメージが流れないように)
   if (unit.def.attackImpactFrames && unit.attackHadTarget && (!unit.target || unit.target.dead)) return;
   if (unit.def.areaHitReach){
@@ -7573,6 +7790,10 @@ function afterReaction(unit){
 }
 
 function killUnit(target){
+  if (target.def.explodesOnDeath && !target.exploding){
+    explodeGasCan(target, target.lastAttacker || null); // 通常のダメージでHPが尽きた場合も、同じ爆発演出で処理する
+    return;
+  }
   if (target.def.bareDef && !target.def.frameCounts.down){
     target.def = CHAR_DEFS[target.def.bareDef]; // 何かを担いだまま死んだ：専用のダウン絵は無いので、素手の姿に切り替えてから倒れる
   }
@@ -7765,6 +7986,12 @@ function updateRevive(dtMs){
 
 function applyDamageToUnit(target, amount, attacker){
   if (target.dead) return;
+  // 火炎属性の攻撃(通常攻撃・地面に広がる炎など)がガス缶に触れると、体力に関係なく即座に爆発する
+  if (target.def.ignitesInstantly && !target.exploding && attacker && attacker.def && attacker.def.attackFlags && attacker.def.attackFlags.fire){
+    explodeGasCan(target, attacker);
+    return;
+  }
+  if (attacker) target.lastAttacker = attacker; // 通常のダメージでHPが尽きた時、誰の一撃だったかを覚えておく(ガス缶の爆発の向き先などに使う)
   // フォートレスの背中や、チャリオットに乗っている間は攻撃を受けない。
   // ただしチャリオットの乗員だけは例外で、遠距離攻撃(弓など)なら乗ったままでも狙い撃たれる
   if (target.mounted && !(target.mount && target.mount.def.chariotUnit && attacker && attacker.def.ranged)) return;
@@ -8199,6 +8426,7 @@ function battleStep(dt){
     endBattle(true, false, "survive");
   }
   updateFinalWaveTimer();
+  updateFireZones(dt); // 地面に広がる炎(火槍手・ガス缶)の、成長・継続ダメージ・ガス缶の巻き込み
 
   battle.units.forEach(unit => {
     if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
