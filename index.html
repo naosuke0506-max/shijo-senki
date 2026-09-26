@@ -600,6 +600,7 @@
   .unit-sprite .uhp i{ display:block; height:100%; background:var(--hp-player); }
 
   .fx-sprite{ position:absolute; bottom:110px; left:0; pointer-events:none; z-index:200; mix-blend-mode:screen; }
+  .fire-zone-visual{ position:absolute; height:80px; background-repeat:repeat-x; background-position:center bottom; background-size:auto 100%; pointer-events:none; z-index:7; mix-blend-mode:screen; }
   .buff-aura{ bottom:auto; height:34px; transform:translate(-50%,-75%); z-index:5; }
   .trap-sprite{ mix-blend-mode:normal; bottom:66px; left:0; z-index:2; } /* 写実素材なのでscreen合成を解除、ユニットより奥に表示 */
   .bleed-fx{ bottom:auto; left:50%; top:45%; height:56px; transform:translate(-50%,-50%); z-index:5; mix-blend-mode:normal; }
@@ -2468,9 +2469,9 @@ const CHAR_DEFS = {
     imageBase: IMG_GASCAN,
     // 実寸スケール：通常時の切り抜き高さ(494px)を基準に、缶の高さ約1.3m相当(70px)へ換算
     pixelScale: 70 / 494,
-    // 爆発の演出だけは、缶そのものより大きく(炎が周りに広がる絵のため)、同じ大きさで統一して表示する
+    // 爆発の演出は、段階ごとに絵の余白の切り取り方が違うので、同じ大きさ・同じ位置に統一して表示する
     motionForcedSize: {
-      burning:  { width: 108, height: 118 },
+      burning:  { width: 220, height: 120 },
       exploding:{ width: 220, height: 120 },
       engulfed: { width: 220, height: 120 },
       smoke:    { width: 220, height: 120 }
@@ -2485,7 +2486,8 @@ const CHAR_DEFS = {
       normal:"gascan_1.png", idle:"gascan_1.png", dented:"gascan_2.png",
       burning:"gascan_3.png", exploding:"gascan_4.png", engulfed:"gascan_5.png", smoke:"gascan_6.png"
     },
-    structureStageMotions: ["normal", "dented"]
+    structureStageMotions: ["normal", "dented"],
+    chromaKeyMotions: ["burning", "exploding", "engulfed", "smoke"] // これらのコマは黒背景のまま渡されるので、表示時に透過処理する
   }
 };
 
@@ -3612,6 +3614,7 @@ function startBattle(stage){
   const field = document.getElementById("battlefield");
   field.querySelectorAll(".unit-sprite").forEach(el => el.remove());
   field.querySelectorAll(".fx-sprite").forEach(el => el.remove());
+  field.querySelectorAll(".fire-zone-visual").forEach(el => el.remove());
 
   document.getElementById("stage-name-plate").textContent = stage.name;
   applyStageUnits(stage);
@@ -4544,7 +4547,14 @@ function warmKeyedFx(){
       if (!fx) return;
       for (let i = 0; i < fx.count; i++) keyedFxSrc(fx.imageBase + fx.prefix + (i + 1) + ".png", pair[1]);
     });
+    if (d.chromaKeyMotions){ // 黒背景のまま渡された、ユニット本体のコマ(ガス缶の爆発など)も、あらかじめ透過処理しておく
+      d.chromaKeyMotions.forEach(m => keyedFxSrc(frameUrl(d, m, 1), d.chromaKeyOpts || FX_KEY_DEFAULT));
+    }
   });
+  for (let i = 1; i <= 3; i++){ // 火槍手：噴射・地面に広がる炎のエフェクトも、あらかじめ透過処理しておく
+    keyedFxSrc(IMG_FX_COMMON2 + "fx_burn_" + i + ".png", FX_KEY_DEFAULT);
+    keyedFxSrc(IMG_FX_COMMON2 + "fx_groundflame_" + i + ".png", FX_KEY_DEFAULT);
+  }
 }
 
 // 毒状態の紫霧エフェクトをユニットの上に重ねてループ表示する(鼓舞バフのオーラと同じ仕組み)
@@ -6944,6 +6954,44 @@ function fireCourierSignal(unit, triggerEnemy){
   setMotion(unit, "signal", { onEnd: () => removeUnit(unit) }); // 笛を鳴らし終えたら、役目を終えて消える
 }
 
+// 炎の帯(地面に広がる炎)の見た目を、範囲に合わせて置く・伸ばす(fx_groundflameを敷き詰めてループさせる)
+function updateFireZoneVisual(z, dtMs){
+  const field = document.getElementById("battlefield");
+  if (!field) return;
+  if (!z.el){
+    z.el = document.createElement("div");
+    z.el.className = "fire-zone-visual";
+    field.appendChild(z.el);
+    z.visFrame = 0; z.visTimer = 0;
+  }
+  z.el.style.left = z.xMin + "px";
+  z.el.style.width = Math.max(4, z.xMax - z.xMin) + "px";
+  z.el.style.bottom = (laneFloor(z.lane) - 6) + "px";
+  z.el.style.zIndex = String(laneZ({ laneLo: z.lane }) - 2);
+  z.visTimer -= dtMs;
+  if (z.visTimer <= 0){
+    z.visTimer += 220;
+    z.visFrame = (z.visFrame + 1) % 3;
+    z.el.style.backgroundImage = "url(" + keyedFxSrc(IMG_FX_COMMON2 + "fx_groundflame_" + (z.visFrame + 1) + ".png", FX_KEY_DEFAULT) + ")";
+  }
+}
+function removeFireZoneVisual(z){ if (z.el){ z.el.remove(); z.el = null; } }
+// 火槍手：噴射の瞬間、噴き出す炎(fx_burn)をひと吹き分、口元に重ねて出す
+function playIncendiaryBurst(unit){
+  const dir = unit.side === "player" ? -1 : 1;
+  const durations = [200, 200, 200];
+  const baseX = unit.x + (unit._displayWidth || 0) / 2;
+  for (let i = 0; i < 3; i++){
+    setTimeout(() => {
+      if (!battle) return;
+      const el = spawnFx(keyedFxSrc(IMG_FX_COMMON2 + "fx_burn_" + (i + 1) + ".png", FX_KEY_DEFAULT), baseX, {
+        height: 150, bottom: (unit.baseB || 74) - 10, lifespan: durations[i] + 80, flip: dir > 0
+      });
+      if (el) el.style.transform += " translateX(-50%)";
+    }, i * 200);
+  }
+}
+
 /* ---------- 火槍手(焼却兵)とガス缶：地面に広がる炎、ガス缶の誘爆 ---------- */
 // 炎の帯(地面に広がる炎)を1つ登録する。側(side)と反対側の陣営にだけ、継続ダメージを与える
 function addFireZone(z){
@@ -6955,6 +7003,8 @@ function updateFireZones(dtMs){
   if (!battle || !battle.fireZones || !battle.fireZones.length) return;
   const field = document.getElementById("battlefield");
   const fw = field ? field.clientWidth : STAGE_W;
+  const expired = battle.fireZones.filter(z => z.expiresAt != null && battle.time >= z.expiresAt);
+  expired.forEach(removeFireZoneVisual);
   battle.fireZones = battle.fireZones.filter(z => z.expiresAt == null || battle.time < z.expiresAt);
   battle.fireZones.forEach(z => {
     if (z.growing){
@@ -6962,6 +7012,7 @@ function updateFireZones(dtMs){
       z.xMin = Math.max(CASTLE_APPROACH_GAP, z.xMin - grow);
       z.xMax = Math.min(fw - CASTLE_APPROACH_GAP, z.xMax + grow);
     }
+    updateFireZoneVisual(z, dtMs);
     z.nextTick -= dtMs;
     if (z.nextTick > 0) return;
     z.nextTick += z.tickMs;
@@ -6980,6 +7031,7 @@ function updateFireZones(dtMs){
 // 火槍手：噴射攻撃(攻撃モーション中の合図フレームで呼ばれる)。自分のマスを含めず、前方3マスを焼き払う
 function startIncendiaryAttack(unit){
   const def = unit.def;
+  playIncendiaryBurst(unit);
   const dir = unit.side === "player" ? -1 : 1;
   const from = unit.x + dir * GRID_CELL * 0.5;   // 自分のマスのすぐ先から
   const to = from + dir * GRID_CELL * 3;         // 前方3マスぶん
@@ -6999,6 +7051,10 @@ function explodeGasCan(can, igniter){
 const GASCAN_STAGES = ["burning", "exploding", "engulfed", "smoke"];
 function playGasCanStage(can, i){
   const stage = GASCAN_STAGES[i];
+  // 爆発の演出は、平常時の缶より横に大きい絵になるので、もとの中心位置を保ったまま表示されるよう置き直す
+  const centerX = can.x + (can._displayWidth || can.def.structureDisplayWidth || 0) / 2;
+  const forced = can.def.motionForcedSize && can.def.motionForcedSize[stage];
+  if (forced) can.x = centerX - forced.width / 2;
   setMotion(can, stage, {
     onEnd: () => {
       if (stage === "exploding") doGasCanBlast(can); // 爆発の瞬間に、ダメージと延焼を発生させる
@@ -7204,7 +7260,10 @@ function applyFrame(unit){
   const count = def.frameCounts[unit.motion] || 1;
   const idx1 = Math.min(unit.frameIndex + 1, count);
   unit.img.dataset.motion = unit.motion; // 読み込み完了時にモーション別の縮尺補正を参照するため
-  unit.img.src = frameUrl(def, unit.motion, idx1);
+  const rawSrc = frameUrl(def, unit.motion, idx1);
+  // 黒背景のまま渡された炎などの演出コマ(ガス缶の爆発など)は、ここでコード側の透過処理を通す
+  unit.img.src = (def.chromaKeyMotions && def.chromaKeyMotions.includes(unit.motion))
+    ? keyedFxSrc(rawSrc, def.chromaKeyOpts || FX_KEY_DEFAULT) : rawSrc;
 
   const overrides = def.frameFacingOverride && def.frameFacingOverride[unit.motion];
   const correction = overrides ? (overrides[unit.frameIndex] ?? 1) : 1;
