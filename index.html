@@ -2515,8 +2515,7 @@ const CHAR_DEFS = {
     slashWaveDamage: 45,
     slashWaveSpeed: 900,        // 斬道が前方へ走る速さ(px/秒、仮)
     slashWaveRange: 400,        // 斬道が届く距離(仮)
-    hornAbility: true,          // 角笛：全軍にスーパーアーマー+被ダメージ大幅軽減を付与する
-    hornFirstDelayMs: 5000,     // 出撃後、最初の角笛までの時間(仮)
+    hornAbility: true,          // 角笛：全軍にスーパーアーマー+被ダメージ大幅軽減を付与する。出現した瞬間に一度吹き、以後はクールタイムごとに自動で吹く
     hornCooldownMs: 60000,      // 角笛のクールタイム(仮)
     hornBuffDurationS: 50,      // 効果の持続時間(50秒)
     hornDamageCutMult: 0.5,     // 被ダメージを大幅に軽減(仮に半減)
@@ -3977,6 +3976,7 @@ function tryDeploy(kind){
     pickLeader(main);
     applyRole(main, roleOfKind(kind));
     battle.roleUsed[kind] = (battle.roleUsed[kind] || 0) + 1;
+    if (def.hornAbility) startCommanderHorn(main); // 指揮官：出現した、その瞬間に角笛を吹く
     (def.summons || []).forEach(s => {
       // 魔獣などは、両隣のレーンに1匹ずつ(壁があれば、その側の1匹は本体と同じレーン)
       const subLanes = summonLanes(main.lane, s.count);
@@ -7124,13 +7124,12 @@ function updateSlashWaves(dtMs){
   const done = battle.slashWaves.filter(w => w.traveled >= w.maxDist);
   done.forEach(w => { if (w.el) w.el.remove(); });
   battle.slashWaves = battle.slashWaves.filter(w => w.traveled < w.maxDist);
-  const attacker = { def: { attackFlags: {} } };
   battle.slashWaves.forEach(w => {
     const prevX = w.x;
     const dx = w.dir * w.speed * (dtMs / 1000);
     w.x += dx;
     w.traveled += Math.abs(dx);
-    attacker.side = w.side;
+    const attacker = { def: { attackFlags: {} }, side: w.side }; // 波ごとに作る(使い回すと、あとで側が食い違うおそれがある)
     // 今回動いた区間全体と、相手の体の幅を比べる(速い衝撃波が、細い当たり判定をすり抜けて貫通し損ねないように)
     const segMin = Math.min(prevX, w.x) - 20, segMax = Math.max(prevX, w.x) + 20;
     battle.units.forEach(u => {
@@ -7164,7 +7163,7 @@ function updateSlashWaves(dtMs){
 // 角笛：出撃後しばらくしてから、あるいは前回から一定時間ごとに、自動で吹き鳴らす
 function updateCommanderHorn(unit, dtMs){
   if (unit.dead || !unit.def.hornAbility || unit.hornState) return;
-  if (unit.hornCooldown == null) unit.hornCooldown = unit.def.hornFirstDelayMs || 5000;
+  if (unit.hornCooldown == null) return; // 出現した瞬間にすでに一度吹いているはずなので、まだの場合は何もしない
   unit.hornCooldown -= dtMs;
   if (unit.hornCooldown > 0) return;
   if (unit.motion !== "walk" && unit.motion !== "idle") return; // 戦闘・怯み等の最中は、区切りの良いタイミングまで待つ
