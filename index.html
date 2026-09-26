@@ -763,7 +763,7 @@
    ========================================================= */
 // @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
 // コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
-const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@6144bab/";
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@ede068d/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
@@ -4591,10 +4591,9 @@ function warmKeyedFx(){
       d.chromaKeyMotions.forEach(m => keyedFxSrc(frameUrl(d, m, 1), d.chromaKeyOpts || FX_KEY_DEFAULT));
     }
   });
-  for (let i = 1; i <= 3; i++){ // 火槍手：噴射・地面に広がる炎のエフェクトも、あらかじめ透過処理しておく
-    keyedFxSrc(IMG_FX_COMMON2 + "fx_burn_" + i + ".png", FX_KEY_DEFAULT);
-    keyedFxSrc(IMG_FX_COMMON2 + "fx_groundflame_" + i + ".png", FX_KEY_DEFAULT);
-  }
+  for (let i = 1; i <= 9; i++) keyedFxSrc(IMG_FX_COMMON2 + "fx_burn_" + i + ".png", FX_KEY_DEFAULT); // 火槍手：噴射のエフェクト(9コマ)
+  for (let i = 1; i <= 3; i++) keyedFxSrc(IMG_FX_COMMON2 + "fx_groundflame_" + i + ".png", FX_KEY_DEFAULT); // 火槍手：地面に広がる炎のエフェクト
+  for (let i = 1; i <= 4; i++) keyedFxSrc(IMG_FX_COMMON2 + "burn_fx_" + i + ".png", FX_KEY_DEFAULT); // 炎上の状態異常エフェクト
 }
 
 // 毒状態の紫霧エフェクトをユニットの上に重ねてループ表示する(鼓舞バフのオーラと同じ仕組み)
@@ -7019,9 +7018,9 @@ function removeFireZoneVisual(z){ if (z.el){ z.el.remove(); z.el = null; } }
 // 火槍手：噴射の瞬間、噴き出す炎(fx_burn)をひと吹き分、口元に重ねて出す
 function playIncendiaryBurst(unit){
   const dir = unit.facing === 1 ? 1 : -1; // 実際に今向いている方へ(通常はsideと同じだが、より正確)
-  const durations = [200, 200, 200];
+  const durations = [200, 200, 200, 200, 200, 200, 200, 200, 200];
   const muzzleX = unit.x + (unit._displayWidth || 0) / 2 + dir * (unit.def.muzzleOffsetX || 60);
-  for (let i = 0; i < 3; i++){
+  for (let i = 0; i < durations.length; i++){
     setTimeout(() => {
       if (!battle) return;
       const el = spawnFx(keyedFxSrc(IMG_FX_COMMON2 + "fx_burn_" + (i + 1) + ".png", FX_KEY_DEFAULT), muzzleX, {
