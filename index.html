@@ -2419,6 +2419,8 @@ const CHAR_DEFS = {
     attackFlags: { fire: true }, // この攻撃は「火炎属性」：ガス缶に触れると即座に誘爆させる
     fireZoneDps: 14,     // 地面に広がる炎の、1秒あたりのダメージ(仮)
     fireZoneDurationS: 6, // 噴射でできた炎が、燃え続ける時間(仮)
+    burstDamage: 20,     // 噴射そのもの(自分のマスから攻撃範囲まで)の、その場のダメージ(仮)
+    muzzleOffsetX: 60,   // 体の中心から、噴射の出所(銃口)までの前方オフセット(px)
     smokeImmune: true,   // 特殊能力：煙による効果(汚染など)を受けつけない
     canGuard: false,
     icon: ICON_INCENDIARY,
@@ -2464,6 +2466,7 @@ const CHAR_DEFS = {
     blastRadius: 200,       // 爆発そのものの、即時ダメージが届く横幅(仮)
     fireZoneDps: 14,        // 爆発の後、広がっていく炎の、1秒あたりのダメージ(仮)
     fireGrowSpeed: 150,     // 炎が戦列いっぱいに広がっていく速さ(px/秒、仮)
+    fireZoneDurationS: 20,  // ガス缶による延焼が、燃え続ける時間(20秒)
     hitboxWidth: 40, hpBarWidth: 60,
     icon: ICON_INCENDIARY,
     imageBase: IMG_GASCAN,
@@ -4110,6 +4113,8 @@ function spawnUnit(kind, side, xOffset, opts){
     courierPhase: null,           // 伝令兵専用：scoutOut|scoutBack|watching|signaling
     watchLane: null,              // 伝令兵専用：見張っている戦列
     courierDebuffUntil: 0,        // 伝令兵の予測的中による弱体化の、解除時刻(battle.time基準)
+    burningRemainingMs: 0,        // 炎上している(見た目だけの)残り時間
+    burningFxDef: null, burningFxEl: null, burningFxFrame: 0, burningFxTimer: 0,
     exploding: false,             // ガス缶専用：誘爆の演出中かどうか
     explosionSide: null,          // ガス缶専用：どちらの火で誘爆したか(その逆側にのみダメージが向く)
     lastAttacker: null,           // 直前にこのユニットへ攻撃を当てた者(ガス缶が通常ダメージで力尽きた時などに使う)
@@ -4483,6 +4488,41 @@ function updatePoison(unit, dtMs){
   if (unit.poisonRemainingMs <= 0){
     unit.poisonRemainingMs = 0;
   }
+}
+
+/* ---------- 炎(火槍手・ガス缶)：燃えている見た目だけの状態(ダメージ自体はfireZoneが処理する) ---------- */
+const FIRE_STATUS_FX = { count:4, prefix:"burn_fx_", durations:[200,200,200,200], imageBase: IMG_FX_COMMON2 };
+function updateBurningStatus(unit, dtMs){
+  if (unit.dead || !unit.burningRemainingMs || unit.burningRemainingMs <= 0) return;
+  unit.burningRemainingMs -= dtMs;
+  if (unit.burningRemainingMs <= 0) unit.burningRemainingMs = 0;
+}
+function updateBurningFx(unit, dtMs){
+  const active = !unit.dead && unit.burningRemainingMs > 0 && unit.burningFxDef;
+  if (active && !unit.burningFxEl){
+    const img = document.createElement("img");
+    img.className = "fx-sprite burning-status-fx";
+    unit.el.appendChild(img);
+    unit.burningFxEl = img;
+    unit.burningFxFrame = 0;
+    unit.burningFxTimer = 0;
+  }
+  if (!active && unit.burningFxEl){
+    unit.burningFxEl.remove();
+    unit.burningFxEl = null;
+  }
+  if (!unit.burningFxEl) return;
+  const fxDef = unit.burningFxDef;
+  unit.burningFxTimer += dtMs;
+  const dur = fxDef.durations[unit.burningFxFrame] || 300;
+  if (unit.burningFxTimer >= dur){
+    unit.burningFxTimer -= dur;
+    unit.burningFxFrame = (unit.burningFxFrame + 1) % fxDef.count;
+  }
+  unit.burningFxEl.src = keyedFxSrc(fxDef.imageBase + fxDef.prefix + (unit.burningFxFrame + 1) + ".png");
+  unit.burningFxEl.style.height = Math.round((unit._displayHeight || 92) * 0.8) + "px";
+  unit.burningFxEl.style.left = "50%";
+  unit.burningFxEl.style.top = "10%";
 }
 
 /* ---------- 黒背景の効果画像(毒・出血・回復)を透過に変換する ---------- */
@@ -6978,18 +7018,23 @@ function updateFireZoneVisual(z, dtMs){
 function removeFireZoneVisual(z){ if (z.el){ z.el.remove(); z.el = null; } }
 // 火槍手：噴射の瞬間、噴き出す炎(fx_burn)をひと吹き分、口元に重ねて出す
 function playIncendiaryBurst(unit){
-  const dir = unit.side === "player" ? -1 : 1;
+  const dir = unit.facing === 1 ? 1 : -1; // 実際に今向いている方へ(通常はsideと同じだが、より正確)
   const durations = [200, 200, 200];
-  const baseX = unit.x + (unit._displayWidth || 0) / 2;
+  const muzzleX = unit.x + (unit._displayWidth || 0) / 2 + dir * (unit.def.muzzleOffsetX || 60);
   for (let i = 0; i < 3; i++){
     setTimeout(() => {
       if (!battle) return;
-      const el = spawnFx(keyedFxSrc(IMG_FX_COMMON2 + "fx_burn_" + (i + 1) + ".png", FX_KEY_DEFAULT), baseX, {
+      const el = spawnFx(keyedFxSrc(IMG_FX_COMMON2 + "fx_burn_" + (i + 1) + ".png", FX_KEY_DEFAULT), muzzleX, {
         height: 150, bottom: (unit.baseB || 74) - 10, lifespan: durations[i] + 80, flip: dir > 0
       });
       if (el) el.style.transform += " translateX(-50%)";
     }, i * 200);
   }
+}
+
+function markBurning(unit, ms){
+  unit.burningRemainingMs = Math.max(unit.burningRemainingMs || 0, ms || 2000);
+  unit.burningFxDef = FIRE_STATUS_FX;
 }
 
 /* ---------- 火槍手(焼却兵)とガス缶：地面に広がる炎、ガス缶の誘爆 ---------- */
@@ -7025,14 +7070,31 @@ function updateFireZones(dtMs){
       if (u.def.ignitesInstantly){ explodeGasCan(u, fireAttacker); return; } // 火はどちら側のガス缶でも、敵味方に関係なく誘爆させる
       if (u.side === z.side) return; // 火元と同じ陣営の、生きているキャラには効かない
       applyDamageToUnit(u, (z.dps || 12) * (z.tickMs / 1000), fireAttacker);
+      markBurning(u, z.tickMs + 400);
     });
+    applyFireDamageToCastle((z.xMin + z.xMax) / 2, (z.xMax - z.xMin) / 2, z.side, (z.dps || 12) * (z.tickMs / 1000));
   });
 }
 // 火槍手：噴射攻撃(攻撃モーション中の合図フレームで呼ばれる)。自分のマスを含めず、前方3マスを焼き払う
 function startIncendiaryAttack(unit){
   const def = unit.def;
   playIncendiaryBurst(unit);
-  const dir = unit.side === "player" ? -1 : 1;
+  const dir = unit.facing === 1 ? 1 : -1;
+  const fireAttacker = { def: { attackFlags: { fire: true } }, side: unit.side };
+  // 攻撃の火炎そのもの(自分のマスから攻撃範囲まで)にも、その場で即座にダメージがある
+  const burstMin = Math.min(unit.x, unit.x + dir * (def.attackRange || 0));
+  const burstMax = Math.max(unit.x, unit.x + dir * (def.attackRange || 0));
+  battle.units.forEach(u => {
+    if (u.dead || u.side === unit.side || u.mounted || u.perch) return;
+    if (!lanesOverlap(u.laneLo, u.laneHi, unit.lane, unit.lane)) return;
+    const ucx = u.x + bodyWidth(u) / 2;
+    if (ucx < burstMin || ucx > burstMax) return;
+    if (u.def.ignitesInstantly){ explodeGasCan(u, fireAttacker); return; }
+    applyDamageToUnit(u, def.burstDamage || 20, fireAttacker);
+    markBurning(u, 2000);
+  });
+  applyFireDamageToCastle(unit.x, def.attackRange || 0, unit.side, def.burstDamage || 20);
+  // そこからさらに前方3マス(自分のマスは含まない)には、しばらく燃え続ける炎を残す
   const from = unit.x + dir * GRID_CELL * 0.5;   // 自分のマスのすぐ先から
   const to = from + dir * GRID_CELL * 3;         // 前方3マスぶん
   addFireZone({
@@ -7079,12 +7141,32 @@ function doGasCanBlast(can){
     const ucx = u.x + bodyWidth(u) / 2;
     if (Math.abs(ucx - cx) > blastRadius) return;
     applyDamageToUnit(u, def.blastDamage || 60, attacker);
+    markBurning(u, 2500);
   });
-  // 同時に、爆発した場所から戦列いっぱいに広がる炎を、巻き込んだ5戦列すべてに残す
-  lanes.forEach(l => addFireZone({
-    lane: l, xMin: cx - 4, xMax: cx + 4, side,
-    dps: def.fireZoneDps || 12, growing: true, growSpeed: def.fireGrowSpeed || 150, tickMs: 500
-  }));
+  applyFireDamageToCastle(cx, blastRadius, side, def.blastDamage || 60);
+  // 同時に、爆発した場所から、ガス缶があった戦列1つぶんの、端から端まで広がる炎を残す(20秒)
+  addFireZone({
+    lane: centerLane, xMin: cx - 4, xMax: cx + 4, side,
+    dps: def.fireZoneDps || 12, growing: true, growSpeed: def.fireGrowSpeed || 150, tickMs: 500,
+    expiresAt: battle.time + (def.fireZoneDurationS || 20)
+  });
+}
+// 炎の範囲(x方向)が、城の立つ場所まで届いていれば、城にもダメージを与える
+function applyFireDamageToCastle(cx, radius, side, amount){
+  const field = document.getElementById("battlefield");
+  const fw = field ? field.clientWidth : STAGE_W;
+  const targetSide = side === "player" ? "enemy" : "player";
+  const attacker = { def: {}, side };
+  if (targetSide === "enemy" && Math.abs(cx - 90) <= radius && battle && !battle.ended){
+    battle.enemyCastleHp = Math.max(0, battle.enemyCastleHp - amount * getCastleDamageMult(attacker));
+    updateCastleBars();
+    if (battle.enemyCastleHp <= 0) endBattle(true);
+  }
+  if (targetSide === "player" && Math.abs(cx - (fw - 90)) <= radius && battle && !battle.ended){
+    battle.playerCastleHp = Math.max(0, battle.playerCastleHp - amount * getCastleDamageMult(attacker));
+    updateCastleBars();
+    if (battle.playerCastleHp <= 0) endBattle(false);
+  }
 }
 
 function updateChariotAI(unit, dtMs){
@@ -8532,6 +8614,8 @@ function battleStep(dt){
     updateHealer(unit, dt);
     updatePoison(unit, dt);
     updatePoisonFx(unit, dt);
+    updateBurningStatus(unit, dt);
+    updateBurningFx(unit, dt);
     updateLaunch(unit, dt);
     updateCharge(unit, dt);
     updateUnitAI(unit, dt);
