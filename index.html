@@ -239,7 +239,10 @@
 
   /* --- タイトル --- */
   #screen-title{ align-items:center; justify-content:flex-start; text-align:center; padding-top:8vh; }
-  #screen-title .title-block{ display:flex; flex-direction:column; align-items:center; width:100%; }
+  #screen-title .title-bg{ position:absolute; inset:0; background-size:cover; background-position:center 38%; z-index:0; }
+  #screen-title .title-bg::after{ content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg,rgba(5,4,3,.55) 0%,rgba(5,4,3,.72) 40%,rgba(5,4,3,.9) 100%); }
+  #screen-title .title-block{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; width:100%; }
   #screen-title h1{ font-family:var(--mincho); font-size:clamp(3.2rem,10vw,6.8rem); font-weight:900; letter-spacing:.2em; padding-left:.2em; margin:4px 0; line-height:1.1;
     background:linear-gradient(180deg,#f6e2a4 0%,#d2ab52 38%,#7d5b20 52%,#c79a44 68%,#f0d27c 100%); -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
     filter:drop-shadow(0 3px 0 #000) drop-shadow(0 8px 18px rgba(0,0,0,.85)) drop-shadow(0 0 34px rgba(170,40,20,.42)); }
@@ -692,6 +695,7 @@
 
   <!-- タイトル -->
   <section id="screen-title" class="screen active">
+    <div class="title-bg" id="title-bg"></div>
     <div class="title-block">
       <div class="title-orn"><i></i><b>◆</b><i></i></div>
       <h1>屍城戦記</h1>
@@ -9176,13 +9180,13 @@ function buildDebugPanel(){
 const OPENING_SEEN_KEY = "shijoSenkiOpeningSeen";
 // ナレーション用の7ファイルは、リネームされていない元の名前(example.com*.mp3)のまま参照する
 const NARRATION_FILES = [
-  "example.com.mp3",    // シーン1
-  "example.com 2.mp3",  // シーン2
-  "example.com 3.mp3",  // シーン3
-  "example.com 4.mp3",  // シーン4
-  "example.com 5.mp3",  // シーン5
-  "example.com 6.mp3",  // シーン6
-  "example.com 7.mp3"   // シーン7
+  "audio/example.com.mp3",    // シーン1
+  "audio/example.com 2.mp3",  // シーン2
+  "audio/example.com 3.mp3",  // シーン3
+  "audio/example.com 4.mp3",  // シーン4
+  "audio/example.com 5.mp3",  // シーン5
+  "audio/example.com 6.mp3",  // シーン6
+  "audio/example.com 7.mp3"   // シーン7
 ];
 const BGM_TRACKS = {
   first:      REPO_BASE + "audio/opening/bgm_first_half.opus",   // Scene1〜4：静かで不穏な曲
@@ -9403,6 +9407,10 @@ function startOpening(){
    9. 画面遷移イベント
    ========================================================= */
 buildMenuBackdrop(STAGES[0]);
+(function setTitleBg(){
+  const el = document.getElementById("title-bg"); if (!el) return;
+  el.style.backgroundImage = "url(" + REPO_BASE + "images/opening/scene7.png)";
+})();
 document.getElementById("btn-to-formation").addEventListener("click", () => {
   playSfx(REPO_BASE + "audio/tap_common.opus");
   buildFormationScreen();
