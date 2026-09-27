@@ -211,6 +211,32 @@
   @keyframes forgePulse{ 0%,100%{ box-shadow:0 0 0 1px #000,0 0 0 3px #6f5222,0 0 0 4px #000,inset 0 1px 0 rgba(255,200,160,.3),inset 0 -3px 0 rgba(0,0,0,.4),0 10px 26px rgba(0,0,0,.8),0 0 30px rgba(170,40,20,.25);} 50%{ box-shadow:0 0 0 1px #000,0 0 0 3px #8a6a2c,0 0 0 4px #000,inset 0 1px 0 rgba(255,200,160,.3),inset 0 -3px 0 rgba(0,0,0,.4),0 10px 26px rgba(0,0,0,.8),0 0 44px rgba(190,50,24,.5);} }
   .btn-forge.sm{ font-size:.95rem; padding:11px 40px 11px calc(40px + .5em); }
 
+  /* --- 起動スプラッシュ --- */
+  #screen-splash{ align-items:center; justify-content:center; text-align:center; background:#050403; }
+  #screen-splash .splash-inner{ display:flex; flex-direction:column; align-items:center; gap:22px; }
+  #screen-splash .splash-orn{ color:#b8913f; font-size:1.1rem; opacity:.8; text-shadow:0 0 10px rgba(184,145,63,.6); }
+  #screen-splash .splash-catch{ font-family:var(--mincho); font-size:clamp(1.1rem,3.4vw,1.6rem); letter-spacing:.4em; color:#d2c6a4; text-shadow:0 0 10px #000; }
+
+  /* --- オープニングムービー --- */
+  #screen-opening{ background:#000; }
+  #screen-opening .opening-stage{ position:absolute; inset:0; overflow:hidden; background:#000; }
+  #screen-opening .opening-image{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transform:scale(1.06);
+    transition:opacity 1.1s ease; }
+  #screen-opening .opening-image.showing{ opacity:1; animation:openingKenBurns 8.5s ease-out forwards; }
+  @keyframes openingKenBurns{ from{ transform:scale(1.1) translate(0,0);} to{ transform:scale(1) translate(0,-1%);} }
+  #screen-opening .opening-vignette{ position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 42%,rgba(0,0,0,.72) 100%), linear-gradient(180deg,rgba(0,0,0,.35) 0%,rgba(0,0,0,0) 22%,rgba(0,0,0,0) 62%,rgba(0,0,0,.75) 100%); }
+  #screen-opening .opening-text{ position:absolute; left:0; right:0; bottom:9vh; padding:0 8vw; text-align:center;
+    font-family:var(--mincho); font-size:clamp(1rem,2.6vw,1.35rem); line-height:2.1; letter-spacing:.14em; color:#f0e6cc;
+    text-shadow:0 2px 6px #000,0 0 18px rgba(0,0,0,.9); white-space:pre-line; opacity:0; transition:opacity 1s ease; }
+  #screen-opening .opening-text.showing{ opacity:1; }
+  #screen-opening .opening-skip{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 18px); right:18px; z-index:5;
+    font-family:var(--mincho); font-size:.78rem; letter-spacing:.2em; color:#d2c6a4; background:rgba(0,0,0,.4); border:1px solid rgba(184,145,63,.5);
+    border-radius:2px; padding:8px 16px; }
+
+  /* --- 序幕を見る(タイトル画面のリンク) --- */
+  .link-btn{ margin-top:2.2vh; background:none; border:none; font-family:var(--mincho); font-size:.78rem; letter-spacing:.24em; color:#9c8f6e; text-decoration:underline; text-underline-offset:4px; }
+
   /* --- タイトル --- */
   #screen-title{ align-items:center; justify-content:flex-start; text-align:center; padding-top:8vh; }
   #screen-title .title-block{ display:flex; flex-direction:column; align-items:center; width:100%; }
@@ -645,6 +671,25 @@
 <div id="app" data-screen="screen-title">
   <div id="menu-backdrop"></div>
 
+  <!-- 起動時スプラッシュ(初回のみ。タップで音声再生の許可を得てからムービーを始める) -->
+  <section id="screen-splash" class="screen">
+    <div class="splash-inner">
+      <div class="splash-orn">◆</div>
+      <p class="splash-catch">屍を糧に、鬼を討つ。</p>
+      <button class="primary btn-forge" id="btn-splash-start" data-reading="はじめる">タップして始める</button>
+    </div>
+  </section>
+
+  <!-- オープニングムービー -->
+  <section id="screen-opening" class="screen">
+    <div class="opening-stage">
+      <img id="opening-image" class="opening-image" alt="">
+      <div class="opening-vignette"></div>
+      <div id="opening-text" class="opening-text"></div>
+    </div>
+    <button id="btn-opening-skip" class="opening-skip">スキップ</button>
+  </section>
+
   <!-- タイトル -->
   <section id="screen-title" class="screen active">
     <div class="title-block">
@@ -653,6 +698,7 @@
       <div class="title-orn"><i></i><b>◆</b><i></i></div>
       <div class="world-intro"><span style="--i:0">人の世の果てに、屍城あり。</span><span style="--i:1">鬼の群、日毎夜毎に押し寄せ、</span><span style="--i:2">守備の兵、斃れし者の屍を糧として、</span><span style="--i:3">なお戦い止まず。</span></div>
       <button class="primary btn-forge" id="btn-to-formation" data-reading="しゅつじん">出陣</button>
+      <button class="link-btn" id="btn-replay-opening" data-reading="じょばんをみる">序幕を見る</button>
     </div>
   </section>
 
@@ -2598,7 +2644,7 @@ const FX_ALERT_MARK = { count: 3, prefix: "alert_mark_", durations: [125,125,125
 const ART_PLAIN = { seed:20260921, bg:"plain_bg.jpg", ground:["plain_ground.png","plain_ground.jpg"], castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" };
 const STAGES = [
   // ---- 第一戦線：何も知らない者の、初めての戦。真ん中の1戦列だけ、味方は戍卒だけ、敵は餓鬼だけ。約3分 ----
-  { id:"plain", name:"魔野", reading:"まや", menu:{ tag:"初陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+  { id:"plain", name:"魔野", reading:"まや", menu:{ tag:"初陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN, bgm:"stage_low",
     intro:"屍城の前に広がる荒野。鬼の群、まず押し寄せ来たる地なり。",
     lanes:[2], units:{ foot:["soldier"] },
     enemyCastleHp:1500, playerCastleHp:3000, startCorpse:1000, corpseGainRate:1.0,
@@ -2619,7 +2665,7 @@ const STAGES = [
       { t:122, kind:"goblin", lane:2 }
     ] },
   // ---- 第二戦線：真ん中と両隣の3戦列。楯衛が使える。敵は餓鬼と弓鬼。楯で矢を防ぐこと、餓鬼が横へ身をかわすことを知る ----
-  { id:"bone", name:"骸原", reading:"むくろはら", menu:{ tag:"二陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+  { id:"bone", name:"骸原", reading:"むくろはら", menu:{ tag:"二陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN, bgm:"stage_low",
     intro:"斃れし者の骸、野に連なる。鬼の弓、闇より矢を放つ。",
     lanes:[1,2,3], units:{ foot:["soldier","shieldman"] },
     enemyCastleHp:2200, playerCastleHp:5000, startCorpse:1000, corpseGainRate:1.0, castleDmgTaken:{ player:0.7 },
@@ -2653,7 +2699,7 @@ const STAGES = [
   // ---- 第三戦線：引き続き3戦列。鎗卒に加えて狼筅手が使える。
   //   学ぶこと：①鎗卒は間合いの外から餓鬼を突ける(先の戦線までの延長) ②餓鬼が同じ戦列に連なって迫ると、単体攻撃の鎗卒だけでは抑え切れず、
   //   前方を薙ぎ払う狼筅手が要る ③巫鬼(回復・蘇生)が出るが、まだ対策できる兵はいない。ただし敵は餓鬼のみなので、対策できなくても支障はない ----
-  { id:"spear", name:"槍原", reading:"やりはら", menu:{ tag:"三陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+  { id:"spear", name:"槍原", reading:"やりはら", menu:{ tag:"三陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN, bgm:"stage_high",
     intro:"骸の野を越え、なお続く鬼の道。群れは、隊列を組みて迫る。",
     lanes:[1,2,3], units:{ foot:["soldier","shieldman","spearman","langxian"] },
     enemyCastleHp:3400, playerCastleHp:6000, startCorpse:1000, corpseGainRate:1.0, castleDmgTaken:{ player:0.6 },
@@ -2696,7 +2742,7 @@ const STAGES = [
   // ---- 第四戦線：ここから全5戦列。餓鬼・弓鬼に加え、鬼犬(魔獣)が単体で現れる。
   //   学ぶこと：①鎗卒は魔獣に強い(攻撃力1.5倍) ②鬼犬は横の戦列へ機敏に動く ③修復兵が新たに使え、自城がピンチのときの頼み
   //   開始時点で、自城はすでに大きく傷んでいる。敵城を落としても勝てるが、自城を満タンまで直し切っても勝ちになる ----
-  { id:"beast", name:"獣道", reading:"けものみち", menu:{ tag:"四陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+  { id:"beast", name:"獣道", reading:"けものみち", menu:{ tag:"四陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN, bgm:"stage_high",
     intro:"焦土に獣の足跡、幾重にも交わる。城壁はすでに傷み、なお鬼の牙は止まらぬ。",
     lanes:[0,1,2,3,4], units:{ foot:["soldier","shieldman","spearman","langxian","repairer"] },
     enemyCastleHp:4600, playerCastleHp:7000, playerCastleStartHp:1750, // 自城は開始時点で25%まで傷んでいる
@@ -2757,7 +2803,7 @@ const STAGES = [
   //   学ぶこと：①望楼台と壁を並べて築き、高所からの遠距離攻撃と、通行を阻む壁を活かす守り方
   //   開始と同時に、最終波までのカウントダウンが始まる。警告のあと、鬼の大群が押し寄せる。
   //   その大群を、決めた時間だけ耐え抜けば、その瞬間に勝利(敵城を落として勝つことも、引き続きできる) ----
-  { id:"rampart", name:"砦野", reading:"とりでの", menu:{ tag:"五陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN,
+  { id:"rampart", name:"砦野", reading:"とりでの", menu:{ tag:"五陣", thumb:"plain_bg.jpg" }, art:ART_PLAIN, bgm:"stage_high",
     intro:"屍城に近き最後の野。ここに柵を結い、迫り来る鬼の大群を、堰き止めねばならぬ。",
     lanes:[0,1,2,3,4], units:{ foot:["arquebusier","repairer","watchtower","batteringRam","chariot","medic","courier","spikeBarricade","incendiary","commander"] }, // 動作確認のため、ひとまずこの戦線に追加(本来の戦線の趣旨とは別)
     enemyCastleHp:5200, playerCastleHp:7500, startCorpse:3500, corpseGainRate:1.0, castleDmgTaken:{ player:0.9 },
@@ -3661,6 +3707,7 @@ function updateGuide(){
 }
 
 function startBattle(stage){
+  playMainBgm(stage.bgm || "stage_low"); // 戦線ごとのBGM(魔野・骸原は穏やか、槍原以降は脅威度が高い曲、鬼哭野実装後はボス曲)
   roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
   battle && (battle.repairPickPending = null); repairHighlightEl = null; // 前の戦闘のハイライト状態を持ち越さない
   const cpEl = document.getElementById("chariot-picker"); if (cpEl){ cpEl.style.display = "none"; cpEl.innerHTML = ""; }
@@ -3954,6 +4001,7 @@ function tryDeploy(kind){
     const cur = currencyKey(def);
     if (battle[cur] < cost) return;
     battle[cur] -= cost;
+    playSfx("audio/tap_command.opus");
     const big = spawnUnit(kind, "player", 0, { lane: span >= 3 ? lanes[1] : lanes[0] });
     big.deployedKind = kind;
     big.slotIdx = state.formationSlots.findIndex(sl => sl.kind === kind);
@@ -3973,6 +4021,7 @@ function tryDeploy(kind){
   const cur = currencyKey(def);
   if (battle[cur] < total) return;
   battle[cur] -= total;
+  playSfx("audio/tap_command.opus");
   updateWalletUI();
   lanes.forEach(lane => {
     const main = spawnUnit(kind, "player", 0, { lane });
@@ -5729,6 +5778,7 @@ function issueCommand(cmdr, type, branchRole, target, opts){
   if (type === "attack") assignAttackLanes(cmd);
   if (type === "advance") startAdvance(cmd);
   cmdr.cmdCd[type] = CMD_COOLDOWN[type];                    // 軍令を出した瞬間から、クールタイムに入る
+  playSfx("audio/tap_command.opus");
   const bl = branchRole ? "→" + roleCfg(branchRole).label : "";
   queueBanner("軍令　" + roleCfg(cmdr.role).label + bl + "　" + CMD_LABEL[type] + (fm ? "　" + fm.name : ""), false, false);
   return true;
@@ -8991,6 +9041,7 @@ function playCastleFall(side, win){
 function endBattle(win, instant, reason){
   if (!battle || battle.ended) return;
   battle.ended = true;
+  playSfx(win ? "audio/sfx_victory.opus" : "audio/sfx_defeat.opus", .85);
   const b = battle;
   if (win && b.stage && b.stage.id){ state.cleared.add(b.stage.id); saveCleared(); } // 制した戦線を覚える
   restoreFormation();
@@ -9118,25 +9169,268 @@ function buildDebugPanel(){
 }
 
 /* =========================================================
+   8.5 オープニングムービー
+   画像・ナレーション音声・ボイス・効果音・BGMは、下記のパスにファイルを置けば流れる。
+   ファイルが無い場合も、ナレーションは4.8秒でフォールバックして次に進むので、画面が止まったままにはならない。
+   ========================================================= */
+const OPENING_SEEN_KEY = "shijoSenkiOpeningSeen";
+const BGM_TRACKS = {
+  first:      "audio/opening/bgm_first_half.opus",   // Scene1〜4：静かで不穏な曲
+  second:     "audio/opening/bgm_second_half.opus",  // Scene5〜6：壮大な戦い・崩壊の曲
+  theme:      "audio/opening/bgm_theme.opus",        // Scene7〜、ログイン(タイトル)画面
+  formation:  "audio/opening/bgm_formation.opus",    // 編成画面
+  map:        "audio/opening/bgm_map.opus",          // 戦線選択(地域マップ)画面
+  stage_low:  "audio/opening/bgm_stage_low.opus",    // 脅威度が低いステージ(魔野・骸原)
+  stage_high: "audio/opening/bgm_stage_high.opus",   // 脅威度が高いステージ(槍原・獣道・砦野。旧ゴブリン編BGM)
+  boss:       "audio/opening/bgm_boss.opus"          // ラスボスステージ(鬼哭野・実装時に使用)
+};
+// シーンごとに、ナレーションは1本(通しで読んだもの)。sfxは環境音(シーン1〜5のみ、ループ再生)。
+// scene6だけimagesが2枚。ナレーション音声の再生が半分を過ぎた時点で、1枚目→2枚目へ自動で切り替わる
+const OPENING_BEATS = [
+  { image:"images/opening/scene1.png", bgm:"first", sfx:"audio/sfx_scene1.opus",
+    narration:"audio/narration_scene1.mp3",
+    text:"かつて、世界はまだ、一つじゃった。\n変わらぬ朝が来て、変わらぬ夜が来る。それだけの、当たり前の日々よ。" },
+  { image:"images/opening/scene2.png", bgm:"first", sfx:"audio/sfx_scene2.opus",
+    narration:"audio/narration_scene2.mp3",
+    text:"だが、その平穏の裏で、ある者たちが動き出していた。\n己を「灰燼」と名乗る者たち。その正体を、知る者は誰もおらぬ。" },
+  { image:"images/opening/scene3.png", bgm:"first", sfx:"audio/sfx_scene3.opus",
+    narration:"audio/narration_scene3.mp3",
+    text:"彼らが生み出したのは、人ならざる力じゃった。\n血と鋼で編まれた、崩壊のための兵よ。" },
+  { image:"images/opening/scene4.png", bgm:"first", sfx:"audio/sfx_scene4.opus",
+    narration:"audio/narration_scene4.mp3",
+    text:"牙は、まず要となる地へ向けられた。\n積み上げてきた文明が、一夜にして灰と煙に変わっていったのじゃ。" },
+  { images:["images/opening/scene5a.png","images/opening/scene5b.png"], bgm:"second", sfx:"audio/sfx_scene5.opus",
+    narration:"audio/narration_scene5.mp3",
+    text:"そしてその只中――大地そのものが、悲鳴を上げた。\n亀裂は瞬く間に世界を駆け巡り、大地を、人を、隔てていった。" },
+  { images:["images/opening/scene6a.png","images/opening/scene6b.png"], bgm:"second",
+    narration:"audio/narration_scene6.mp3",
+    text:"裂け目の奥で、赤い瞳が目を覚ます。\nかつて封じられていたはずの厄災が、世界中の裂け目から、一斉に解き放たれたのじゃ。" },
+  { image:"images/opening/scene7.png", bgm:"theme",
+    narration:"audio/narration_scene7.mp3",
+    text:"――それから、二百年。\n国はなく、文明の記憶さえ遠い伝説となった。\nじゃが人は、それでもまだ、生きることをやめてはおらぬ。\n\n屍を糧に、鬼を討つ――屍城軍。" }
+];
+
+let openingState = null; // 再生中の音声・タイマーをまとめて持つ(スキップ時に、これらを一括で止める)
+
+function stopOpeningAudio(opts){
+  opts = opts || {};
+  if (!openingState) return;
+  [openingState.narrationAudio, openingState.sfxAudio].forEach(a => {
+    if (a){ try { a.pause(); a.src = ""; } catch(e){} }
+  });
+  if (openingState.timer) clearTimeout(openingState.timer);
+  if (openingState.bgmFadeTimer) clearInterval(openingState.bgmFadeTimer);
+  if (opts.keepBgm && openingState.bgmAudio){
+    // オープニングで流れていたテーマ曲を、そのまま本編の全画面共通BGMとして引き継ぐ(鳴らし直さない)
+    mainBgmAudio = openingState.bgmAudio;
+    mainBgmKey = openingState.bgmKey;
+  } else if (openingState.bgmAudio){
+    try { openingState.bgmAudio.pause(); } catch(e){}
+  }
+  openingState = null;
+}
+
+/* ---------- 本編(タイトル・編成・マップ・戦闘)共通のBGM再生。オープニングと同じ要領でクロスフェードする ---------- */
+let mainBgmAudio = null, mainBgmKey = null, mainBgmFadeTimer = null;
+function playMainBgm(key){
+  if (!key || !BGM_TRACKS[key]) return;
+  if (mainBgmKey === key && mainBgmAudio && !mainBgmAudio.paused) return; // 既に同じ曲が流れている
+  const prev = mainBgmAudio;
+  const next = new Audio(BGM_TRACKS[key]);
+  next.loop = true; next.volume = 0;
+  next.play().catch(() => {}); // タップなどの操作の流れで呼ばれるので、基本はブロックされない想定
+  if (mainBgmFadeTimer) clearInterval(mainBgmFadeTimer);
+  const steps = 20, stepMs = 1400 / steps;
+  let i = 0;
+  mainBgmFadeTimer = setInterval(() => {
+    i++;
+    const t = Math.min(1, i / steps);
+    next.volume = t * .55;
+    if (prev) prev.volume = Math.max(0, .55 - t * .55);
+    if (i >= steps){
+      clearInterval(mainBgmFadeTimer);
+      if (prev){ try { prev.pause(); } catch(e){} }
+    }
+  }, stepMs);
+  mainBgmAudio = next;
+  mainBgmKey = key;
+}
+let bgmUnlocked = false;
+function unlockMainBgmOnce(){
+  // 序幕(オープニング)を見ずにタイトル画面へ来た場合、最初のタップでテーマ曲を鳴らし始める
+  if (bgmUnlocked) return;
+  bgmUnlocked = true;
+  if (!openingState && !mainBgmAudio) playMainBgm("theme");
+}
+document.addEventListener("pointerdown", unlockMainBgmOnce, { once:true });
+
+/* ---------- 単発の効果音(タップ・軍令・召喚・勝敗など) ---------- */
+function playSfx(src, volume){
+  try {
+    const a = new Audio(src);
+    a.volume = volume != null ? volume : .7;
+    a.play().catch(() => {});
+  } catch(e){}
+}
+
+function crossfadeOpeningBgm(key){
+  if (!key || !openingState) return;
+  if (openingState.bgmKey === key && openingState.bgmAudio && !openingState.bgmAudio.paused) return; // 既に同じ曲が流れている
+  const prev = openingState.bgmAudio;
+  const next = new Audio(BGM_TRACKS[key]);
+  next.loop = true; next.volume = 0;
+  next.play().catch(() => {}); // 自動再生がブロックされても、以後の進行には影響させない
+  if (openingState.bgmFadeTimer) clearInterval(openingState.bgmFadeTimer);
+  const steps = 20, stepMs = 1400 / steps;
+  let i = 0;
+  openingState.bgmFadeTimer = setInterval(() => {
+    i++;
+    const t = Math.min(1, i / steps);
+    next.volume = t * .55;
+    if (prev) prev.volume = Math.max(0, .55 - t * .55);
+    if (i >= steps){
+      clearInterval(openingState.bgmFadeTimer);
+      if (prev){ try { prev.pause(); } catch(e){} }
+    }
+  }, stepMs);
+  openingState.bgmAudio = next;
+  openingState.bgmKey = key;
+}
+
+function playOpeningBeat(beatIndex, els){
+  if (!openingState || openingState.stopped) return;
+  if (beatIndex >= OPENING_BEATS.length){ finishOpening(); return; }
+  const beat = OPENING_BEATS[beatIndex];
+
+  crossfadeOpeningBgm(beat.bgm);
+
+  if (openingState.sfxAudio){ try { openingState.sfxAudio.pause(); } catch(e){} openingState.sfxAudio = null; }
+  if (beat.sfx){
+    const sfx = new Audio(beat.sfx);
+    sfx.loop = true; sfx.volume = .45;
+    sfx.play().catch(() => {});
+    openingState.sfxAudio = sfx;
+  }
+
+  const images = beat.images || (beat.image ? [beat.image] : []);
+  delete els.image.dataset.swapped; // scene6のような2枚構成のシーンで、前回の再生の状態を持ち越さない
+  if (images.length){
+    els.image.classList.remove("showing");
+    setTimeout(() => {
+      if (!openingState || openingState.stopped) return;
+      els.image.src = images[0];
+      void els.image.offsetWidth; // Ken Burnsのアニメーションを、毎回最初からやり直させる
+      els.image.classList.add("showing");
+    }, beatIndex === 0 ? 0 : 300);
+  }
+
+  els.text.classList.remove("showing");
+  setTimeout(() => {
+    if (!openingState || openingState.stopped) return;
+    els.text.textContent = beat.text;
+    els.text.classList.add("showing");
+  }, 260);
+
+  if (openingState.narrationAudio){ try { openingState.narrationAudio.pause(); } catch(e){} }
+  const narration = new Audio(beat.narration);
+  openingState.narrationAudio = narration;
+  if (images.length > 1){
+    // 2枚構成のシーン(裂け目の目→宇宙からの俯瞰など)：ナレーションが半分を過ぎた時点で、次の絵へ切り替える
+    narration.addEventListener("timeupdate", () => {
+      if (!narration.duration || els.image.dataset.swapped === "1") return;
+      if (narration.currentTime / narration.duration >= .5){
+        els.image.dataset.swapped = "1";
+        els.image.classList.remove("showing");
+        setTimeout(() => {
+          if (!openingState || openingState.stopped) return;
+          els.image.src = images[1];
+          void els.image.offsetWidth;
+          els.image.classList.add("showing");
+        }, 260);
+      }
+    });
+  }
+  let advanced = false;
+  const advance = () => {
+    if (advanced || !openingState || openingState.stopped) return;
+    advanced = true;
+    if (openingState.timer) clearTimeout(openingState.timer);
+    playOpeningBeat(beatIndex + 1, els);
+  };
+  narration.addEventListener("ended", advance);
+  narration.addEventListener("error", () => { openingState.timer = setTimeout(advance, 4800); }); // ファイルが無い場合のフォールバック
+  narration.play().catch(() => { openingState.timer = setTimeout(advance, 4800); });
+  openingState.timer = setTimeout(advance, 45000); // ended が発火しない不具合への保険(どのシーンよりも十分長い時間で最後の保険)
+}
+
+function finishOpening(){
+  try { localStorage.setItem(OPENING_SEEN_KEY, "1"); } catch(e){}
+  bgmUnlocked = true; // これ以降、テーマ曲は既に鳴っているので、unlockMainBgmOnceで鳴らし直さない
+  stopOpeningAudio({ keepBgm:true });
+  showScreen("screen-title");
+  playMainBgm("theme"); // 早送り(スキップ)された場合も含め、タイトル画面では必ずテーマ曲に落ち着かせる
+}
+
+function startOpening(){
+  stopOpeningAudio();
+  if (mainBgmFadeTimer) clearInterval(mainBgmFadeTimer);
+  if (mainBgmAudio){ try { mainBgmAudio.pause(); } catch(e){} mainBgmAudio = null; mainBgmKey = null; } // 「序幕を見る」での再生時、本編BGMと重ならないようにする
+  openingState = { stopped:false };
+  const els = {
+    image: document.getElementById("opening-image"),
+    text: document.getElementById("opening-text")
+  };
+  els.text.classList.remove("showing");
+  els.image.classList.remove("showing");
+  showScreen("screen-opening");
+  playOpeningBeat(0, els);
+}
+
+/* =========================================================
    9. 画面遷移イベント
    ========================================================= */
 buildMenuBackdrop(STAGES[0]);
 document.getElementById("btn-to-formation").addEventListener("click", () => {
+  playSfx("audio/tap_common.opus");
   buildFormationScreen();
   showScreen("screen-formation");
+  playMainBgm("formation");
 });
 document.getElementById("btn-to-stage").addEventListener("click", () => {
+  playSfx("audio/tap_common.opus");
   buildStageScreen();
   showScreen("screen-stage");
+  playMainBgm("map");
 });
 document.getElementById("btn-back-formation").addEventListener("click", () => {
+  playSfx("audio/tap_common.opus");
   showScreen("screen-formation");
+  playMainBgm("formation");
 });
 document.getElementById("btn-result-continue").addEventListener("click", () => {
+  playSfx("audio/tap_common.opus");
   debugUnit = null;
   buildStageScreen();
   showScreen("screen-stage");
+  playMainBgm("map");
 });
+document.getElementById("btn-opening-skip").addEventListener("click", () => {
+  if (openingState) openingState.stopped = true;
+  finishOpening();
+});
+document.getElementById("btn-replay-opening").addEventListener("click", () => {
+  startOpening();
+});
+document.getElementById("btn-splash-start").addEventListener("click", () => {
+  startOpening();
+});
+// 初回起動時だけ、スプラッシュ(タップして始める)→オープニングムービーの順で見せる。
+// 一度見た端末では、以後はこれまで通りタイトル画面から始まる(見返したい場合は「序幕を見る」から)
+(function initialScreenSetup(){
+  let seen = false;
+  try { seen = localStorage.getItem(OPENING_SEEN_KEY) === "1"; } catch(e){}
+  if (!seen) showScreen("screen-splash");
+})();
 
 
 /* ---------- マス(グリッド)の表示 ---------- */
