@@ -9174,6 +9174,16 @@ function buildDebugPanel(){
    ファイルが無い場合も、ナレーションは4.8秒でフォールバックして次に進むので、画面が止まったままにはならない。
    ========================================================= */
 const OPENING_SEEN_KEY = "shijoSenkiOpeningSeen";
+// ナレーション用の7ファイルは、リネームされていない元の名前(example.com*.mp3)のまま参照する
+const NARRATION_FILES = [
+  "example.com.mp3",    // シーン1
+  "example.com 2.mp3",  // シーン2
+  "example.com 3.mp3",  // シーン3
+  "example.com 4.mp3",  // シーン4
+  "example.com 5.mp3",  // シーン5
+  "example.com 6.mp3",  // シーン6
+  "example.com 7.mp3"   // シーン7
+];
 const BGM_TRACKS = {
   first:      REPO_BASE + "audio/opening/bgm_first_half.opus",   // Scene1〜4：静かで不穏な曲
   second:     REPO_BASE + "audio/opening/bgm_second_half.opus",  // Scene5〜6：壮大な戦い・崩壊の曲
@@ -9188,25 +9198,25 @@ const BGM_TRACKS = {
 // scene6だけimagesが2枚。ナレーション音声の再生が半分を過ぎた時点で、1枚目→2枚目へ自動で切り替わる
 const OPENING_BEATS = [
   { image:REPO_BASE + "images/opening/scene1.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene1.opus",
-    narration:REPO_BASE + "audio/narration_scene1.mp3",
+    narration:REPO_BASE + encodeURI(NARRATION_FILES[0]),
     text:"かつて、世界はまだ、一つじゃった。\n変わらぬ朝が来て、変わらぬ夜が来る。それだけの、当たり前の日々よ。" },
   { image:REPO_BASE + "images/opening/scene2.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene2.opus",
-    narration:REPO_BASE + "audio/narration_scene2.mp3",
+    narration:REPO_BASE + encodeURI(NARRATION_FILES[1]),
     text:"だが、その平穏の裏で、ある者たちが動き出していた。\n己を「灰燼」と名乗る者たち。その正体を、知る者は誰もおらぬ。" },
   { image:REPO_BASE + "images/opening/scene3.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene3.opus",
-    narration:REPO_BASE + "audio/narration_scene3.mp3",
+    narration:REPO_BASE + encodeURI(NARRATION_FILES[2]),
     text:"彼らが生み出したのは、人ならざる力じゃった。\n血と鋼で編まれた、崩壊のための兵よ。" },
   { image:REPO_BASE + "images/opening/scene4.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene4.opus",
-    narration:REPO_BASE + "audio/narration_scene4.mp3",
+    narration:REPO_BASE + encodeURI(NARRATION_FILES[3]),
     text:"牙は、まず要となる地へ向けられた。\n積み上げてきた文明が、一夜にして灰と煙に変わっていったのじゃ。" },
   { images:[REPO_BASE + "images/opening/scene5a.png",REPO_BASE + "images/opening/scene5b.png"], bgm:"second", sfx:REPO_BASE + "audio/sfx_scene5.opus",
-    narration:REPO_BASE + "audio/narration_scene5.mp3",
+    narration:REPO_BASE + encodeURI(NARRATION_FILES[4]),
     text:"そしてその只中――大地そのものが、悲鳴を上げた。\n亀裂は瞬く間に世界を駆け巡り、大地を、人を、隔てていった。" },
   { images:[REPO_BASE + "images/opening/scene6a.png",REPO_BASE + "images/opening/scene6b.png"], bgm:"second",
-    narration:REPO_BASE + "audio/narration_scene6.mp3",
+    narration:REPO_BASE + encodeURI(NARRATION_FILES[5]),
     text:"裂け目の奥で、赤い瞳が目を覚ます。\nかつて封じられていたはずの厄災が、世界中の裂け目から、一斉に解き放たれたのじゃ。" },
   { image:REPO_BASE + "images/opening/scene7.png", bgm:"theme",
-    narration:REPO_BASE + "audio/narration_scene7.mp3",
+    narration:REPO_BASE + encodeURI(NARRATION_FILES[6]),
     text:"――それから、二百年。\n国はなく、文明の記憶さえ遠い伝説となった。\nじゃが人は、それでもまだ、生きることをやめてはおらぬ。\n\n屍を糧に、鬼を討つ――屍城軍。" }
 ];
 
