@@ -241,7 +241,7 @@
   #screen-title{ align-items:center; justify-content:flex-start; text-align:center; padding-top:8vh; }
   #screen-title .title-bg{ position:absolute; inset:0; background-size:cover; background-position:center 38%; z-index:0; }
   #screen-title .title-bg::after{ content:""; position:absolute; inset:0;
-    background:linear-gradient(180deg,rgba(5,4,3,.55) 0%,rgba(5,4,3,.72) 40%,rgba(5,4,3,.9) 100%); }
+    background:linear-gradient(180deg,rgba(5,4,3,.22) 0%,rgba(5,4,3,.38) 40%,rgba(5,4,3,.6) 100%); }
   #screen-title .title-block{ position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; width:100%; }
   #screen-title h1{ font-family:var(--mincho); font-size:clamp(3.2rem,10vw,6.8rem); font-weight:900; letter-spacing:.2em; padding-left:.2em; margin:4px 0; line-height:1.1;
     background:linear-gradient(180deg,#f6e2a4 0%,#d2ab52 38%,#7d5b20 52%,#c79a44 68%,#f0d27c 100%); -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
@@ -9210,7 +9210,7 @@ const OPENING_BEATS = [
   { image:REPO_BASE + "images/opening/scene3.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene3.opus",
     narration:REPO_BASE + encodeURI(NARRATION_FILES[2]),
     text:"彼らが生み出したのは、人ならざる力じゃった。\n血と鋼で編まれた、崩壊のための兵よ。" },
-  { image:REPO_BASE + "images/opening/scene4.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene4.opus",
+  { image:REPO_BASE + "images/opening/scene4.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene4.opus", sfxVolume:.24,
     narration:REPO_BASE + encodeURI(NARRATION_FILES[3]),
     text:"牙は、まず要となる地へ向けられた。\n積み上げてきた文明が、一夜にして灰と煙に変わっていったのじゃ。" },
   { images:[REPO_BASE + "images/opening/scene5a.png",REPO_BASE + "images/opening/scene5b.png"], bgm:"second", sfx:REPO_BASE + "audio/sfx_scene5.opus",
@@ -9270,8 +9270,8 @@ function playBgm(key){
   bgmFadeTimer = setInterval(() => {
     i++;
     const t = Math.min(1, i / steps);
-    nextEl.volume = t * .55;
-    activeEl.volume = Math.max(0, .55 - t * .55);
+    nextEl.volume = t * .72;
+    activeEl.volume = Math.max(0, .72 - t * .72);
     if (i >= steps){
       clearInterval(bgmFadeTimer);
       try { activeEl.pause(); } catch(e){}
@@ -9322,7 +9322,7 @@ function playOpeningBeat(beatIndex, els){
   if (beat.sfx){
     openingSfxEl.src = beat.sfx;
     openingSfxEl.currentTime = 0;
-    openingSfxEl.volume = .45;
+    openingSfxEl.volume = beat.sfxVolume != null ? beat.sfxVolume : .45;
     openingSfxEl.play().catch(() => {});
   }
 
