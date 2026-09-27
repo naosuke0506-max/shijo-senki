@@ -3707,7 +3707,7 @@ function updateGuide(){
 }
 
 function startBattle(stage){
-  playMainBgm(stage.bgm || "stage_low"); // 戦線ごとのBGM(魔野・骸原は穏やか、槍原以降は脅威度が高い曲、鬼哭野実装後はボス曲)
+  playBgm(stage.bgm || "stage_low"); // 戦線ごとのBGM(魔野・骸原は穏やか、槍原以降は脅威度が高い曲、鬼哭野実装後はボス曲)
   roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
   battle && (battle.repairPickPending = null); repairHighlightEl = null; // 前の戦闘のハイライト状態を持ち越さない
   const cpEl = document.getElementById("chariot-picker"); if (cpEl){ cpEl.style.display = "none"; cpEl.innerHTML = ""; }
@@ -9220,91 +9220,91 @@ const OPENING_BEATS = [
     text:"――それから、二百年。\n国はなく、文明の記憶さえ遠い伝説となった。\nじゃが人は、それでもまだ、生きることをやめてはおらぬ。\n\n屍を糧に、鬼を討つ――屍城軍。" }
 ];
 
-let openingState = null; // 再生中の音声・タイマーをまとめて持つ(スキップ時に、これらを一括で止める)
+let openingState = null; // 再生中のタイマーをまとめて持つ(スキップ時に、これらを一括で止める)
 
-function stopOpeningAudio(opts){
-  opts = opts || {};
-  if (!openingState) return;
-  [openingState.narrationAudio, openingState.sfxAudio].forEach(a => {
-    if (a){ try { a.pause(); a.src = ""; } catch(e){} }
-  });
-  if (openingState.timer) clearTimeout(openingState.timer);
-  if (openingState.bgmFadeTimer) clearInterval(openingState.bgmFadeTimer);
-  if (opts.keepBgm && openingState.bgmAudio){
-    // オープニングで流れていたテーマ曲を、そのまま本編の全画面共通BGMとして引き継ぐ(鳴らし直さない)
-    mainBgmAudio = openingState.bgmAudio;
-    mainBgmKey = openingState.bgmKey;
-  } else if (openingState.bgmAudio){
-    try { openingState.bgmAudio.pause(); } catch(e){}
-  }
-  openingState = null;
+// --- 音声要素は使い回す。iOSは「タップの直後に作った音」しか自動再生を許さないことがあるため、
+//     毎回 new Audio() する代わりに、起動時のタップで一度だけ「解禁」した要素のsrcを毎回差し替えて使う ---
+const SILENT_AUDIO_SRC = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+function primeAudioElement(el){
+  try {
+    el.src = SILENT_AUDIO_SRC;
+    const p = el.play();
+    if (p && p.then) p.then(() => { try { el.pause(); } catch(e){} }).catch(() => {});
+  } catch(e){}
+}
+const bgmEls = [new Audio(), new Audio()];
+bgmEls.forEach(a => { a.loop = true; a.volume = 0; });
+let bgmActiveIdx = 0, bgmCurrentKey = null, bgmFadeTimer = null;
+const openingNarrationEl = new Audio();
+const openingSfxEl = new Audio();
+openingSfxEl.loop = true;
+const SFX_POOL_SIZE = 4;
+const sfxPool = Array.from({ length: SFX_POOL_SIZE }, () => new Audio());
+let sfxPoolIdx = 0;
+function primeAllAudioElements(){
+  bgmEls.forEach(primeAudioElement);
+  primeAudioElement(openingNarrationEl);
+  primeAudioElement(openingSfxEl);
+  sfxPool.forEach(primeAudioElement);
 }
 
-/* ---------- 本編(タイトル・編成・マップ・戦闘)共通のBGM再生。オープニングと同じ要領でクロスフェードする ---------- */
-let mainBgmAudio = null, mainBgmKey = null, mainBgmFadeTimer = null;
-function playMainBgm(key){
+/* ---------- BGM：オープニングと本編(タイトル・編成・マップ・戦闘)で共通の1系統。要素を使い回してクロスフェードする ---------- */
+function playBgm(key){
   if (!key || !BGM_TRACKS[key]) return;
-  if (mainBgmKey === key && mainBgmAudio && !mainBgmAudio.paused) return; // 既に同じ曲が流れている
-  const prev = mainBgmAudio;
-  const next = new Audio(BGM_TRACKS[key]);
-  next.loop = true; next.volume = 0;
-  next.play().catch(() => {}); // タップなどの操作の流れで呼ばれるので、基本はブロックされない想定
-  if (mainBgmFadeTimer) clearInterval(mainBgmFadeTimer);
+  if (bgmCurrentKey === key) return; // 既にこの曲を指定中
+  const activeEl = bgmEls[bgmActiveIdx];
+  const nextIdx = 1 - bgmActiveIdx;
+  const nextEl = bgmEls[nextIdx];
+  nextEl.pause();
+  nextEl.src = BGM_TRACKS[key];
+  nextEl.currentTime = 0;
+  nextEl.volume = 0;
+  nextEl.play().catch(() => {});
+  if (bgmFadeTimer) clearInterval(bgmFadeTimer);
   const steps = 20, stepMs = 1400 / steps;
   let i = 0;
-  mainBgmFadeTimer = setInterval(() => {
+  bgmFadeTimer = setInterval(() => {
     i++;
     const t = Math.min(1, i / steps);
-    next.volume = t * .55;
-    if (prev) prev.volume = Math.max(0, .55 - t * .55);
+    nextEl.volume = t * .55;
+    activeEl.volume = Math.max(0, .55 - t * .55);
     if (i >= steps){
-      clearInterval(mainBgmFadeTimer);
-      if (prev){ try { prev.pause(); } catch(e){} }
+      clearInterval(bgmFadeTimer);
+      try { activeEl.pause(); } catch(e){}
     }
   }, stepMs);
-  mainBgmAudio = next;
-  mainBgmKey = key;
+  bgmActiveIdx = nextIdx;
+  bgmCurrentKey = key;
 }
 let bgmUnlocked = false;
 function unlockMainBgmOnce(){
-  // 序幕(オープニング)を見ずにタイトル画面へ来た場合、最初のタップでテーマ曲を鳴らし始める
+  // 序幕(オープニング)を見ずにタイトル画面へ来た場合、最初のタップで音声要素を解禁し、テーマ曲を鳴らし始める
   if (bgmUnlocked) return;
   bgmUnlocked = true;
-  if (!openingState && !mainBgmAudio) playMainBgm("theme");
+  primeAllAudioElements();
+  if (!openingState && !bgmCurrentKey) playBgm("theme");
 }
 document.addEventListener("pointerdown", unlockMainBgmOnce, { once:true });
 
-/* ---------- 単発の効果音(タップ・軍令・召喚・勝敗など) ---------- */
+/* ---------- 単発の効果音(タップ・軍令・召喚・勝敗など)。数個の要素を使い回して重なりにも耐える ---------- */
 function playSfx(src, volume){
+  const el = sfxPool[sfxPoolIdx];
+  sfxPoolIdx = (sfxPoolIdx + 1) % SFX_POOL_SIZE;
   try {
-    const a = new Audio(src);
-    a.volume = volume != null ? volume : .7;
-    a.play().catch(() => {});
+    el.pause();
+    el.src = src;
+    el.currentTime = 0;
+    el.volume = volume != null ? volume : .7;
+    el.play().catch(() => {});
   } catch(e){}
 }
 
-function crossfadeOpeningBgm(key){
-  if (!key || !openingState) return;
-  if (openingState.bgmKey === key && openingState.bgmAudio && !openingState.bgmAudio.paused) return; // 既に同じ曲が流れている
-  const prev = openingState.bgmAudio;
-  const next = new Audio(BGM_TRACKS[key]);
-  next.loop = true; next.volume = 0;
-  next.play().catch(() => {}); // 自動再生がブロックされても、以後の進行には影響させない
-  if (openingState.bgmFadeTimer) clearInterval(openingState.bgmFadeTimer);
-  const steps = 20, stepMs = 1400 / steps;
-  let i = 0;
-  openingState.bgmFadeTimer = setInterval(() => {
-    i++;
-    const t = Math.min(1, i / steps);
-    next.volume = t * .55;
-    if (prev) prev.volume = Math.max(0, .55 - t * .55);
-    if (i >= steps){
-      clearInterval(openingState.bgmFadeTimer);
-      if (prev){ try { prev.pause(); } catch(e){} }
-    }
-  }, stepMs);
-  openingState.bgmAudio = next;
-  openingState.bgmKey = key;
+function stopOpeningAudio(){
+  if (!openingState) return;
+  try { openingNarrationEl.pause(); } catch(e){}
+  try { openingSfxEl.pause(); } catch(e){}
+  if (openingState.timer) clearTimeout(openingState.timer);
+  openingState = null;
 }
 
 function playOpeningBeat(beatIndex, els){
@@ -9312,14 +9312,14 @@ function playOpeningBeat(beatIndex, els){
   if (beatIndex >= OPENING_BEATS.length){ finishOpening(); return; }
   const beat = OPENING_BEATS[beatIndex];
 
-  crossfadeOpeningBgm(beat.bgm);
+  playBgm(beat.bgm);
 
-  if (openingState.sfxAudio){ try { openingState.sfxAudio.pause(); } catch(e){} openingState.sfxAudio = null; }
+  openingSfxEl.pause();
   if (beat.sfx){
-    const sfx = new Audio(beat.sfx);
-    sfx.loop = true; sfx.volume = .45;
-    sfx.play().catch(() => {});
-    openingState.sfxAudio = sfx;
+    openingSfxEl.src = beat.sfx;
+    openingSfxEl.currentTime = 0;
+    openingSfxEl.volume = .45;
+    openingSfxEl.play().catch(() => {});
   }
 
   const images = beat.images || (beat.image ? [beat.image] : []);
@@ -9341,14 +9341,17 @@ function playOpeningBeat(beatIndex, els){
     els.text.classList.add("showing");
   }, 260);
 
-  if (openingState.narrationAudio){ try { openingState.narrationAudio.pause(); } catch(e){} }
-  const narration = new Audio(beat.narration);
-  openingState.narrationAudio = narration;
+  openingNarrationEl.pause();
+  openingNarrationEl.onended = null;
+  openingNarrationEl.onerror = null;
+  openingNarrationEl.ontimeupdate = null;
+  openingNarrationEl.src = beat.narration;
+  openingNarrationEl.currentTime = 0;
   if (images.length > 1){
     // 2枚構成のシーン(裂け目の目→宇宙からの俯瞰など)：ナレーションが半分を過ぎた時点で、次の絵へ切り替える
-    narration.addEventListener("timeupdate", () => {
-      if (!narration.duration || els.image.dataset.swapped === "1") return;
-      if (narration.currentTime / narration.duration >= .5){
+    openingNarrationEl.ontimeupdate = () => {
+      if (!openingNarrationEl.duration || els.image.dataset.swapped === "1") return;
+      if (openingNarrationEl.currentTime / openingNarrationEl.duration >= .5){
         els.image.dataset.swapped = "1";
         els.image.classList.remove("showing");
         setTimeout(() => {
@@ -9358,7 +9361,7 @@ function playOpeningBeat(beatIndex, els){
           els.image.classList.add("showing");
         }, 260);
       }
-    });
+    };
   }
   let advanced = false;
   const advance = () => {
@@ -9367,24 +9370,24 @@ function playOpeningBeat(beatIndex, els){
     if (openingState.timer) clearTimeout(openingState.timer);
     playOpeningBeat(beatIndex + 1, els);
   };
-  narration.addEventListener("ended", advance);
-  narration.addEventListener("error", () => { openingState.timer = setTimeout(advance, 4800); }); // ファイルが無い場合のフォールバック
-  narration.play().catch(() => { openingState.timer = setTimeout(advance, 4800); });
+  openingNarrationEl.onended = advance;
+  openingNarrationEl.onerror = () => { openingState.timer = setTimeout(advance, 4800); }; // ファイルが無い場合のフォールバック
+  const playPromise = openingNarrationEl.play();
+  if (playPromise && playPromise.catch) playPromise.catch(() => { openingState.timer = setTimeout(advance, 4800); });
   openingState.timer = setTimeout(advance, 45000); // ended が発火しない不具合への保険(どのシーンよりも十分長い時間で最後の保険)
 }
 
 function finishOpening(){
   try { localStorage.setItem(OPENING_SEEN_KEY, "1"); } catch(e){}
   bgmUnlocked = true; // これ以降、テーマ曲は既に鳴っているので、unlockMainBgmOnceで鳴らし直さない
-  stopOpeningAudio({ keepBgm:true });
+  stopOpeningAudio();
   showScreen("screen-title");
-  playMainBgm("theme"); // 早送り(スキップ)された場合も含め、タイトル画面では必ずテーマ曲に落ち着かせる
+  playBgm("theme"); // 早送り(スキップ)された場合も含め、タイトル画面では必ずテーマ曲に落ち着かせる
 }
 
 function startOpening(){
   stopOpeningAudio();
-  if (mainBgmFadeTimer) clearInterval(mainBgmFadeTimer);
-  if (mainBgmAudio){ try { mainBgmAudio.pause(); } catch(e){} mainBgmAudio = null; mainBgmKey = null; } // 「序幕を見る」での再生時、本編BGMと重ならないようにする
+  primeAllAudioElements(); // 起動直後のタップから呼ばれるので、ここで全ての音声要素を解禁する
   openingState = { stopped:false };
   const els = {
     image: document.getElementById("opening-image"),
@@ -9404,25 +9407,25 @@ document.getElementById("btn-to-formation").addEventListener("click", () => {
   playSfx(REPO_BASE + "audio/tap_common.opus");
   buildFormationScreen();
   showScreen("screen-formation");
-  playMainBgm("formation");
+  playBgm("formation");
 });
 document.getElementById("btn-to-stage").addEventListener("click", () => {
   playSfx(REPO_BASE + "audio/tap_common.opus");
   buildStageScreen();
   showScreen("screen-stage");
-  playMainBgm("map");
+  playBgm("map");
 });
 document.getElementById("btn-back-formation").addEventListener("click", () => {
   playSfx(REPO_BASE + "audio/tap_common.opus");
   showScreen("screen-formation");
-  playMainBgm("formation");
+  playBgm("formation");
 });
 document.getElementById("btn-result-continue").addEventListener("click", () => {
   playSfx(REPO_BASE + "audio/tap_common.opus");
   debugUnit = null;
   buildStageScreen();
   showScreen("screen-stage");
-  playMainBgm("map");
+  playBgm("map");
 });
 document.getElementById("btn-opening-skip").addEventListener("click", () => {
   if (openingState) openingState.stopped = true;
