@@ -809,7 +809,7 @@
    ========================================================= */
 // @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
 // コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
-const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@55318a2/";
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@e35c4df2b3ece55c4b6eb22599600744218f1dc5/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
@@ -4001,7 +4001,7 @@ function tryDeploy(kind){
     const cur = currencyKey(def);
     if (battle[cur] < cost) return;
     battle[cur] -= cost;
-    playSfx("audio/tap_command.opus");
+    playSfx(REPO_BASE + "audio/tap_command.opus");
     const big = spawnUnit(kind, "player", 0, { lane: span >= 3 ? lanes[1] : lanes[0] });
     big.deployedKind = kind;
     big.slotIdx = state.formationSlots.findIndex(sl => sl.kind === kind);
@@ -4021,7 +4021,7 @@ function tryDeploy(kind){
   const cur = currencyKey(def);
   if (battle[cur] < total) return;
   battle[cur] -= total;
-  playSfx("audio/tap_command.opus");
+  playSfx(REPO_BASE + "audio/tap_command.opus");
   updateWalletUI();
   lanes.forEach(lane => {
     const main = spawnUnit(kind, "player", 0, { lane });
@@ -5778,7 +5778,7 @@ function issueCommand(cmdr, type, branchRole, target, opts){
   if (type === "attack") assignAttackLanes(cmd);
   if (type === "advance") startAdvance(cmd);
   cmdr.cmdCd[type] = CMD_COOLDOWN[type];                    // 軍令を出した瞬間から、クールタイムに入る
-  playSfx("audio/tap_command.opus");
+  playSfx(REPO_BASE + "audio/tap_command.opus");
   const bl = branchRole ? "→" + roleCfg(branchRole).label : "";
   queueBanner("軍令　" + roleCfg(cmdr.role).label + bl + "　" + CMD_LABEL[type] + (fm ? "　" + fm.name : ""), false, false);
   return true;
@@ -9041,7 +9041,7 @@ function playCastleFall(side, win){
 function endBattle(win, instant, reason){
   if (!battle || battle.ended) return;
   battle.ended = true;
-  playSfx(win ? "audio/sfx_victory.opus" : "audio/sfx_defeat.opus", .85);
+  playSfx(win ? REPO_BASE + "audio/sfx_victory.opus" : REPO_BASE + "audio/sfx_defeat.opus", .85);
   const b = battle;
   if (win && b.stage && b.stage.id){ state.cleared.add(b.stage.id); saveCleared(); } // 制した戦線を覚える
   restoreFormation();
@@ -9175,38 +9175,38 @@ function buildDebugPanel(){
    ========================================================= */
 const OPENING_SEEN_KEY = "shijoSenkiOpeningSeen";
 const BGM_TRACKS = {
-  first:      "audio/opening/bgm_first_half.opus",   // Scene1〜4：静かで不穏な曲
-  second:     "audio/opening/bgm_second_half.opus",  // Scene5〜6：壮大な戦い・崩壊の曲
-  theme:      "audio/opening/bgm_theme.opus",        // Scene7〜、ログイン(タイトル)画面
-  formation:  "audio/opening/bgm_formation.opus",    // 編成画面
-  map:        "audio/opening/bgm_map.opus",          // 戦線選択(地域マップ)画面
-  stage_low:  "audio/opening/bgm_stage_low.opus",    // 脅威度が低いステージ(魔野・骸原)
-  stage_high: "audio/opening/bgm_stage_high.opus",   // 脅威度が高いステージ(槍原・獣道・砦野。旧ゴブリン編BGM)
-  boss:       "audio/opening/bgm_boss.opus"          // ラスボスステージ(鬼哭野・実装時に使用)
+  first:      REPO_BASE + "audio/opening/bgm_first_half.opus",   // Scene1〜4：静かで不穏な曲
+  second:     REPO_BASE + "audio/opening/bgm_second_half.opus",  // Scene5〜6：壮大な戦い・崩壊の曲
+  theme:      REPO_BASE + "audio/opening/bgm_theme.opus",        // Scene7〜、ログイン(タイトル)画面
+  formation:  REPO_BASE + "audio/opening/bgm_formation.opus",    // 編成画面
+  map:        REPO_BASE + "audio/opening/bgm_map.opus",          // 戦線選択(地域マップ)画面
+  stage_low:  REPO_BASE + "audio/opening/bgm_stage_low.opus",    // 脅威度が低いステージ(魔野・骸原)
+  stage_high: REPO_BASE + "audio/opening/bgm_stage_high.opus",   // 脅威度が高いステージ(槍原・獣道・砦野。旧ゴブリン編BGM)
+  boss:       REPO_BASE + "audio/opening/bgm_boss.opus"          // ラスボスステージ(鬼哭野・実装時に使用)
 };
 // シーンごとに、ナレーションは1本(通しで読んだもの)。sfxは環境音(シーン1〜5のみ、ループ再生)。
 // scene6だけimagesが2枚。ナレーション音声の再生が半分を過ぎた時点で、1枚目→2枚目へ自動で切り替わる
 const OPENING_BEATS = [
-  { image:"images/opening/scene1.png", bgm:"first", sfx:"audio/sfx_scene1.opus",
-    narration:"audio/narration_scene1.mp3",
+  { image:REPO_BASE + "images/opening/scene1.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene1.opus",
+    narration:REPO_BASE + "audio/narration_scene1.mp3",
     text:"かつて、世界はまだ、一つじゃった。\n変わらぬ朝が来て、変わらぬ夜が来る。それだけの、当たり前の日々よ。" },
-  { image:"images/opening/scene2.png", bgm:"first", sfx:"audio/sfx_scene2.opus",
-    narration:"audio/narration_scene2.mp3",
+  { image:REPO_BASE + "images/opening/scene2.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene2.opus",
+    narration:REPO_BASE + "audio/narration_scene2.mp3",
     text:"だが、その平穏の裏で、ある者たちが動き出していた。\n己を「灰燼」と名乗る者たち。その正体を、知る者は誰もおらぬ。" },
-  { image:"images/opening/scene3.png", bgm:"first", sfx:"audio/sfx_scene3.opus",
-    narration:"audio/narration_scene3.mp3",
+  { image:REPO_BASE + "images/opening/scene3.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene3.opus",
+    narration:REPO_BASE + "audio/narration_scene3.mp3",
     text:"彼らが生み出したのは、人ならざる力じゃった。\n血と鋼で編まれた、崩壊のための兵よ。" },
-  { image:"images/opening/scene4.png", bgm:"first", sfx:"audio/sfx_scene4.opus",
-    narration:"audio/narration_scene4.mp3",
+  { image:REPO_BASE + "images/opening/scene4.png", bgm:"first", sfx:REPO_BASE + "audio/sfx_scene4.opus",
+    narration:REPO_BASE + "audio/narration_scene4.mp3",
     text:"牙は、まず要となる地へ向けられた。\n積み上げてきた文明が、一夜にして灰と煙に変わっていったのじゃ。" },
-  { images:["images/opening/scene5a.png","images/opening/scene5b.png"], bgm:"second", sfx:"audio/sfx_scene5.opus",
-    narration:"audio/narration_scene5.mp3",
+  { images:[REPO_BASE + "images/opening/scene5a.png",REPO_BASE + "images/opening/scene5b.png"], bgm:"second", sfx:REPO_BASE + "audio/sfx_scene5.opus",
+    narration:REPO_BASE + "audio/narration_scene5.mp3",
     text:"そしてその只中――大地そのものが、悲鳴を上げた。\n亀裂は瞬く間に世界を駆け巡り、大地を、人を、隔てていった。" },
-  { images:["images/opening/scene6a.png","images/opening/scene6b.png"], bgm:"second",
-    narration:"audio/narration_scene6.mp3",
+  { images:[REPO_BASE + "images/opening/scene6a.png",REPO_BASE + "images/opening/scene6b.png"], bgm:"second",
+    narration:REPO_BASE + "audio/narration_scene6.mp3",
     text:"裂け目の奥で、赤い瞳が目を覚ます。\nかつて封じられていたはずの厄災が、世界中の裂け目から、一斉に解き放たれたのじゃ。" },
-  { image:"images/opening/scene7.png", bgm:"theme",
-    narration:"audio/narration_scene7.mp3",
+  { image:REPO_BASE + "images/opening/scene7.png", bgm:"theme",
+    narration:REPO_BASE + "audio/narration_scene7.mp3",
     text:"――それから、二百年。\n国はなく、文明の記憶さえ遠い伝説となった。\nじゃが人は、それでもまだ、生きることをやめてはおらぬ。\n\n屍を糧に、鬼を討つ――屍城軍。" }
 ];
 
@@ -9391,24 +9391,24 @@ function startOpening(){
    ========================================================= */
 buildMenuBackdrop(STAGES[0]);
 document.getElementById("btn-to-formation").addEventListener("click", () => {
-  playSfx("audio/tap_common.opus");
+  playSfx(REPO_BASE + "audio/tap_common.opus");
   buildFormationScreen();
   showScreen("screen-formation");
   playMainBgm("formation");
 });
 document.getElementById("btn-to-stage").addEventListener("click", () => {
-  playSfx("audio/tap_common.opus");
+  playSfx(REPO_BASE + "audio/tap_common.opus");
   buildStageScreen();
   showScreen("screen-stage");
   playMainBgm("map");
 });
 document.getElementById("btn-back-formation").addEventListener("click", () => {
-  playSfx("audio/tap_common.opus");
+  playSfx(REPO_BASE + "audio/tap_common.opus");
   showScreen("screen-formation");
   playMainBgm("formation");
 });
 document.getElementById("btn-result-continue").addEventListener("click", () => {
-  playSfx("audio/tap_common.opus");
+  playSfx(REPO_BASE + "audio/tap_common.opus");
   debugUnit = null;
   buildStageScreen();
   showScreen("screen-stage");
