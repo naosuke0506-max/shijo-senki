@@ -360,6 +360,12 @@
   .fm-cell i{ position:absolute; right:1px; top:-1px; font-style:normal; font-size:.7rem; color:#ffe28a; text-shadow:0 0 4px #000; } .fm-cell i.big{ position:static; font-size:1.1rem; }
   .fm-side{ display:flex; justify-content:space-between; max-width:1000px; margin-top:3px; font-size:.66rem; letter-spacing:.1em; color:#8f8567; }
   .fm-foot{ margin-top:12px; }
+  .fm-name{ width:180px; padding:5px 10px; font-family:var(--mincho); font-size:.9rem; letter-spacing:.1em; color:#f0d58a; background:rgba(10,7,6,.85); border:1px solid #5a4a2c; }
+  .fm-name::placeholder{ color:#7d735a; font-size:.72rem; letter-spacing:.02em; }
+  .site-form-btn{ flex-shrink:0; height:56px; padding:0 16px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; font-family:var(--mincho);
+    color:#f0d58a; background:linear-gradient(180deg,rgba(90,60,14,.95),rgba(38,24,6,.98)); border:1px solid #f0d58a; box-shadow:0 0 0 1px #8a6a2c, 0 0 12px rgba(240,213,138,.45); }
+  .site-form-btn b{ font-size:.92rem; letter-spacing:.14em; } .site-form-btn span{ font-size:.62rem; letter-spacing:.08em; color:#cbbd94; }
+  .site-form-btn.used{ opacity:.4; box-shadow:none; }
   .fm-foot .md-tgt:disabled{ opacity:.4; }
   .wm-lcard .lc-pick{ font-family:var(--mincho); letter-spacing:.14em; padding:4px 14px; color:#f0cf6a; background:rgba(10,7,6,.82); border:1px solid #8a6a2c; }
   .lp-now{ display:inline-flex; align-items:center; gap:8px; font-family:var(--mincho); font-size:.86rem; color:#f0d58a; } .lp-now img{ width:34px; height:34px; object-fit:contain; }
@@ -4216,7 +4222,7 @@ function wmUpdateUi(){
   card.innerHTML = '<div class="lc-name">リーダー' + l.letter + '<span>' + l.name + '</span></div><div class="lc-line">' + where + '　' + status + '</div>' +
     '<div class="lc-line">リーダーの兵：' + (l.kind ? CHAR_DEFS[l.kind].name : '未選択') + '　兵 ' + teamCount(l) + '/' + TEAM_CAP + '　歩く速さ ×' + (l.speed / LEADER_BASE_SPEED).toFixed(2) + '</div>' +
     '<div class="lc-hint">' + (l.path ? '<button class="lc-stop">止める</button>' : (canPick ? '<button class="lc-pick">リーダーの兵を選ぶ</button>' : '地図をタップして、🚩を立てる')) +
-    (l.path ? '' : '　<button class="lc-form">陣形' + (l.formation ? '(' + (l.formation.mode === "defend" ? '守備' : '攻め') + ')' : (teamCount(l) >= FORM_MIN_TEAM ? '' : '　10人から')) + '</button>') + '</div>';
+    (l.path ? '' : '　<button class="lc-form">陣形' + (l.formation ? '　' + formDisplayName(l.formation) + '(' + (l.formation.mode === "defend" ? '守備' : '攻め') + ')' : (teamCount(l) >= FORM_MIN_TEAM ? '' : '　10人から')) + '</button>') + '</div>';
   card.classList.add("on");
   const fm = card.querySelector(".lc-form"); if (fm) fm.addEventListener("click", ev => { ev.stopPropagation(); playSfx(REPO_BASE + "audio/tap_common.opus"); wmOpenFormation(l); });
   const pk = card.querySelector(".lc-pick"); if (pk) pk.addEventListener("click", ev => { ev.stopPropagation(); playSfx(REPO_BASE + "audio/tap_common.opus"); const s2 = leaderSiteInfo(l); if (s2) wmModalOpen("leader", s2.node.id, s2.mapKey, l.id); });
@@ -4329,6 +4335,11 @@ function siteBattleJoin(leaders){
   const sb = battle.stage.siteBattle; let added = 0;
   leaders.forEach(l => {
     if (l.kind && !(battle.leaderUnits || []).some(e => e.lid === l.id)){ battle.leaderUnits.push({ lid:l.id, kind:l.kind, placed:false }); added++; }
+    if (leaderFormationUsable(l) && (sb.formLeaders || (sb.formLeaders = [])).indexOf(l.id) === -1){          // 陣形のあるチーム：チームのまま加わり、召喚欄に「○○陣召喚」が出る
+      sb.formLeaders.push(l.id); battle.origin[l.id] = Object.assign({}, l.team); for (const k in l.team){ battle.roster[k] = (battle.roster[k] || 0) + l.team[k]; added += l.team[k]; }
+      if (sb.mode === "attack" && sb.leaderIds.indexOf(l.id) === -1) sb.leaderIds.push(l.id);
+      return;
+    }
     if (sb.mode === "defend"){ for (const k in l.team){ battle.roster[k] = (battle.roster[k] || 0) + l.team[k]; battle.origin.supply[k] = (battle.origin.supply[k] || 0) + l.team[k]; added += l.team[k]; } l.team = {}; l.speed = leaderSpeedOf(l); }
     else if (sb.leaderIds.indexOf(l.id) === -1){ sb.leaderIds.push(l.id); battle.origin[l.id] = Object.assign({}, l.team); for (const k in l.team){ battle.roster[k] = (battle.roster[k] || 0) + l.team[k]; added += l.team[k]; } }
   });
@@ -4343,8 +4354,7 @@ function siteBattleSetup(stage){
   scr.classList.add("site-battle", "atmo-" + sb.terrain);      // 地形に合わせた演出(霧・舞う粒・鳥)
   scr.classList.toggle("site-no-enemy-castle", sb.mode === "defend");
   scr.classList.toggle("site-no-player-castle", sb.mode === "attack");
-  battle.formQueue = []; battle.formStart = 0; battle.exited = {};
-  (sb.formLeaders || []).forEach(id => siteFormationPlan(id));            // 陣形のあるチームは、勝手にその陣形で出てくる
+  battle.formQueue = []; battle.formUsed = {}; battle.exited = {};       // 陣形は、召喚欄の「○○陣召喚」を押すと、出てくる
   buildSiteDeployRow();
   showToast(sb.mode === "defend" ? "兵を選び、戦場のマスをタップして置け" : "兵を選び、出す戦列をタップせよ。敵の城を落とせば、勝ち");
 }
@@ -4355,6 +4365,20 @@ function buildSiteDeployRow(){
   const kinds = Object.keys(battle.roster).filter(k => battle.roster[k] > 0 && CHAR_DEFS[k]);
   const lus = (battle.leaderUnits || []).filter(e => !e.placed);
   if (battle.placeKind && !kinds.includes(battle.placeKind) && !lus.some(e => "leader:" + e.lid === battle.placeKind)) battle.placeKind = null;
+  (battle.stage.siteBattle.formLeaders || []).forEach(lid => {                          // 陣形：「○○陣召喚」
+    const lead = world.leaders.find(x => x.id === lid); if (!leaderFormationUsable(lead)) return;
+    const used = !!battle.formUsed[lid], btn = document.createElement("button");
+    btn.className = "site-form-btn" + (used ? " used" : ""); btn.dataset.kind = "form:" + lid; btn.dataset.rname = formDisplayName(lead.formation) + "召喚"; btn.dataset.reading = "";
+    btn.dataset.desc = (lead.formation.mode === "defend" ? "守備：出てきて、持ち場で待機する。射程に入った敵だけを攻撃する。" : "攻め：陣形のまま出て、それぞれの速さで進む。") + "(リーダー" + lead.letter + "のチーム)";
+    btn.innerHTML = '<b>' + formDisplayName(lead.formation) + '召喚</b><span>' + (lead.formation.mode === "defend" ? '守備' : '攻め') + '　' + lead.letter + '</span>';
+    btn.disabled = used;
+    btn.addEventListener("click", () => {
+      if (battle.formUsed[lid]) return;
+      playSfx(REPO_BASE + "audio/tap_command.opus"); battle.formUsed[lid] = true; battle.placeKind = null; battle.moveSel = null; siteClearSel();
+      siteFormationPlan(lid); buildSiteDeployRow(); showToast(formDisplayName(lead.formation) + "、召喚");
+    });
+    row.appendChild(btn);
+  });
   lus.forEach(e => {                                                     // リーダー(まだ出していなければ)
     const def = CHAR_DEFS[e.kind], btn = document.createElement("button"), lead = world.leaders.find(l => l.id === e.lid);
     btn.className = "site-unit-btn leader" + (battle.placeKind === "leader:" + e.lid ? " on" : ""); btn.dataset.kind = "leader:" + e.lid; btn.dataset.rname = "リーダー" + (lead ? lead.letter : "") + "(" + def.name + ")"; btn.dataset.reading = ""; btn.dataset.desc = LEADER_AURA[e.kind].text;
@@ -4546,6 +4570,24 @@ function siteDeployLeader(lid, lane, lx){
    ・チームが10人になると作れる。あれば、配置・攻めるを押すだけで、その陣形で戦う
    ========================================================= */
 const FORM_COLS = 20, FORM_LANES = 5, FORM_MIN_TEAM = 10;
+// 形から、陣の名前を決める(名前を決めなかったとき)。「陣」は付けない(表示で「○○陣」にする)
+function formAutoName(cells){
+  const n = cells.length; if (!n) return "方円";
+  const dcs = cells.map(c => c.dc), drs = cells.map(c => c.dr), maxDc = Math.max.apply(null, dcs), minDc = Math.min.apply(null, dcs), maxDr = Math.max.apply(null, drs), minDr = Math.min.apply(null, drs);
+  const depth = maxDc - minDc + 1, width = maxDr - minDr + 1;
+  const front = cells.filter(c => c.dc >= maxDc - 1).length, rear = cells.filter(c => c.dc <= minDc + 1).length;
+  const mx = dcs.reduce((a, b) => a + b, 0) / n, my = drs.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0, sxx = 0, syy = 0; cells.forEach(c => { sxy += (c.dc - mx) * (c.dr - my); sxx += (c.dc - mx) ** 2; syy += (c.dr - my) ** 2; });
+  const corr = sxx > 0 && syy > 0 ? sxy / Math.sqrt(sxx * syy) : 0;
+  if (width <= 2 && depth >= 5) return "長蛇";
+  if (width >= 3 && Math.abs(corr) >= 0.7) return "雁行";
+  if (depth <= 2 && width >= 4) return "衡軛";
+  if (front + 2 <= rear) return "鋒矢";
+  if (front + 1 === rear) return "魚鱗";
+  if (front >= rear + 2) return "鶴翼";
+  return "方円";
+}
+function formDisplayName(f){ return ((f && f.name) ? f.name.replace(/陣$/, "") : "陣形") + "陣"; }
 function leaderFormationUsable(l){ return !!(l && l.formation && l.formation.center && l.formation.cells && l.formation.cells.length); }
 function formCellsAbs(f){ const o = {}; f.cells.forEach(c => { o[(f.center.c + c.dc) + "," + (f.center.r + c.dr)] = c.k; }); return o; }
 function wmOpenFormation(l){
@@ -4553,7 +4595,7 @@ function wmOpenFormation(l){
   const m = wmModalEl(); if (!m) return;
   m.dataset.kind = "formation"; m.dataset.leader = l.id; m.classList.add("on");
   const f = l.formation;
-  m._f = { lid:l.id, mode:f ? f.mode : "defend", center:f ? { c:f.center.c, r:f.center.r } : null, cells:f ? formCellsAbs(f) : {}, sel:null, moveCenter:false };
+  m._f = { lid:l.id, mode:f ? f.mode : "defend", center:f ? { c:f.center.c, r:f.center.r } : null, cells:f ? formCellsAbs(f) : {}, sel:null, moveCenter:false, name:f && f.name ? f.name : "" };
   wmRenderFormation(m);
 }
 function wmRenderFormation(m){
@@ -4562,6 +4604,7 @@ function wmRenderFormation(m){
   let html = '<div class="md-head"><div class="md-title">陣形<span>リーダー' + l.letter + '　' + l.name + '</span></div><div class="md-wallet">配置 ' + Object.keys(F.cells).length + '/' + teamCount(l) + '人</div><button class="md-close">閉じる</button></div>';
   html += '<div class="md-row"><span class="md-lab">戦い方</span><button class="md-tgt fm-mode' + (F.mode === "defend" ? ' on' : '') + '" data-mode="defend">守備</button><button class="md-tgt fm-mode' + (F.mode === "attack" ? ' on' : '') + '" data-mode="attack">攻め</button>' +
     '<span class="fm-help">' + (F.mode === "defend" ? '中心のマスに立ち止まり、待機する。射程に入った敵だけを攻撃する。' : '陣形のまま出てきて、それぞれの速さで、進む。') + '</span></div>';
+  html += '<div class="md-row"><span class="md-lab">陣の名前</span><input id="fm-name" class="fm-name" type="text" maxlength="6" value="' + F.name.replace(/"/g, "") + '" placeholder="空なら、形から自動で付ける"><span class="fm-help">召喚欄には「○○陣召喚」と出る</span></div>';
   html += '<div class="md-row fm-pal"><span class="md-lab">置く兵</span>';
   Object.keys(l.team).filter(k => l.team[k] > 0 && CHAR_DEFS[k]).forEach(k => {
     const left = l.team[k] - (placed[k] || 0), d = CHAR_DEFS[k];
@@ -4584,6 +4627,7 @@ function wmRenderFormation(m){
   m.innerHTML = html;
   m.querySelector(".md-close").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmModalClose(); });
   m.querySelectorAll(".fm-mode").forEach(b => b.addEventListener("click", () => { F.mode = b.dataset.mode; wmRenderFormation(m); }));
+  m.querySelector("#fm-name").addEventListener("input", e => { F.name = e.target.value; });
   m.querySelectorAll(".fm-unit").forEach(b => b.addEventListener("click", () => { F.sel = F.sel === b.dataset.k ? null : b.dataset.k; F.moveCenter = false; wmRenderFormation(m); }));
   m.querySelectorAll(".fm-cell").forEach(b => b.addEventListener("click", () => wmFormationTap(m, +b.dataset.c, +b.dataset.r)));
   const mv = m.querySelector("#fm-move"); if (mv) mv.addEventListener("click", () => { F.moveCenter = !F.moveCenter; F.sel = null; wmRenderFormation(m); });
@@ -4592,8 +4636,10 @@ function wmRenderFormation(m){
   m.querySelector("#fm-save").addEventListener("click", () => {
     if (!F.center){ showToast("中心のマスを、決める"); return; }
     if (!Object.keys(F.cells).length){ showToast("兵を、置く"); return; }
-    l.formation = { mode:F.mode, center:{ c:F.center.c, r:F.center.r }, cells:Object.keys(F.cells).map(key => { const p = key.split(",").map(Number); return { k:F.cells[key], dc:p[0] - F.center.c, dr:p[1] - F.center.r }; }) };
-    playSfx(REPO_BASE + "audio/tap_command.opus"); showToast("陣形を保存した(" + (F.mode === "defend" ? "守備" : "攻め") + ")"); wmModalClose(); wmUpdateUi();
+    const cells = Object.keys(F.cells).map(key => { const p = key.split(",").map(Number); return { k:F.cells[key], dc:p[0] - F.center.c, dr:p[1] - F.center.r }; });
+    const typed = (F.name || "").trim().replace(/陣$/, ""), name = typed || formAutoName(cells);                  // 決めなければ、形から、自動で付ける
+    l.formation = { name, auto:!typed, mode:F.mode, center:{ c:F.center.c, r:F.center.r }, cells };
+    playSfx(REPO_BASE + "audio/tap_command.opus"); showToast(formDisplayName(l.formation) + "を保存した(" + (F.mode === "defend" ? "守備" : "攻め") + ")"); wmModalClose(); wmUpdateUi();
   });
 }
 function wmFormationTap(m, c, r){
@@ -4619,7 +4665,7 @@ function siteFormationPlan(lid){
   F.cells.forEach(c => entries.push({ kind:c.k, dc:c.dc, dr:c.dr }));
   entries.sort((a, b) => b.dc - a.dc);
   const minDc = Math.min.apply(null, [0].concat(F.cells.map(c => c.dc)));
-  let t = 0.4; entries.forEach(en => { battle.formQueue.push({ at:t, en, lid, minDc }); t += 0.28; });
+  let t = battle.time + 0.2; entries.forEach(en => { battle.formQueue.push({ at:t, en, lid, minDc }); t += 0.28; });
 }
 function siteFormationSpawn(it){
   const l = world.leaders.find(x => x.id === it.lid), F = l && l.formation, sb = battle.stage.siteBattle; if (!F) return;
