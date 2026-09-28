@@ -257,6 +257,19 @@
   .wm-lcard .lc-line{ margin-top:4px; font-size:.78rem; letter-spacing:.06em; color:#d8ccaa; }
   .wm-lcard .lc-hint{ margin-top:6px; font-size:.68rem; letter-spacing:.06em; color:#9c8f6e; }
   .wm-lcard .lc-stop{ font-family:var(--mincho); letter-spacing:.2em; padding:4px 16px 4px calc(16px + .2em); color:#f0cf6a; background:rgba(10,7,6,.82); border:1px solid #8a6a2c; }
+  /* --- 拠点の戦闘 --- */
+  .site-unit-btn{ position:relative; width:56px; height:56px; padding:0; border-radius:2px; overflow:hidden; flex-shrink:0; border:1px solid var(--line); background:#0c0a07; }
+  .site-unit-btn img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .site-unit-btn .su-n{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.78); font-size:.66rem; font-family:monospace; color:#f0d58a; text-align:center; }
+  .site-unit-btn.on{ border-color:#f0d58a; box-shadow:0 0 0 2px rgba(240,213,138,.75), 0 0 14px 2px rgba(240,213,138,.6); }
+  .site-empty, .site-note{ align-self:center; font-family:var(--mincho); font-size:.72rem; letter-spacing:.08em; color:#b9a97a; padding:0 8px; white-space:nowrap; }
+  .site-note{ color:#8fb0d8; }
+  #screen-battle.site-battle #lane-buttons{ display:none !important; }
+  #screen-battle.site-no-enemy-castle .hpbar.enemy, #screen-battle.site-no-player-castle .hpbar.player{ display:none; }
+  #screen-battle.site-no-enemy-castle #battlefield .castle.enemy, #screen-battle.site-no-player-castle #battlefield .castle.player{ display:none; }
+  #screen-battle.site-no-enemy-castle #stage-backdrop img.bd-keep[data-side="enemy"], #screen-battle.site-no-player-castle #stage-backdrop img.bd-keep[data-side="player"]{ display:none; }
+  #screen-battle.site-no-enemy-castle #stage-backdrop .bd-smoke.enemy, #screen-battle.site-no-player-castle #stage-backdrop .bd-smoke.player{ display:none; }
+  #battlefield .unit-sprite.site-sel{ filter:drop-shadow(0 0 6px #ffe28a) drop-shadow(0 0 14px #ffcf5a); }
   .wm-clock .wm-wallet{ margin-top:2px; color:#e8d29a; letter-spacing:.1em; }
   .wm-info .wi-stat{ margin-top:6px; font-size:.7rem; letter-spacing:.06em; color:#9c8f6e; }
   .wm-info .wi-menu{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
@@ -3935,6 +3948,7 @@ function worldFrame(ts){
   if (!worldLastTs){ worldLastTs = ts; return; }
   let dt = (ts - worldLastTs) / 1000; worldLastTs = ts;
   if (document.hidden || dt <= 0) return;
+  if (document.getElementById("screen-battle").classList.contains("active")) return;        // 戦闘中は、地図の時間を止める
   if (dt > .25) dt = .25;                     // 画面が止まっていた間の時間は、進めない
   worldStep(dt); wmSyncView(dt);
 }
@@ -4039,6 +4053,142 @@ function wmSelectLeader(id, fromToken){
   else if (wmState.subKey !== mapKey) wmOpenSub(mapKey, null);
   wmUpdateUi();
 }
+/* =========================================================
+   拠点の戦闘：「配置」と「攻める」から入る戦闘
+   - 自軍の拠点(守り)：自城あり・敵の城なし。兵は、戦列のどの位置にも置ける。敵が入ってくるまでは待ち伏せ(立ち止まる)
+   - 敵の拠点(攻め)：敵の城あり・自城なし。連れてきた兵を置き、敵城を落とせば勝ち
+   - 兵は、屍で召喚せず、補給兵(守り)かリーダーのチーム(攻め)から選んで置く。戦闘で得た屍は、地図の屍に足される
+   ========================================================= */
+const SITE_CASTLE_HP = 3000, SITE_ENEMY_CASTLE_HP = 2500;
+const SITE_TERRAIN = {
+  west:{ castle:"mountain", post_up:"mountain", post_dn:"mountain", village:"village", gate:"village", front1:"field", front2:"field", captured:"mountain", gob_w1:"field" },
+  east:{ cult1:"field", ruin1:"field", ruin2:"field", gob_e1:"field", gob_e2:"field", gob_e3:"field", cave:"cave", summit:"mountain" },
+  forest:{ f_cult1:"forest", f_gob1:"forest", f_gob2:"forest" },
+  cave:{ c_gob1:"cave", c_gob2:"cave", c_gob3:"cave", c_gob4:"cave", c_gob5:"cave" }
+};
+function siteTerrain(mapKey, id){ return (SITE_TERRAIN[mapKey] && SITE_TERRAIN[mapKey][id]) || "field"; }
+function siteArt(t){ return { seed:20261001 + t.length * 7, bg:t + "_bg.jpg", ground:[t + "_ground.jpg"], castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }; }
+function siteAttackable(node, mapKey){ return !!node && node.owner === "goblin" && node.id !== "summit"; }     // 灰燼教団の兵・鬼哭野の守りは、まだ作っていない
+function siteGarrison(node, mapKey){
+  const deep = mapKey === "cave" || mapKey === "forest" || node.id === "cave";
+  const list = deep ? [["goblin",6],["archer",2],["bruteGoblin",2]] : [["goblin",5],["archer",2]], out = [];
+  let i = 0;
+  list.forEach(([kind, n]) => { for (let j = 0; j < n; j++, i++) out.push({ t:0, kind, lane:i % GRID_LANES, xOffset:kind === "archer" ? 20 + (j % 2) * 40 : 150 + (i % 3) * 70 }); });
+  return out;
+}
+function siteBattleStart(mode, mapKey, node, leader){
+  const supply = siteSupply(node.id); let roster;
+  if (mode === "defend"){
+    if (leader){                                                     // 配置を押したリーダーの部隊は、補給兵枠に入る
+      for (const k in leader.team) supply[k] = (supply[k] || 0) + leader.team[k];
+      leader.team = {}; leader.speed = leaderSpeedOf(leader);
+    }
+    roster = Object.assign({}, supply);
+  } else {
+    if (!leader){ showToast("リーダーが、ここにいない"); return; }
+    roster = Object.assign({}, leader.team);
+  }
+  if (!Object.keys(roster).some(k => roster[k] > 0) && mode === "attack"){ showToast("連れている兵が、いない"); return; }
+  const terrain = siteTerrain(mapKey, node.id), atk = mode === "attack";
+  const stage = {
+    id:"site:" + node.id, name:node.name + (atk ? "　攻め" : "　守り"), art:siteArt(terrain), bgm:atk ? "stage_high" : "stage_low", lanes:[0,1,2,3,4],
+    enemyCastleHp:atk ? SITE_ENEMY_CASTLE_HP : 1e9, playerCastleHp:atk ? 1e9 : SITE_CASTLE_HP, startCorpse:0, corpseGainRate:1.0,
+    enemyWaves:atk ? siteGarrison(node, mapKey) : [],
+    siteBattle:{ mode, siteId:node.id, mapKey, leaderId:leader ? leader.id : null, roster, terrain }
+  };
+  saveWorld();
+  startBattle(stage);
+}
+// 戦闘が始まった直後の準備(startBattle の最後に呼ぶ)
+function siteBattleSetup(stage){
+  const sb = stage.siteBattle, scr = document.getElementById("screen-battle");
+  battle.roster = sb.roster; battle.placeKind = null; battle.moveSel = null; battle.siteEnemyEntered = false; battle.corpse = 0;
+  battle.hold = { player:sb.mode === "defend", enemy:sb.mode === "attack" };   // 守り：自軍は、持ち場で待ち伏せ(敵は、自城へ攻め寄せる)。攻め：敵は、守りを固める(自軍は、敵城へ進む)
+  scr.classList.add("site-battle");
+  scr.classList.toggle("site-no-enemy-castle", sb.mode === "defend");
+  scr.classList.toggle("site-no-player-castle", sb.mode === "attack");
+  buildSiteDeployRow();
+  showToast(sb.mode === "defend" ? "兵を選び、戦場のマスをタップして置け" : "兵を選び、置く場所をタップせよ。敵の城を落とせば、勝ち");
+}
+function siteBattleAmbush(){ return !!battle && !!battle.stage.siteBattle && battle.stage.siteBattle.mode === "defend" && !battle.siteEnemyEntered; }
+function buildSiteDeployRow(){
+  const row = document.getElementById("deploy-row"); if (!row || !battle || !battle.roster) return;
+  row.innerHTML = "";
+  const kinds = Object.keys(battle.roster).filter(k => battle.roster[k] > 0 && CHAR_DEFS[k]);
+  if (battle.placeKind && !kinds.includes(battle.placeKind)) battle.placeKind = null;
+  kinds.forEach(kind => {
+    const def = CHAR_DEFS[kind], btn = document.createElement("button");
+    btn.className = "site-unit-btn" + (battle.placeKind === kind ? " on" : ""); btn.dataset.kind = kind; btn.dataset.rname = def.name; btn.dataset.reading = def.reading || ""; btn.dataset.desc = unitDesc(def);
+    btn.innerHTML = '<img src="' + def.icon + '" alt="' + def.name + '"><span class="su-n">×' + battle.roster[kind] + '</span>';
+    attachImgFallback(btn.querySelector("img"), def.name);
+    btn.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); battle.placeKind = battle.placeKind === kind ? null : kind; battle.moveSel = null; siteClearSel(); buildSiteDeployRow(); if (battle.placeKind) showToast(def.name + "：置くマスを、戦場でタップ"); });
+    row.appendChild(btn);
+  });
+  if (!kinds.length){ const e = document.createElement("div"); e.className = "site-empty"; e.textContent = "置ける兵は、もういない"; row.appendChild(e); }
+  const info = document.createElement("div"); info.className = "site-note"; info.textContent = siteBattleAmbush() ? "待ち伏せ中(敵が来るまで、兵は動かない)" : ""; row.appendChild(info);
+  updateWalletUI();
+}
+function siteClearSel(){ document.querySelectorAll("#battlefield .unit-sprite.site-sel").forEach(e => e.classList.remove("site-sel")); }
+function siteLaneOf(p){ const lane = Math.floor((STAGE_H - GRID_GROUND - p.ly) / GRID_CELL); return lane >= 0 && lane < GRID_LANES ? lane : -1; }
+function siteDeploy(kind, lane, lx){
+  const def = CHAR_DEFS[kind]; if (!def) return false;
+  if (!(battle.roster[kind] > 0)){ showToast("もう、いない"); return false; }
+  if (def.canPlaceStructure || def.canPickRepairTarget || def.canPickRiders || def.canPickGascanSite){ showToast(def.name + "は、この戦闘では、まだ置けない"); battle.placeKind = null; buildSiteDeployRow(); return false; }
+  const col = columnOfX(lx), u = spawnUnit(kind, "player", 0, { lane });
+  u.x = columnCenterX(col) - 30; u.deployedKind = kind; u.siteRoster = true; applyFrame(u);
+  if (def.hornAbility) startCommanderHorn(u);
+  battle.roster[kind]--; playSfx(REPO_BASE + "audio/tap_command.opus"); buildSiteDeployRow();
+  return true;
+}
+function siteMoveUnit(u, lane, lx){
+  const col = columnOfX(lx); setUnitLane(u, lane); u.x = columnCenterX(col) - 30; applyFrame(u); playSfx(REPO_BASE + "audio/tap_common.opus");
+}
+// 戦場をタップしたとき。処理したら true を返す
+function siteBattleFieldTap(p){
+  const lane = siteLaneOf(p), u = unitAtPoint(p.lx, p.ly);
+  if (siteBattleAmbush() && u && u.side === "player" && u.siteRoster){                    // 置いた兵をタップ：動かす兵として選ぶ(置く兵の選択は、いったん外れる)
+    battle.placeKind = null; buildSiteDeployRow(); battle.moveSel = u; siteClearSel(); u.el.classList.add("site-sel"); showUnitInfo(u); return true;
+  }
+  if (battle.placeKind){
+    if (lane < 0){ battle.placeKind = null; buildSiteDeployRow(); return true; }
+    siteDeploy(battle.placeKind, lane, p.lx); return true;
+  }
+  if (siteBattleAmbush()){                                          // 待ち伏せの間は、置いた兵をタップして、好きなマスへ動かせる
+    if (u && u.side === "player" && u.siteRoster){ battle.moveSel = u; siteClearSel(); u.el.classList.add("site-sel"); showUnitInfo(u); return true; }
+    if (battle.moveSel && !battle.moveSel.dead && lane >= 0){ siteMoveUnit(battle.moveSel, lane, p.lx); return true; }
+  }
+  if (u){ showUnitInfo(u); return true; }
+  return true;
+}
+// 毎フレーム：敵の侵入・勝敗の判定
+function siteBattleCheck(){
+  const sb = battle.stage.siteBattle, enemies = battle.units.filter(u => u.side === "enemy" && !u.dead && !u.def.gateUnit && !u.def.structureUnit);
+  if (!battle.siteEnemyEntered && enemies.length){
+    battle.siteEnemyEntered = true;
+    if (sb.mode === "defend"){ queueBanner("敵、侵入。戦い、始まる", false, true); battle.moveSel = null; siteClearSel(); buildSiteDeployRow(); }
+  }
+  if (battle.ended) return;
+  const waves = battle.stage.enemyWaves || [], pendingWaves = battle.nextWave < waves.length;
+  const mine = battle.units.filter(u => u.side === "player" && !u.dead && u.siteRoster).length, spare = sumCounts(battle.roster);
+  if (sb.mode === "defend"){
+    if (battle.siteEnemyEntered && !enemies.length && !pendingWaves) endBattle(true, false, "repel");
+  } else {
+    if (battle.time > 2 && !mine && !spare) endBattle(false, true, "wipe");
+  }
+}
+// 戦闘が終わったとき：生き残った兵を戻し、得た屍を、地図の屍に足す
+function siteBattleFinish(b, win, reason){
+  const sb = b.stage.siteBattle, back = Object.assign({}, b.roster);
+  b.units.forEach(u => { if (u.side === "player" && !u.dead && u.siteRoster){ const k = u.deployedKind || u.kind; back[k] = (back[k] || 0) + 1; } });
+  for (const k in back) if (back[k] <= 0) delete back[k];
+  const gained = Math.floor(b.corpse || 0); world.corpse += gained;
+  if (sb.mode === "defend"){ world.supply[sb.siteId] = back; }
+  else { const l = world.leaders.find(x => x.id === sb.leaderId); if (l){ l.team = back; l.speed = leaderSpeedOf(l); } }
+  b.siteGained = gained;
+  b.siteLost = 0;
+  saveWorld();
+}
+
 /* ---------- 拠点のメニュー：召喚・配置・通過・補給兵 ---------- */
 function wmModalEl(){ return wmState.root ? wmState.root.querySelector(".wm-modal") : null; }
 function wmModalClose(){ const m = wmModalEl(); if (m){ m.classList.remove("on"); m.innerHTML = ""; delete m.dataset.kind; } }
@@ -4130,7 +4280,12 @@ function wmMoveUnit(siteId, l, kind, to, n, m){
   l.speed = leaderSpeedOf(l); playSfx(REPO_BASE + "audio/tap_common.opus"); saveWorld(); wmRenderSupply(m); wmUpdateUi();
 }
 function wmSiteMenuHtml(n, mapKey){
-  if (!isOwnSite(n)) return "";
+  if (!isOwnSite(n)){
+    const here2 = leadersAtSite(n.id);
+    if (here2.length && siteAttackable(n, mapKey)) return '<div class="wi-stat">リーダー：' + here2.map(l => l.letter).join("・") + '</div><div class="wi-menu"><button class="wi-m" data-m="attack">攻める</button></div>';
+    if (here2.length && n.owner === "cult") return '<div class="wi-stat">灰燼教団の兵は、まだ、この戦いには出てこない</div>';
+    return "";
+  }
   const here = leadersAtSite(n.id);
   let h = '<div class="wi-stat">補給兵 ' + sumCounts(siteSupply(n.id)) + '人　' + (here.length ? 'リーダー：' + here.map(l => l.letter).join("・") : 'リーダーは、いない') + '</div>';
   h += '<div class="wi-menu"><button class="wi-m" data-m="hire">召喚</button><button class="wi-m" data-m="place">配置</button>';
@@ -4141,7 +4296,15 @@ function wmBindSiteMenu(info, n, mapKey){
   info.querySelectorAll(".wi-m").forEach(b => b.addEventListener("click", ev => {
     ev.stopPropagation(); playSfx(REPO_BASE + "audio/tap_common.opus"); const k = b.dataset.m;
     if (k === "hire" || k === "supply"){ wmHideInfo(); wmModalOpen(k, n.id, mapKey); }
-    else showToast((k === "place" ? "配置" : "通過") + "は、戦闘画面につなぐときに作る");
+    else if (k === "place"){                                          // 配置：その拠点にいるリーダー(選んでいれば、そのリーダー)の部隊が、補給兵枠に入る
+      const here = leadersAtSite(n.id), l = here.find(x => x.id === world.sel) || here[0] || null;
+      wmHideInfo(); siteBattleStart("defend", mapKey, n, l);
+    }
+    else if (k === "attack"){
+      const here = leadersAtSite(n.id), l = here.find(x => x.id === world.sel) || here[0] || null;
+      wmHideInfo(); siteBattleStart("attack", mapKey, n, l);
+    }
+    else showToast("通過は、あとで作る");
   }));
 }
 function wmOpenSiteCard(mapKey, siteId){
@@ -4154,7 +4317,7 @@ function wmHandleEvents(){
     const ev = world.events.shift(), l = world.leaders.find(x => x.id === ev.lid); if (!l) continue;
     const s = leaderSiteInfo(l);
     if (!s){ continue; }
-    if (l.id === world.sel && wmHostFor(s.mapKey)){ if (isOwnSite(s.node)) wmOpenSiteCard(s.mapKey, s.node.id); else showToast("リーダー" + l.letter + "が、" + s.node.name + "に着いた"); }
+    if (l.id === world.sel && wmHostFor(s.mapKey)){ if (isOwnSite(s.node) || siteAttackable(s.node, s.mapKey)) wmOpenSiteCard(s.mapKey, s.node.id); else showToast("リーダー" + l.letter + "が、" + s.node.name + "に着いた"); }
     else showToast("リーダー" + l.letter + "が、" + s.node.name + "に着いた");
   }
 }
@@ -4613,6 +4776,7 @@ function updateGuide(){
 }
 
 function startBattle(stage){
+  { const scr = document.getElementById("screen-battle"); ["site-battle","site-no-enemy-castle","site-no-player-castle"].forEach(c => scr.classList.remove(c)); }   // 前の拠点戦の表示を残さない
   playBgm(stage.bgm || "stage_low"); // 戦線ごとのBGM(魔野・骸原は穏やか、槍原以降は脅威度が高い曲、鬼哭野実装後はボス曲)
   roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
   battle && (battle.repairPickPending = null); repairHighlightEl = null; // 前の戦闘のハイライト状態を持ち越さない
@@ -4662,6 +4826,7 @@ function startBattle(stage){
   buildDeployRow();
   buildDebugPanel();
   updateLaneButtons();
+  if (stage.siteBattle) siteBattleSetup(stage);
   showScreen("screen-battle");
   fitStage();
   layoutLaneButtons();
@@ -4711,6 +4876,7 @@ function deployAllowance(kind){
 }
 
 function buildDeployRow(){
+  if (battle && battle.stage && battle.stage.siteBattle){ buildSiteDeployRow(); return; }        // 拠点の戦闘では、屍で召喚せず、補給兵・チームから選んで置く
   const row = document.getElementById("deploy-row");
   row.innerHTML = "";
   state.selectedUnits.forEach(kind => {
@@ -9639,6 +9805,10 @@ function updateUnitAI(unit, dtMs){
     }
   }
 
+  if (battle.hold && battle.hold[unit.side] && !unit.target && battle.stage.siteBattle){     // 拠点の戦闘：待ち伏せ・持ち場。相手が見つからない間は、前へ進まない
+    if (unit.motion !== "idle" && unit.def.frameCounts && unit.def.frameCounts.idle) setMotion(unit, "idle", { loop:true });
+    return;
+  }
   const field = document.getElementById("battlefield");
   const fieldWidth = field.clientWidth;
   const forwardDir = unit.side === "player" ? -1 : 1; // 自陣営が進むべき方向。これと逆には進まない
@@ -9768,7 +9938,7 @@ function battleStep(dt){
   {
     const alive = battle.units.some(u => u.side === "player" && !u.dead && !u.def.gateUnit);
     const cheapest = Math.min.apply(null, state.selectedUnits.map(k => getDeployCost(CHAR_DEFS[k])));
-    if (!alive && isFinite(cheapest) && battle.corpse < cheapest){
+    if (!alive && isFinite(cheapest) && battle.corpse < cheapest && !battle.stage.siteBattle){
       battle.starveMs = (battle.starveMs || 0) + dt;
       if (battle.starveMs >= STARVE_GRACE_MS){
         battle.corpse = cheapest;
@@ -9800,6 +9970,7 @@ function battleStep(dt){
       }
     });
   }
+  if (battle.stage.siteBattle) siteBattleCheck();
   // 戦線ごとの警告(ステージのwarningsに、時間(秒)・文言を並べておく。最終波の予告などに使う)
   const warns = battle.stage.warnings || [];
   while (battle.nextWarn < warns.length && warns[battle.nextWarn].t <= battle.time){
@@ -9949,7 +10120,8 @@ function endBattle(win, instant, reason){
   battle.ended = true;
   playSfx(win ? REPO_BASE + "audio/sfx_victory.opus" : REPO_BASE + "audio/sfx_defeat.opus", .85);
   const b = battle;
-  if (win && b.stage && b.stage.id){ state.cleared.add(b.stage.id); saveCleared(); } // 制した戦線を覚える
+  if (win && b.stage && b.stage.id && !b.stage.siteBattle){ state.cleared.add(b.stage.id); saveCleared(); } // 制した戦線を覚える
+  if (b.stage && b.stage.siteBattle) siteBattleFinish(b, win, reason);
   restoreFormation();
   updateGuide();
   const showResult = () => {
@@ -9957,21 +10129,22 @@ function endBattle(win, instant, reason){
     const resultScreen = document.getElementById("screen-result");
     resultScreen.classList.remove("win","lose");
     resultScreen.classList.add(win ? "win" : "lose");
-    document.getElementById("result-title").textContent = win ? "勝利" : "敗北";
+    document.getElementById("result-title").textContent = reason === "retreat" ? "撤退" : (win ? "勝利" : "敗北");
     document.getElementById("result-sub").textContent =
+      b.stage && b.stage.siteBattle ? (reason === "retreat" ? "兵を、引き上げた。" : reason === "wipe" ? "兵、ことごとく討たれたり。" : reason === "repel" ? "敵を、退けたり。" : (win ? "敵の拠点、陥落。" : "自らの拠点、陥落。")) + (b.siteGained ? "　得た屍 " + b.siteGained : "") :
       reason === "repair" ? "自城、すべて直った。" :
       reason === "survive" ? "鬼の大群、ついに退けたり。" :
       (win ? "敵城、陥落。" : "自城、陥落。");
     showScreen("screen-result");
   };
   if (instant){ showResult(); return; }
-  if (reason === "repair"){ setTimeout(showResult, 1200); return; } // 崩れる城はないので、演出は挟まず短い間だけ置く
+  if (reason === "repair" || reason === "repel"){ setTimeout(showResult, 1200); return; } // 崩れる城はないので、演出は挟まず短い間だけ置く
   playCastleFall(win ? "enemy" : "player", win); // 城が崩れる間、戦場は止まって見せる
   setTimeout(showResult, 2700);
 }
 
 document.getElementById("btn-surrender").addEventListener("click", () => {
-  if (battle && !battle.ended) endBattle(false, true); // 投降は、崩れる演出を飛ばして結果へ
+  if (battle && !battle.ended) endBattle(false, true, battle.stage && battle.stage.siteBattle ? "retreat" : undefined); // 投降(拠点の戦闘では、撤退)は、崩れる演出を飛ばして結果へ
 });
 document.getElementById("cheat-enemy-btn").addEventListener("click", () => {
   if (!battle) return;
@@ -10617,6 +10790,7 @@ document.getElementById("battlefield").addEventListener("click", e => {
     }
     return; // 設置の場所待ちの間は、タップを場所選びだけに使う
   }
+  if (battle.stage.siteBattle && siteBattleFieldTap(p)) return;      // 拠点の戦闘：兵を置く・動かす
   const u = unitAtPoint(p.lx, p.ly);
   if (u){ showUnitInfo(u); return; }               // 兵をタップ：情報を出す
   closeUnitInfo();
