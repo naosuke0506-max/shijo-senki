@@ -365,6 +365,9 @@
   .fm-foot{ margin-top:12px; }
   .fm-cell i.crew{ right:auto; left:1px; top:auto; bottom:0; font-size:.55rem; color:#f0a070; } .fm-cell i.crew.ok{ color:#9fe08a; }
   .fm-cell i.bld{ right:1px; left:auto; top:auto; bottom:0; font-size:.6rem; color:#f0d58a; background:rgba(0,0,0,.6); padding:0 2px; }
+  .fm-cell.tgtok{ background:rgba(60,120,60,.55); border-color:#8fe08a; }
+  .fm-cell.tgt{ box-shadow:inset 0 0 0 2px #f0d58a; }
+  .fm-cell i.bld.same{ color:#9fe08a; }
   .fm-note2{ margin-top:4px; font-size:.68rem; letter-spacing:.04em; color:#b9a97a; }
   .fm-crewbox{ margin-top:10px; padding:8px 12px; background:rgba(0,0,0,.4); border:1px solid #8a6a2c; }
   .fm-crewhead{ font-family:var(--mincho); font-size:.86rem; letter-spacing:.1em; color:#f0d58a; }
@@ -378,6 +381,7 @@
   #battlefield .form-preview{ position:absolute; inset:0; pointer-events:none; z-index:6; }
   #battlefield .form-preview .fp-cell{ position:absolute; width:100px; height:100px; box-sizing:border-box; background:rgba(120,220,120,.22); border:2px solid rgba(160,255,160,.85); display:flex; align-items:center; justify-content:center; }
   #battlefield .form-preview .fp-cell.bad{ background:rgba(230,60,50,.28); border-color:rgba(255,120,110,.9); }
+  #battlefield .form-preview .fp-cell.tgt{ background:rgba(240,190,80,.22); border-style:dashed; border-color:#f0d58a; }
   #battlefield .form-preview .fp-cell.center{ background:rgba(240,213,138,.3); border-color:#f0d58a; }
   #battlefield .form-preview .fp-cell img{ width:80%; height:80%; object-fit:contain; opacity:.85; transform:scaleX(-1); }
   #battlefield .form-preview .fp-cell i{ position:absolute; right:3px; top:0; font-style:normal; color:#ffe28a; text-shadow:0 0 4px #000; font-size:20px; transform:scaleX(-1); }
@@ -1684,7 +1688,7 @@ const CHAR_DEFS = {
     trapResupplyCooldownMs: 80000, // 帰還後、次に出撃するまでのクールタイム(約80秒)
     trapArmDelayMs: 1500,       // 設置後、起動可能になるまでの時間(この間は隠蔽状態)
     trapTriggerRadius: 55,      // 敵がこの半径に入ると起動
-    netRestrainDurationMs: Infinity, // 既定は無限拘束。敵側でnetResistant/netBreakTimeMsにより個別上書き
+    netRestrainDurationMs: 50000, // 罠の拘束は、最大50秒(永遠ではない)。敵側でnetResistant/netBreakTimeMsにより個別上書き
     icon: ICON_TRAPPER,
     imageBase: IMG_TRAPPER,
     pixelScale: 74 / 529,       // 通常ゴブリン(約74px)と同じ大きさに。歩行コマ(529px)基準
@@ -2177,7 +2181,7 @@ const CHAR_DEFS = {
     // 第一形態の魔法
     skills: {
       // シールド：遠距離攻撃を持つ敵が近くにいるとき、前方に紫のバリアを張る。バリア内の味方(4m以下)は遠距離攻撃を受けない
-      shield: { range: 420, cooldownMs: 14000, durationMs: 6000, reach: 220, activateFrame: 1 },
+      shield: { range: 420, cooldownMs: 14000, durationMs: 10000, reach: 220, activateFrame: 1 },       // バリアの効果時間は10秒
       // メテオ：杖を突き刺して詠唱し、斜め前上空の黒い穴からメテオを1発ずつ計2発落とす
       meteor: { range: 380, cooldownMs: 12000, riftFrame: 1, holeInFront: 90, holeHeight: 300, holeSize: 170,
                 launchAt: [700, 1500], travelMs: 700, damage: 30, radius: 110 }
@@ -4493,7 +4497,7 @@ function siteBattleJoin(leaders, x){
 // 戦闘が始まった直後の準備(startBattle の最後に呼ぶ)
 function siteBattleSetup(stage){
   const sb = stage.siteBattle, scr = document.getElementById("screen-battle");
-  battle.roster = sb.roster; battle.origin = sb.origin; battle.leaderUnits = sb.leaderUnits; battle.auraKinds = new Set(); battle.placeKind = null; battle.moveSel = null; battle.siteEnemyEntered = false; battle.corpse = 0;
+  battle.roster = sb.roster; battle.origin = sb.origin; battle.leaderUnits = sb.leaderUnits; battle.auraCounts = { player:{}, enemy:{} }; battle.sideMul = { player:{ magic:1 }, enemy:{ magic:1 } }; battle.placeKind = null; battle.moveSel = null; battle.siteEnemyEntered = false; battle.corpse = 0;
   battle.hold = { player:sb.mode === "defend", enemy:sb.mode === "attack" };   // 守り：自軍は、持ち場で待ち伏せ(敵は、自城へ攻め寄せる)。攻め：敵は、守りを固める(自軍は、敵城へ進む)
   scr.classList.add("site-battle", "atmo-" + sb.terrain);      // 地形に合わせた演出(霧・舞う粒・鳥)
   scr.classList.toggle("site-no-enemy-castle", sb.mode === "defend");
@@ -4506,6 +4510,32 @@ function siteBattleAmbush(){ return !!battle && !!battle.stage.siteBattle && bat
 function buildSiteDeployRow(){
   const row = document.getElementById("deploy-row"); if (!row || !battle || !battle.roster) return;
   row.innerHTML = "";
+  if (battle.crewPick){                                                  // 戦車：乗せる人を選んでいる間
+    const cp = battle.crewPick, cdef = CHAR_DEFS[cp.kind];
+    const head = document.createElement("div"); head.className = "site-note"; head.textContent = cdef.name + (cp.leader ? "(リーダー)" : "") + "：乗せる人(0〜4人)";
+    row.appendChild(head);
+    for (let i = 0; i < 4; i++){
+      const sl = document.createElement("button"); sl.className = "site-unit-btn crew-slot" + (cp.crew[i] ? "" : " empty");
+      if (cp.crew[i]){ sl.innerHTML = '<img src="' + CHAR_DEFS[cp.crew[i]].icon + '" alt="">'; sl.addEventListener("click", () => { cp.crew.splice(i, 1); buildSiteDeployRow(); }); } else sl.textContent = String(i + 1);
+      row.appendChild(sl);
+    }
+    Object.keys(battle.roster).filter(k => battle.roster[k] > 0 && CHAR_DEFS[k] && (CHAR_DEFS[k].laneSpan || 1) === 1 && !siteIsPlacer(CHAR_DEFS[k]) && !CHAR_DEFS[k].chariotUnit && !CHAR_DEFS[k].ignoresUnits).forEach(k => {
+      const used = cp.crew.filter(x => x === k).length + (k === cp.kind ? 1 : 0), left = battle.roster[k] - used;
+      const b = document.createElement("button"); b.className = "site-unit-btn" + (left <= 0 || cp.crew.length >= 4 ? " cooling" : "");
+      b.innerHTML = '<img src="' + CHAR_DEFS[k].icon + '" alt=""><span class="su-n">×' + Math.max(0, left) + '</span>';
+      b.addEventListener("click", () => { if (left <= 0 || cp.crew.length >= 4) return; cp.crew.push(k); buildSiteDeployRow(); });
+      row.appendChild(b);
+    });
+    const ok = document.createElement("button"); ok.className = "site-form-btn"; ok.innerHTML = '<b>出す</b><span>' + cp.crew.length + '人乗せる</span>';
+    ok.addEventListener("click", () => {
+      const crew = cp.crew.slice(); battle.crewPick = null;
+      if (cp.leader) siteDeployLeader(cp.lid, cp.lane, cp.lx, { crew });
+      else { battle.crewPickCrew = crew; siteDeploy(cp.kind, cp.lane, cp.lx); battle.crewPickCrew = null; }
+      buildSiteDeployRow();
+    });
+    const cn = document.createElement("button"); cn.className = "site-form-btn"; cn.innerHTML = '<b>取消</b><span>やめる</span>'; cn.addEventListener("click", () => { battle.crewPick = null; buildSiteDeployRow(); });
+    row.appendChild(ok); row.appendChild(cn); return;
+  }
   if (battle.formPick){                                                  // 守備の陣形：中心のマスを決めている間
     const pk = battle.formPick, lead = world.leaders.find(x => x.id === pk.lid), fit = pk.c == null ? null : siteFormFit(pk.lid, pk.c, pk.r);
     const ok = document.createElement("button"); ok.className = "site-form-btn"; ok.disabled = !(fit && fit.ok);
@@ -4582,7 +4612,13 @@ function siteStandStep(unit, dtMs){
   const idleOk = def.frameCounts && def.frameCounts.idle;
   if (!unit.standDone){
     const sdx = unit.standX - unit.x;
-    if (Math.abs(sdx) <= 4){ unit.standDone = true; if (unit.motion !== "idle" && idleOk) setMotion(unit, "idle", { loop:true }); return true; }
+    if (Math.abs(sdx) <= 4){
+      unit.standDone = true;
+      if (unit.buildAfter){ const t = unit.buildAfter; unit.buildAfter = null; unit.standX = null; unit.buildTargetCol = t.col; unit.buildTargetLane = t.lane; unit.buildTargetX = columnCenterX(t.col); unit.buildStarted = false; return true; }    // 位置に着いた：築く場所へ向かう
+      if (unit.canAfter){ const t = unit.canAfter; unit.canAfter = null; siteMakeGascan(t.col, t.lane); }                                                                                                              // 位置に着いた：ガス缶を据える
+      if (unit.repairAfter){ const t = unit.repairAfter; unit.repairAfter = null; unit.standX = null; unit.repairTarget = t.kind === "castle" ? siteRepairAutoTarget(unit) : t; return true; }                            // 位置に着いた：直す建物へ
+      if (unit.motion !== "idle" && idleOk) setMotion(unit, "idle", { loop:true }); return true;
+    }
     if (unit.motion !== "walk" && unit.motion !== approachMotion){ if (def.frameCounts.walk) setMotion(unit, "walk", { loop:true }); }
     unit.x += moveWithCollision(unit, Math.sign(sdx) * Math.min(Math.abs(sdx), getEffectiveSpeed(unit, def.walkSpeed || 30) * (dtMs / 1000)));
     applyFrame(unit); return true;
@@ -4622,59 +4658,77 @@ function siteRepairAutoTarget(u){
 function siteRefreshRepairers(){
   if (battle.time - (battle.repairTick || 0) < .5) return; battle.repairTick = battle.time;
   battle.units.forEach(u => {
-    if (u.dead || u.side !== "player" || !u.siteRoster || !u.def.canPickRepairTarget) return;
+    if (u.dead || u.side !== "player" || !u.siteRoster || !u.def.canPickRepairTarget || u.isLeader) return;     // リーダーの修復兵は、修復の役目を持たず、ふつうに進む
+    if (u.repairTarget && u.repairTarget.kind === "cell") return;                       // 陣形で指定した建物は、見直さない
     const t = u.repairTarget, bad = !t || t.kind === "none" || (t.kind === "structure" && (t.ref.dead || t.ref.hp >= t.ref.hpMax));
     const castleFull = t && t.kind === "castle" && battle.playerCastleHp >= battle.playerCastleHpMax;
     if (bad || castleFull){ const nt = siteRepairAutoTarget(u); if (!t || nt.kind !== t.kind || nt.ref !== t.ref) u.repairTarget = nt; }
   });
 }
 // 設置系の兵を出す。col は、築く場所の列(敵側から数えた列)。lid は、どのチームの兵か。crew は、戦車の乗員(4人の種類)
+// 戦車に、乗員を乗せる(補給兵・チームの兵から出る)。乗員は0〜4人、いくらでもよい
+function siteBoardCrew(c, crew, lid){
+  const rf = crew.map(k => siteTakeUnit(k, lid));
+  c.riderKinds = crew.slice(); boardChariotRiders(c); c.chariotPhase = "advance1"; setMotion(c, "walk", { loop:true });
+  (c.chariotRiders || []).forEach((r, i) => { r.siteRoster = true; r.deployedKind = crew[i]; r.siteOrigin = rf[i]; });
+}
+function siteCrewOk(kind, crew){
+  const need = {}; if (kind) need[kind] = 1; crew.forEach(k => { need[k] = (need[k] || 0) + 1; });
+  for (const k in need){ if ((battle.roster[k] || 0) < need[k]) return false; } return true;
+}
+// 設置系の兵を出す。col は、築く場所の列(敵側から数えた列)。opts.stand は、兵の位置(x)。そこまで歩いてから、築く場所へ向かう
 function siteDeployPlacer(kind, lane, col, opts){
   opts = opts || {}; const def = CHAR_DEFS[kind]; if (!def) return false;
   if (def.canPickRiders){
     const crew = (opts.crew || []).slice(0, 4);                          // 乗員は、0〜4人。決めなくても、中途半端でもよい
-    const need = {}; need[kind] = 1; crew.forEach(k => { need[k] = (need[k] || 0) + 1; });
-    for (const k in need){ if ((battle.roster[k] || 0) < need[k]){ showToast(def.name + "：乗員が足りない"); return false; } }
+    if (!siteCrewOk(kind, crew)){ showToast(def.name + "：乗員が足りない"); return false; }
     if (!battleCanEngage(battle)) return false;
     battle.deployed = true;
-    const from = siteTakeUnit(kind, opts.lid), rf = crew.map(k => siteTakeUnit(k, opts.lid));
-    const c = spawnUnit(kind, "player", 0, { lane });
-    c.deployedKind = kind; c.siteRoster = true; c.siteOrigin = from;
-    c.riderKinds = crew.slice(); boardChariotRiders(c); c.chariotPhase = "advance1"; setMotion(c, "walk", { loop:true });
-    (c.chariotRiders || []).forEach((r, i) => { r.siteRoster = true; r.deployedKind = crew[i]; r.siteOrigin = rf[i]; });
-    if (opts.stand != null){ c.standX = opts.stand; c.standDone = false; c.standTemp = true; }
+    const from = siteTakeUnit(kind, opts.lid), c = spawnUnit(kind, "player", 0, { lane });
+    c.deployedKind = kind; c.siteRoster = true; c.siteOrigin = from; siteBoardCrew(c, crew, opts.lid);
+    if (opts.stand != null){ c.standX = opts.stand; c.standDone = false; c.standTemp = !opts.formation; }
     playSfx(REPO_BASE + "audio/tap_command.opus"); buildSiteDeployRow(); return true;
   }
   if (!(battle.roster[kind] > 0)){ showToast("もう、いない"); return false; }
   if (siteAvail(kind) <= 0){ const c = siteCooling(kind).sort((a, b) => a.readyAt - b.readyAt)[0]; showToast(def.name + "：あと" + Math.ceil(c.readyAt - battle.time) + "秒で、また出せる"); return false; }
-  if ((def.canPlaceStructure || def.canPickGascanSite) && findStructureAt(col, lane)){ showToast("そこには、すでに何かある"); return false; }
+  if ((def.canPlaceStructure || def.canPickGascanSite) && !opts.formation && findStructureAt(col, lane)){ showToast("そこには、すでに何かある"); return false; }
   if (!battleCanEngage(battle)) return false;
   battle.deployed = true;
+  const form = !!opts.formation, standing = opts.stand != null;
   if (def.canPlaceStructure){
-    { const from = siteTakeUnit(kind, opts.lid), u = spawnUnit(kind, "player", 0, { lane });
-      u.buildTargetCol = col; u.buildTargetLane = lane; u.buildTargetX = columnCenterX(col);
-      u.deployedKind = kind; u.originalKind = kind; u.resupplyCooldownMs = def.resupplyCooldownMs || 0; u.siteRoster = true; u.siteOrigin = from; }
-  } else if (def.canPickGascanSite){                                     // 火槍手：ガス缶を据え、その戦列に、本人が出る
-    const from = siteTakeUnit(kind, opts.lid);
-    const can = spawnUnit("gascan", "player", 0, { lane });
-    can.x = columnCenterX(col) - (can.def.structureDisplayWidth || 0) / 2; can.structureCol = col;
-    setMotion(can, "normal", { loop:true }); applyFrame(can);
-    const u = spawnUnit(kind, "player", 0, { lane }); u.deployedKind = kind; u.siteRoster = true; u.siteOrigin = from;
-    if (opts.stand != null && !opts.formation){ u.standX = opts.stand; u.standDone = false; u.standTemp = true; }
-  } else if (def.canPickRepairTarget){                                    // 修復兵：直す対象は、自動で決まる
     const from = siteTakeUnit(kind, opts.lid), u = spawnUnit(kind, "player", 0, { lane });
-    u.deployedKind = kind; u.siteRoster = true; u.siteOrigin = from; u.repairTarget = siteRepairAutoTarget(u);
+    u.deployedKind = kind; u.originalKind = kind; u.resupplyCooldownMs = def.resupplyCooldownMs || 0; u.siteRoster = true; u.siteOrigin = from;
+    if (form && standing){ u.standX = opts.stand; u.standDone = false; u.buildAfter = { col, lane }; }             // 兵の位置まで行ってから、築く場所へ
+    else { u.buildTargetCol = col; u.buildTargetLane = lane; u.buildTargetX = columnCenterX(col); }
+  } else if (def.canPickGascanSite){                                     // 火槍手：兵の位置に着いたら、前にあるガス缶の場所へ据える
+    const from = siteTakeUnit(kind, opts.lid), u = spawnUnit(kind, "player", 0, { lane }); u.deployedKind = kind; u.siteRoster = true; u.siteOrigin = from;
+    if (form && standing){ u.standX = opts.stand; u.standDone = false; u.canAfter = { col, lane }; }
+    else { siteMakeGascan(col, lane); if (standing){ u.standX = opts.stand; u.standDone = false; u.standTemp = true; } }
+  } else if (def.canPickRepairTarget){                                    // 修復兵：兵の位置に着いたら、指定の建物(または自城)を直す
+    const from = siteTakeUnit(kind, opts.lid), u = spawnUnit(kind, "player", 0, { lane });
+    u.deployedKind = kind; u.siteRoster = true; u.siteOrigin = from;
+    if (form && standing){ u.standX = opts.stand; u.standDone = false; u.repairAfter = opts.castle ? { kind:"castle" } : { kind:"cell", col, lane }; }
+    else if (standing){ u.standX = opts.stand; u.standDone = false; u.repairAfter = { kind:"castle" }; }        // 置いたマスまで歩き、そこから、自動で決まる対象(自城か近くの建物)を直しに行く
+    else u.repairTarget = siteRepairAutoTarget(u);
   }
   playSfx(REPO_BASE + "audio/tap_command.opus"); buildSiteDeployRow();
   return true;
 }
-
+function siteMakeGascan(col, lane){
+  if (findStructureAt(col, lane)) return null;
+  const can = spawnUnit("gascan", "player", 0, { lane });
+  can.x = columnCenterX(col) - (can.def.structureDisplayWidth || 0) / 2; can.structureCol = col;
+  setMotion(can, "normal", { loop:true }); applyFrame(can); return can;
+}
 function siteDeploy(kind, lane, lx){
   if (typeof kind === "string" && kind.indexOf("leader:") === 0) return siteDeployLeader(kind.slice(7), lane, lx);
   const def = CHAR_DEFS[kind]; if (!def) return false;
+  if (def.canPickRiders && !battle.crewPickCrew){                                             // 戦車：乗せる人を選ぶ(なくてもよい)
+    battle.crewPick = { lid:null, kind, lane, lx, crew:[] }; battle.placeKind = null; buildSiteDeployRow(); showToast(def.name + "：乗せる人を選ぶ(なくてもよい)"); return false;
+  }
   if (siteIsPlacer(def)){                                                                      // 設置系：築く場所は、置いたマス(攻めは、自軍の端から数マス先)
     const col = lx != null ? columnOfX(lx) : SITE_ATTACK_BUILD_COL;
-    return siteDeployPlacer(kind, lane, col, { stand: lx != null ? columnCenterX(col) - 30 : null });
+    return siteDeployPlacer(kind, lane, col, { stand: lx != null ? columnCenterX(col) - 30 : null, crew:battle.crewPickCrew });
   }
   if (!(battle.roster[kind] > 0)){ showToast("もう、いない"); return false; }
   if (!battleCanEngage(battle)) return false;                                                // 攻めで兵を出すと戦闘になる。戦闘は同時に3つまで
@@ -4789,9 +4843,22 @@ const LEADER_AURA = {
   chariot:{ text:"1戦列の味方(マスは問わない)の、移動速度が上がる(×1.15)" },
   courier:{ text:"味方の、敵を見つける範囲が広がる(×1.3)" },
   incendiary:{ text:"味方の、火属性の攻撃力が上がる(×1.25)" },
-  commander:{ text:"味方の人間キャラの、最大HPが上がる(×1.15)" }
+  commander:{ text:"味方の人間キャラの、最大HPが上がる(×1.15)" },
+  // ゴブリン側のリーダー
+  goblin:{ text:"効果なし" },
+  archer:{ text:"味方の、毒の蓄積と射程が上がる(蓄積×1.3・射程×1.15)" },
+  drummerGoblin:{ text:"味方の、基本性能が上がる(HP・攻撃力・速さ ×1.1)" },
+  trapper:{ text:"味方の、罠の拘束の最大時間が延びる(×1.3)" },
+  healer:{ text:"味方の、回復量が上がる(×1.3)" },
+  tamer:{ text:"味方の魔獣の、防御力が上がる(受けるダメージ×0.9)" },
+  rusher:{ text:"味方の、吹き飛ばしの距離と、突進系攻撃の威力が上がる(×1.3・×1.25)" },
+  chief:{ text:"味方の、出血の蓄積が上がる(×1.3)" },
+  catapult:{ text:"味方の、城への攻撃力が上がる(×1.3)" },
+  queen:{ text:"味方の、魔法属性の威力が上がる(×1.25)" },
+  fortress:{ text:"味方の、範囲攻撃の威力が上がる(×1.25)" },
+  king:{ text:"味方の、ゲートの最大HPが上がる(×1.3)" }
 };
-function unitAura(u){ return u.aura || (u.aura = { atk:1, cut:1, speed:1, vsBeast:1, vsBuilding:1, fire:1, regen:0, gaugeCut:1, antiBreak:0, repair:1 }); }
+function unitAura(u){ return u.aura || (u.aura = { atk:1, cut:1, speed:1, vsBeast:1, vsBuilding:1, fire:1, regen:0, gaugeCut:1, antiBreak:0, repair:1, trapMul:1, knock:1, charge:1, bleed:1, vsCastle:1, splash:1 }); }
 function unitIsOneLane(u){ return (u.def.laneSpan || 1) === 1; }
 function unitIsOneCell(u){ return unitIsOneLane(u) && (u.def.hitboxWidth || 60) <= 100; }
 function unitAddHpMult(u, m){ const add = Math.round(u.hpMax * (m - 1)); u.hpMax += add; u.hp += add; }
@@ -4819,23 +4886,45 @@ function applyLeaderAuraOnce(u, kind){
     case "courier": unitOverrideDef(u, { detectionRange:Math.round((d.detectionRange || 0) * 1.3) }); break;
     case "incendiary": a.fire *= 1.25; break;
     case "commander": if (d.race === "human") unitAddHpMult(u, 1.15); break;
+    case "archer": {
+      if (d.poisonOnHit) unitOverrideDef(u, { poisonStackPerHit:(d.poisonStackPerHit || 0) * 1.3 });
+      if (d.ranged && unitIsOneCell(u)){ const r = Math.round((d.attackRange || 0) * 1.15); unitOverrideDef(u, { attackRange:r, detectionRange:Math.max(d.detectionRange || 0, r) }); }
+      break;
+    }
+    case "drummerGoblin": if (!d.structureUnit && !d.gateUnit){ unitAddHpMult(u, 1.1); a.atk *= 1.1; a.speed *= 1.1; } break;
+    case "trapper": a.trapMul *= 1.3; break;
+    case "healer": if (d.canHeal) unitOverrideDef(u, { healAmountPerTick:(d.healAmountPerTick || 0) * 1.3 }); break;
+    case "tamer": if (d.race === "beast") a.cut *= 0.9; break;
+    case "rusher": a.knock *= 1.3; a.charge *= 1.25; break;
+    case "chief": a.bleed *= 1.3; break;
+    case "catapult": a.vsCastle *= 1.3; break;
+    case "queen": break;                                                                          // 魔法属性の威力は、陣営全体の倍率(battle.sideMul)で、リーダーが出たときに掛ける
+    case "fortress": a.splash *= 1.25; break;
+    case "king": if (d.gateUnit) unitAddHpMult(u, 1.3); break;
   }
 }
-// その戦場にいるリーダー効果(種類ごとの人数)を、足りない分だけ、この味方に与える
+// その戦場にいるリーダー効果(陣営ごと・種類ごとの人数)を、足りない分だけ、この兵に与える
 function applyLeaderAura(u, kind){
-  const want = (battle.auraCounts && battle.auraCounts[kind]) || 0;
+  const want = (battle.auraCounts && battle.auraCounts[u.side] && battle.auraCounts[u.side][kind]) || 0;
   if (!u.auraApplied) u.auraApplied = {};
   while ((u.auraApplied[kind] || 0) < want){ u.auraApplied[kind] = (u.auraApplied[kind] || 0) + 1; applyLeaderAuraOnce(u, kind); }
 }
-function battleAddAura(kind){                          // リーダーが出てきた：その効果を、いる味方全員に与え、以後、出てくる味方にも与える(同じ効果のリーダーが増えれば、重ねて)
-  if (!battle.auraCounts) battle.auraCounts = {};
-  battle.auraCounts[kind] = (battle.auraCounts[kind] || 0) + 1;
-  if (!battle.auraKinds) battle.auraKinds = new Set(); battle.auraKinds.add(kind);
-  battle.units.forEach(u => { if (u.side === "player") applyLeaderAura(u, kind); });
+function battleAddAura(kind, side){                    // リーダーが出てきた：その効果を、いる味方全員(リーダー自身も)に与え、以後、出てくる味方にも与える。同じ効果のリーダーが増えれば、重ねて
+  side = side || "player";
+  if (!battle.auraCounts) battle.auraCounts = { player:{}, enemy:{} };
+  if (!battle.sideMul) battle.sideMul = { player:{ magic:1 }, enemy:{ magic:1 } };
+  battle.auraCounts[side][kind] = (battle.auraCounts[side][kind] || 0) + 1;
+  if (kind === "queen") battle.sideMul[side].magic *= 1.25;
+  battle.units.forEach(u => { if (u.side === side) applyLeaderAura(u, kind); });
 }
-function siteDeployLeader(lid, lane, lx){
+function siteDeployLeader(lid, lane, lx, opts){
+  opts = opts || {};
   const e = (battle.leaderUnits || []).find(x => x.lid === lid && !x.placed); if (!e) return false;
   const def = CHAR_DEFS[e.kind]; if (!def) return false;
+  if (def.canPickRiders && !opts.crew){                                   // リーダーが戦車：乗せる人を選ぶ(手で置くとき)
+    battle.crewPick = { lid, kind:e.kind, lane, lx, crew:[], leader:true }; battle.placeKind = null; buildSiteDeployRow(); showToast("リーダーの戦車：乗せる人を選ぶ(なくてもよい)"); return false;
+  }
+  if (def.canPickRiders && !siteCrewOk(null, opts.crew)){ showToast("乗員が足りない"); return false; }
   if (!battleCanEngage(battle)) return false;
   battle.deployed = true;
   const u = spawnUnit(e.kind, "player", 0, { lane });
@@ -4844,8 +4933,9 @@ function siteDeployLeader(lid, lane, lx){
   unitAddHpMult(u, LEADER_HP_MULT); u.roleAtkMult = (u.roleAtkMult || 1) * LEADER_ATK_MULT;      // リーダーは、常に強化されている
   { const st = document.createElement("div"); st.className = "leader-star"; st.textContent = "★"; u.el.appendChild(st); u.el.classList.add("is-leader"); }
   applyFrame(u); if (def.hornAbility) startCommanderHorn(u);
+  if (def.canPickRiders) siteBoardCrew(u, opts.crew.slice(0, 4), lid);                     // リーダーの戦車にも、乗員を乗せる
   e.placed = true; e.unit = u;
-  battleAddAura(e.kind);
+  battleAddAura(e.kind, "player");
   battle.placeKind = null; playSfx(REPO_BASE + "audio/tap_command.opus"); buildSiteDeployRow();
   showToast("リーダー(" + def.name + ")が、出た。" + LEADER_AURA[e.kind].text);
   return true;
@@ -4878,7 +4968,9 @@ function formAutoName(cells){
 function formDisplayName(f){ return ((f && f.name) ? f.name.replace(/陣$/, "") : "陣形") + "陣"; }
 function leaderFormationUsable(l){ return !!(l && l.formation && l.formation.center && l.formation.cells && l.formation.cells.length); }
 function formCellsAbs(f){ const o = {}; f.cells.forEach(c => { o[(f.center.c + c.dc) + "," + (f.center.r + c.dr)] = c.k; }); return o; }
-function formCrewsAbs(f){ const o = {}; f.cells.forEach(c => { if (c.crew) o[(f.center.c + c.dc) + "," + (f.center.r + c.dr)] = c.crew.slice(); }); return o; }
+function formHasTarget(k){ const d = CHAR_DEFS[k]; return !!(d && (d.canPlaceStructure || d.canPickGascanSite || d.canPickRepairTarget)); }
+function formTargetsAbs(f){ const o = {}; f.cells.forEach(c => { if (c.t === "castle") o[(f.center.c + c.dc) + "," + (f.center.r + c.dr)] = "castle"; else if (c.tdc != null) o[(f.center.c + c.dc) + "," + (f.center.r + c.dr)] = f.center.c + c.tdc; }); return o; }
+function formCrewsAbs(f){ const o = {}; f.cells.forEach(c => { if (c.crew) o[(f.center.c + c.dc) + "," + (f.center.r + c.dr)] = c.crew.slice(); }); if (f.leaderCrew) o[f.center.c + "," + f.center.r] = f.leaderCrew.slice(); return o; }
 // 戦車に乗せられる兵(1戦列・1マスで、専用の出し方を持たないもの)
 function formCrewKinds(l){ return HIRE_KINDS.filter(k => { const d = CHAR_DEFS[k]; return d && l.team[k] > 0 && (d.laneSpan || 1) === 1 && !d.canPlaceStructure && !d.canPickRepairTarget && !d.canPickRiders && !d.chariotUnit && !d.ignoresUnits; }); }
 function formCrewUsed(F){ const o = {}; Object.keys(F.crews).forEach(k => F.crews[k].forEach(x => { o[x] = (o[x] || 0) + 1; })); return o; }
@@ -4887,7 +4979,7 @@ function wmOpenFormation(l){
   const m = wmModalEl(); if (!m) return;
   m.dataset.kind = "formation"; m.dataset.leader = l.id; m.classList.add("on");
   const f = l.formation;
-  m._f = { lid:l.id, mode:f ? f.mode : "defend", center:f ? { c:f.center.c, r:f.center.r } : null, cells:f ? formCellsAbs(f) : {}, crews:f ? formCrewsAbs(f) : {}, crewEdit:null, sel:null, moveCenter:false, name:f && f.name ? f.name : "" };
+  m._f = { lid:l.id, mode:f ? f.mode : "defend", center:f ? { c:f.center.c, r:f.center.r } : null, cells:f ? formCellsAbs(f) : {}, crews:f ? formCrewsAbs(f) : {}, targets:f ? formTargetsAbs(f) : {}, tgtEdit:null, crewEdit:null, sel:null, moveCenter:false, name:f && f.name ? f.name : "" };
   wmRenderFormation(m);
 }
 function wmRenderFormation(m){
@@ -4908,20 +5000,37 @@ function wmRenderFormation(m){
   for (let r = FORM_LANES - 1; r >= 0; r--){
     for (let c = 0; c < FORM_COLS; c++){
       const key = c + "," + r, isC = F.center && F.center.c === c && F.center.r === r, k = F.cells[key];
-      let inner = "";
-      if (isC){ const ld = l.kind && CHAR_DEFS[l.kind]; inner = ld ? '<img src="' + ld.icon + '" alt=""><i>★</i>' : '<i class="big">★</i>'; }
-      else if (k) inner = '<img src="' + CHAR_DEFS[k].icon + '" alt="">' + (CHAR_DEFS[k].canPickRiders ? '<i class="crew' + ((F.crews[key] || []).length === 4 ? ' ok' : '') + '">乗' + (F.crews[key] || []).length + '</i>' : '') + (CHAR_DEFS[k].canPlaceStructure ? '<i class="bld">築</i>' : (CHAR_DEFS[k].canPickGascanSite ? '<i class="bld">缶</i>' : ''));
-      html += '<button class="fm-cell' + (isC ? ' center' : '') + (k ? ' has' : '') + (c === 0 ? ' edge' : '') + '" data-c="' + c + '" data-r="' + r + '">' + inner + '</button>';
+      let inner = "", extra = "";
+      if (isC){ const ld = l.kind && CHAR_DEFS[l.kind]; inner = ld ? '<img src="' + ld.icon + '" alt=""><i>★</i>' : '<i class="big">★</i>'; if (ld && ld.canPickRiders) inner += '<i class="crew">乗' + (F.crews[key] || []).length + '</i>'; }
+      else if (k) inner = '<img src="' + CHAR_DEFS[k].icon + '" alt="">' + (CHAR_DEFS[k].canPickRiders ? '<i class="crew' + ((F.crews[key] || []).length === 4 ? ' ok' : '') + '">乗' + (F.crews[key] || []).length + '</i>' : '');
+      // 築く場所(兵の位置とは別)：同じ戦列の、前のマス。印を出す
+      Object.keys(F.targets).forEach(uk => {
+        const tc = F.targets[uk], up = uk.split(",").map(Number); if (tc === "castle" || up[1] !== r || tc !== c) return;
+        const uk2 = F.cells[uk]; if (!uk2) return; const mark = CHAR_DEFS[uk2].canPlaceStructure ? "築" : (CHAR_DEFS[uk2].canPickGascanSite ? "缶" : "直");
+        inner += '<i class="bld' + (tc === up[0] ? ' same' : '') + '">' + mark + '</i>'; extra += ' tgt';
+      });
+      if (F.tgtEdit){ const up = F.tgtEdit.split(",").map(Number); if (up[1] === r && c >= up[0]) extra += ' tgtok'; }
+      html += '<button class="fm-cell' + (isC ? ' center' : '') + (k ? ' has' : '') + (c === 0 ? ' edge' : '') + extra + '" data-c="' + c + '" data-r="' + r + '">' + inner + '</button>';
     }
   }
-  html += '</div><div class="fm-side"><span>← 自軍側</span><span>敵側 →</span></div><div class="fm-note2">築く兵(望楼兵・拒馬兵)は、置いたマスが「築く場所」、火槍手は、置いたマスが「ガス缶を据える場所」になる。</div>';
-  if (F.crewEdit && F.cells[F.crewEdit] && CHAR_DEFS[F.cells[F.crewEdit]].canPickRiders){                              // 戦車：乗せる4人
+  html += '</div><div class="fm-side"><span>← 自軍側</span><span>敵側 →</span></div><div class="fm-note2">設置系の兵(望楼兵・拒馬兵・火槍手・修復兵)は、「兵の位置」に必ず行ってから、同じ戦列の前にある「築く場所」へ向かう(位置と場所が同じマスでもよい)。</div>';
+  if (F.tgtEdit && F.cells[F.tgtEdit]){                                                                                   // 設置系：築く場所を選ぶ
+    const tk = F.cells[F.tgtEdit], td = CHAR_DEFS[tk], up = F.tgtEdit.split(",").map(Number), cur = F.targets[F.tgtEdit];
+    const what = td.canPlaceStructure ? "築く場所" : (td.canPickGascanSite ? "ガス缶を据える場所" : "直す建物");
+    html += '<div class="fm-crewbox"><div class="fm-crewhead">' + td.name + '：' + what + 'を選ぶ</div><div class="fm-note2">同じ戦列の、兵の位置と同じか、それより前(右)のマスから選ぶ(緑のマス)。' + (td.canPickRepairTarget ? '直す建物は、そこに築かれた建物。自城も選べる(自城のない戦場では、いちばん近い建物を、自動で直す)。' : '') + '</div>' +
+      '<div class="md-row"><span class="fm-help">いま：' + (cur === "castle" ? '自城' : (cur == null ? '未選択' : (cur === up[0] ? '兵の位置と同じマス' : '兵の位置の ' + (cur - up[0]) + 'マス前'))) + '</span>' +
+      '<button class="md-tgt" id="fm-tgt-same">兵の位置と同じマス</button>' + (td.canPickRepairTarget ? '<button class="md-tgt' + (cur === "castle" ? ' on' : '') + '" id="fm-tgt-castle">自城</button>' : '') +
+      '<button class="md-tgt" id="fm-tgt-ok">決定</button><button class="md-tgt" id="fm-tgt-del">この兵を外す</button></div></div>';
+  }
+  const centerKey = F.center ? F.center.c + "," + F.center.r : null, leaderKindDef = l.kind && CHAR_DEFS[l.kind];
+  const crewOwnerDef = F.crewEdit && F.crewEdit === centerKey && leaderKindDef && leaderKindDef.canPickRiders ? leaderKindDef : (F.crewEdit && F.cells[F.crewEdit] && CHAR_DEFS[F.cells[F.crewEdit]].canPickRiders ? CHAR_DEFS[F.cells[F.crewEdit]] : null);
+  if (F.crewEdit && crewOwnerDef){                                                                                       // 戦車(リーダーの戦車も)：乗せる人
     const crew = F.crews[F.crewEdit] || (F.crews[F.crewEdit] = []), kinds = formCrewKinds(l);
-    html += '<div class="fm-crewbox"><div class="fm-crewhead">' + CHAR_DEFS[F.cells[F.crewEdit]].name + '：乗せる人を選ぶ(0〜4人。決めなくても、中途半端でもよい。同じ顔ぶれも可)</div><div class="fm-crewslots">';
+    html += '<div class="fm-crewbox"><div class="fm-crewhead">' + crewOwnerDef.name + (F.crewEdit === centerKey ? '(リーダー)' : '') + '：乗せる人を選ぶ(0〜4人。決めなくても、中途半端でもよい。同じ顔ぶれも可)</div><div class="fm-crewslots">';
     for (let i = 0; i < 4; i++){ html += crew[i] ? '<button class="fm-slot" data-i="' + i + '"><img src="' + CHAR_DEFS[crew[i]].icon + '" alt=""><i>×</i></button>' : '<span class="fm-slot empty">' + (i + 1) + '</span>'; }
     html += '</div><div class="fm-crewpick">';
     kinds.forEach(k => { const left = l.team[k] - (placed[k] || 0); html += '<button class="fm-unit' + (left <= 0 || crew.length >= 4 ? ' none' : '') + '" data-crew="' + k + '"><img src="' + CHAR_DEFS[k].icon + '" alt=""><span>' + CHAR_DEFS[k].name + '<em>×' + left + '</em></span></button>'; });
-    html += '</div><div class="md-row"><button class="md-tgt" id="fm-crew-ok">決定</button><button class="md-tgt" id="fm-crew-del">この戦車を外す</button></div></div>';
+    html += '</div><div class="md-row"><button class="md-tgt" id="fm-crew-ok">決定</button>' + (F.crewEdit === centerKey ? '' : '<button class="md-tgt" id="fm-crew-del">この戦車を外す</button>') + '</div></div>';
   }
   html += '<div class="md-row fm-foot"><button class="md-tgt" id="fm-move"' + (F.center ? '' : ' disabled') + (F.moveCenter ? ' class="on"' : '') + '>中心を動かす</button><button class="md-tgt" id="fm-clear">全部外す</button>' +
     (l.formation ? '<button class="md-tgt" id="fm-del">陣形を消す</button>' : '') + '<button class="md-tgt on fm-save" id="fm-save">保存</button></div>';
@@ -4929,21 +5038,31 @@ function wmRenderFormation(m){
   m.querySelector(".md-close").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmModalClose(); });
   m.querySelectorAll(".fm-mode").forEach(b => b.addEventListener("click", () => { F.mode = b.dataset.mode; wmRenderFormation(m); }));
   m.querySelector("#fm-name").addEventListener("input", e => { F.name = e.target.value; });
-  m.querySelectorAll(".fm-unit[data-k]").forEach(b => b.addEventListener("click", () => { F.sel = F.sel === b.dataset.k ? null : b.dataset.k; F.moveCenter = false; wmRenderFormation(m); }));
+  m.querySelectorAll(".fm-unit[data-k]").forEach(b => b.addEventListener("click", () => { F.sel = F.sel === b.dataset.k ? null : b.dataset.k; F.moveCenter = false; F.tgtEdit = null; wmRenderFormation(m); }));
   m.querySelectorAll(".fm-unit[data-crew]").forEach(b => b.addEventListener("click", () => { const c = F.crews[F.crewEdit] || (F.crews[F.crewEdit] = []); const k = b.dataset.crew; if (c.length >= 4) return; if (l.team[k] - (placed[k] || 0) <= 0){ showToast("その兵は、もう、いない"); return; } c.push(k); wmRenderFormation(m); }));
   m.querySelectorAll(".fm-slot[data-i]").forEach(b => b.addEventListener("click", () => { F.crews[F.crewEdit].splice(+b.dataset.i, 1); wmRenderFormation(m); }));
   { const ok = m.querySelector("#fm-crew-ok"); if (ok) ok.addEventListener("click", () => { F.crewEdit = null; wmRenderFormation(m); }); }
   { const dl = m.querySelector("#fm-crew-del"); if (dl) dl.addEventListener("click", () => { delete F.cells[F.crewEdit]; delete F.crews[F.crewEdit]; F.crewEdit = null; wmRenderFormation(m); }); }
+  { const b1 = m.querySelector("#fm-tgt-same"); if (b1) b1.addEventListener("click", () => { F.targets[F.tgtEdit] = +F.tgtEdit.split(",")[0]; wmRenderFormation(m); }); }
+  { const b2 = m.querySelector("#fm-tgt-castle"); if (b2) b2.addEventListener("click", () => { F.targets[F.tgtEdit] = "castle"; wmRenderFormation(m); }); }
+  { const b3 = m.querySelector("#fm-tgt-ok"); if (b3) b3.addEventListener("click", () => { F.tgtEdit = null; wmRenderFormation(m); }); }
+  { const b4 = m.querySelector("#fm-tgt-del"); if (b4) b4.addEventListener("click", () => { delete F.cells[F.tgtEdit]; delete F.targets[F.tgtEdit]; F.tgtEdit = null; wmRenderFormation(m); }); }
   m.querySelectorAll(".fm-cell").forEach(b => b.addEventListener("click", () => wmFormationTap(m, +b.dataset.c, +b.dataset.r)));
   const mv = m.querySelector("#fm-move"); if (mv) mv.addEventListener("click", () => { F.moveCenter = !F.moveCenter; F.sel = null; wmRenderFormation(m); });
-  m.querySelector("#fm-clear").addEventListener("click", () => { F.cells = {}; wmRenderFormation(m); });
+  m.querySelector("#fm-clear").addEventListener("click", () => { F.cells = {}; F.targets = {}; F.tgtEdit = null; wmRenderFormation(m); });
   const del = m.querySelector("#fm-del"); if (del) del.addEventListener("click", () => { l.formation = null; wmModalClose(); wmUpdateUi(); showToast("陣形を消した"); });
   m.querySelector("#fm-save").addEventListener("click", () => {
     if (!F.center){ showToast("中心のマスを、決める"); return; }
     if (!Object.keys(F.cells).length){ showToast("兵を、置く"); return; }
-    const cells = Object.keys(F.cells).map(key => { const p = key.split(",").map(Number); const o = { k:F.cells[key], dc:p[0] - F.center.c, dr:p[1] - F.center.r }; if (CHAR_DEFS[o.k].canPickRiders) o.crew = F.crews[key].slice(); return o; });
+    const cells = Object.keys(F.cells).map(key => {
+      const p = key.split(",").map(Number); const o = { k:F.cells[key], dc:p[0] - F.center.c, dr:p[1] - F.center.r };
+      if (CHAR_DEFS[o.k].canPickRiders) o.crew = (F.crews[key] || []).slice();
+      if (formHasTarget(o.k)){ const t = F.targets[key]; if (t === "castle") o.t = "castle"; else o.tdc = (t == null ? p[0] : t) - F.center.c; }     // 築く場所(兵の位置とは別)
+      return o;
+    });
+    const lcrew = F.crews[F.center.c + "," + F.center.r];
     const typed = (F.name || "").trim().replace(/陣$/, ""), name = typed || formAutoName(cells);                  // 決めなければ、形から、自動で付ける
-    l.formation = { name, auto:!typed, mode:F.mode, center:{ c:F.center.c, r:F.center.r }, cells };
+    l.formation = { name, auto:!typed, mode:F.mode, center:{ c:F.center.c, r:F.center.r }, cells, leaderCrew:(lcrew && lcrew.length) ? lcrew.slice() : null };
     playSfx(REPO_BASE + "audio/tap_command.opus"); showToast(formDisplayName(l.formation) + "を保存した(" + (F.mode === "defend" ? "守備" : "攻め") + ")"); wmModalClose(); wmUpdateUi();
   });
 }
@@ -4953,21 +5072,33 @@ function wmFormationTap(m, c, r){
   if (F.moveCenter){                                                    // 中心を動かす：全員が、いっしょに動く
     const dc = c - F.center.c, dr = r - F.center.r, nc = {};
     for (const k2 of Object.keys(F.cells)){ const p = k2.split(",").map(Number), x = p[0] + dc, y = p[1] + dr; if (x < 0 || x >= FORM_COLS || y < 0 || y >= FORM_LANES){ showToast("陣形が、外へはみ出す"); return; } nc[x + "," + y] = F.cells[k2]; }
+    for (const k2 of Object.keys(F.targets)){ const t = F.targets[k2]; if (t !== "castle" && (t + dc < 0 || t + dc >= FORM_COLS)){ showToast("築く場所が、外へはみ出す"); return; } }
     const ncrew = {}; for (const k2 of Object.keys(F.crews)){ const p = k2.split(",").map(Number); ncrew[(p[0] + dc) + "," + (p[1] + dr)] = F.crews[k2]; }
-    F.cells = nc; F.crews = ncrew; F.crewEdit = null; F.center = { c, r }; F.moveCenter = false; wmRenderFormation(m); return;
+    const ntg = {}; for (const k2 of Object.keys(F.targets)){ const p = k2.split(",").map(Number), t = F.targets[k2]; ntg[(p[0] + dc) + "," + (p[1] + dr)] = t === "castle" ? t : t + dc; }
+    F.cells = nc; F.crews = ncrew; F.targets = ntg; F.tgtEdit = null; F.crewEdit = null; F.center = { c, r }; F.moveCenter = false; wmRenderFormation(m); return;
   }
-  if (F.center.c === c && F.center.r === r){ showToast("ここが、中心(リーダーが立つ所)"); return; }
+  if (F.tgtEdit){                                                       // 築く場所を選んでいる間
+    const up = F.tgtEdit.split(",").map(Number);
+    if (r !== up[1]){ showToast("同じ戦列の、マスから選ぶ"); return; }
+    if (c < up[0]){ showToast("兵の位置より、前(右)のマスから選ぶ"); return; }
+    F.targets[F.tgtEdit] = c; wmRenderFormation(m); return;
+  }
+  if (F.center.c === c && F.center.r === r){
+    const ld = l.kind && CHAR_DEFS[l.kind];
+    if (ld && ld.canPickRiders){ F.crewEdit = key; wmRenderFormation(m); return; }                                 // リーダーが戦車：乗せる人を選べる
+    showToast("ここが、中心(リーダーが立つ所)"); return;
+  }
   if (F.cells[key]){
     if (CHAR_DEFS[F.cells[key]].canPickRiders){ F.crewEdit = key; wmRenderFormation(m); return; }                    // 戦車：押すと、乗員を選び直せる
-    delete F.cells[key]; wmRenderFormation(m); return;
+    if (formHasTarget(F.cells[key])){ F.tgtEdit = key; if (F.targets[key] == null) F.targets[key] = c; wmRenderFormation(m); return; }   // 設置系：押すと、築く場所を選び直せる
+    delete F.cells[key]; delete F.targets[key]; wmRenderFormation(m); return;
   }
   if (!F.sel){ showToast("置く兵を、選ぶ"); return; }
   const used = Object.keys(F.cells).filter(k2 => F.cells[k2] === F.sel).length + (formCrewUsed(F)[F.sel] || 0);
   if (used >= (l.team[F.sel] || 0)){ showToast("その兵は、もう、いない"); return; }
   F.cells[key] = F.sel;
   if (CHAR_DEFS[F.sel].canPickRiders){ F.crews[key] = []; F.crewEdit = key; showToast("戦車：乗せる人を選ぶ(なくてもよい)"); }
-  else if (CHAR_DEFS[F.sel].canPlaceStructure) showToast(CHAR_DEFS[F.sel].name + "：このマスに、築く");
-  else if (CHAR_DEFS[F.sel].canPickGascanSite) showToast(CHAR_DEFS[F.sel].name + "：このマスに、ガス缶を据える");
+  else if (formHasTarget(F.sel)){ F.targets[key] = c; F.tgtEdit = key; showToast(CHAR_DEFS[F.sel].name + "：ここが兵の位置。次に、同じ戦列の前にある、築く場所を選ぶ"); }
   wmRenderFormation(m);
 }
 // 戦闘：陣形の兵を、1体ずつ、前の兵から順に出す
@@ -4975,8 +5106,8 @@ function wmFormationTap(m, c, r){
 function siteFormationPlan(lid, pick){
   const l = world.leaders.find(x => x.id === lid), F = l && l.formation; if (!leaderFormationUsable(l)) return;
   const entries = [];
-  if (l.kind && (battle.leaderUnits || []).some(e => e.lid === lid && !e.placed)) entries.push({ leader:true, dc:0, dr:0 });
-  F.cells.forEach(c => entries.push({ kind:c.k, dc:c.dc, dr:c.dr, crew:c.crew }));
+  if (l.kind && (battle.leaderUnits || []).some(e => e.lid === lid && !e.placed)) entries.push({ leader:true, dc:0, dr:0, crew:F.leaderCrew || [] });
+  F.cells.forEach(c => entries.push({ kind:c.k, dc:c.dc, dr:c.dr, crew:c.crew, t:c.t, tdc:c.tdc }));
   entries.sort((a, b) => b.dc - a.dc);
   const minDc = Math.min.apply(null, [0].concat(F.cells.map(c => c.dc))), maxDc = Math.max.apply(null, [0].concat(F.cells.map(c => c.dc)));
   const atk = battle.stage.siteBattle.mode === "attack";
@@ -4991,7 +5122,10 @@ function siteFormationPlan(lid, pick){
 function siteFormFit(lid, c, r){
   const l = world.leaders.find(x => x.id === lid), F = l && l.formation; if (!F) return { ok:false, cells:[] };
   const cells = [{ c, r, center:true, ok:c >= 0 && c < FORM_COLS && r >= 0 && r < FORM_LANES, kind:l.kind || null }];
-  F.cells.forEach(x => { const cc = c + x.dc, rr = r + x.dr; cells.push({ c:cc, r:rr, kind:x.k, ok:cc >= 0 && cc < FORM_COLS && rr >= 0 && rr < FORM_LANES }); });
+  F.cells.forEach(x => {
+    const cc = c + x.dc, rr = r + x.dr; cells.push({ c:cc, r:rr, kind:x.k, ok:cc >= 0 && cc < FORM_COLS && rr >= 0 && rr < FORM_LANES });
+    if (x.tdc != null && x.tdc !== x.dc){ const tc = c + x.tdc; cells.push({ c:tc, r:rr, kind:null, mark:CHAR_DEFS[x.k].canPlaceStructure ? "築" : (CHAR_DEFS[x.k].canPickGascanSite ? "缶" : "直"), ok:tc >= 0 && tc < FORM_COLS && rr >= 0 && rr < FORM_LANES }); }   // 築く場所も、戦場に収まること
+  });
   return { ok:cells.every(x => x.ok), cells };
 }
 function siteFormPreviewClear(){ const f = document.getElementById("battlefield"); if (f){ const o = f.querySelector(".form-preview"); if (o) o.remove(); } }
@@ -5004,6 +5138,7 @@ function siteFormPreviewDraw(){
     d.style.left = ((20 - x.c - 1) * GRID_CELL) + "px"; d.style.bottom = laneFloor(x.r) + "px";
     const def = x.kind && CHAR_DEFS[x.kind]; if (def) d.innerHTML = '<img src="' + def.icon + '" alt="">' + (x.center ? '<i>★</i>' : '');
     else if (x.center) d.innerHTML = '<i>★</i>';
+    else if (x.mark){ d.classList.add("tgt"); d.innerHTML = '<i>' + x.mark + '</i>'; }                       // 築く場所の印
     box.appendChild(d);
   });
   if (!fit.ok){ const m = document.createElement("div"); m.className = "fp-msg"; m.textContent = "はみ出している。中心を、動かせ"; box.appendChild(m); }
@@ -5015,19 +5150,21 @@ function siteFormationSpawn(it){
   // 守備：選んだ中心からの位置。攻め：陣形の戦列のまま(中心の戦列を基準に、戦場に収まるよう寄せる)
   const baseR = atk ? Math.max(-Math.min.apply(null, [0].concat(F.cells.map(c => c.dr))), Math.min(FORM_LANES - 1 - Math.max.apply(null, [0].concat(F.cells.map(c => c.dr))), F.center.r)) : pick.r;
   const lane = Math.max(0, Math.min(FORM_LANES - 1, baseR + en.dr));
-  const edCol = atk ? (-it.minDc + en.dc) : (pick.c + en.dc), col = Math.max(1, Math.min(20, 20 - edCol));
-  const standX = atk ? null : columnCenterX(col) - 30;                    // 守備：自軍の端から出て、ここまで歩く
+  const toCol = e => Math.max(1, Math.min(20, 20 - e));                     // 自軍側から数えた列(0〜19) → 敵側から数えた列(1〜20)
+  const edCol = atk ? (-it.minDc + en.dc) : (pick.c + en.dc), col = toCol(edCol);
+  const standX = columnCenterX(col) - 30;                                    // 兵の位置(必ず、ここまで歩く)
   if (en.leader){
-    if (siteDeployLeader(it.lid, lane, null)){ const u = battle.leaderUnits.find(e => e.lid === it.lid).unit; if (standX != null){ u.standX = standX; u.standDone = false; } }
+    if (siteDeployLeader(it.lid, lane, null, { crew:en.crew })){ const u = battle.leaderUnits.find(e => e.lid === it.lid).unit; if (!atk){ u.standX = standX; u.standDone = false; } }   // 攻めでは、リーダーも、そのまま進む
     return;
   }
   const org = battle.origin[it.lid], def = CHAR_DEFS[en.kind];
-  if (def && siteIsPlacer(def)){                                          // 設置系：陣形の中の、そのマスが、築く場所(戦車は、乗員つきで出る)
-    siteDeployPlacer(en.kind, lane, col, { lid:it.lid, crew:en.crew, stand:standX, formation:true }); return;
+  if (def && siteIsPlacer(def)){                                          // 設置系：兵の位置まで歩いてから、同じ戦列の前にある「築く場所」へ
+    const tEd = en.t === "castle" ? null : (atk ? (-it.minDc + (en.tdc != null ? en.tdc : en.dc)) : (pick.c + (en.tdc != null ? en.tdc : en.dc)));
+    siteDeployPlacer(en.kind, lane, tEd == null ? col : toCol(tEd), { lid:it.lid, crew:en.crew, stand:standX, formation:true, castle:en.t === "castle" }); return;
   }
   if (!def || !org || !(org[en.kind] > 0) || !(battle.roster[en.kind] > 0)) return;
   const u = spawnUnit(en.kind, "player", 0, { lane });                    // 自軍の端から出る
-  if (standX != null){ u.standX = standX; u.standDone = false; }
+  if (!atk){ u.standX = standX; u.standDone = false; }
   u.deployedKind = en.kind; u.siteRoster = true; u.siteOrigin = it.lid; applyFrame(u);
   if (def.hornAbility) startCommanderHorn(u);
   org[en.kind]--; battle.roster[en.kind]--; buildSiteDeployRow();
@@ -6365,7 +6502,7 @@ function spawnUnit(kind, side, xOffset, opts){
       unit.riders.push(spawnUnit(slot.kind, side, 0, { mount: unit, slot }));
     });
   }
-  if (side === "player" && battle && battle.auraKinds) battle.auraKinds.forEach(k => applyLeaderAura(unit, k));   // リーダー効果は、出てきた瞬間に与える
+  if (battle && battle.auraCounts && battle.auraCounts[side]) Object.keys(battle.auraCounts[side]).forEach(k => applyLeaderAura(unit, k));   // リーダー効果は、出てきた瞬間に与える(敵味方とも)
   return unit;
 }
 
@@ -6410,7 +6547,8 @@ function attackBonus(unit, target, commit){
   let m = (unit.def.bonusVsRace && unit.def.bonusVsRace[target.def.race]) || 1;
   if (unit.def.bonusVsBuilding && (target.def.structureUnit || target.def.countsAsBuilding)) m *= unit.def.bonusVsBuilding; // 破城槌：建物への特攻
   if (unit.def.bonusVsNoCombat && target.def.noCombat) m *= unit.def.bonusVsNoCombat; // 斥候：非戦闘の支援役(穽鬼・鼓鬼・巫鬼など)への追加ダメージ
-  if (unit.aura){                                    // リーダー効果：魔獣への攻撃力(槍兵)・建物への攻撃力(破城槌)・火属性の攻撃力(火槍手)
+  if (unit.aura){                                    // リーダー効果：魔獣への攻撃力(槍兵)・建物への攻撃力(破城槌)・火属性の攻撃力(火槍手)・突進系の威力(鬼犀)
+    if (unit.aura.charge !== 1 && unit.def.race === "beast" && (unit.def.laneSpan || 1) === 1) m *= unit.aura.charge;
     if (unit.aura.vsBeast !== 1 && target.def.race === "beast") m *= unit.aura.vsBeast;
     if (unit.aura.vsBuilding !== 1 && (target.def.structureUnit || target.def.countsAsBuilding)) m *= unit.aura.vsBuilding;
     if (unit.aura.fire !== 1 && unit.def.attackFlags && unit.def.attackFlags.fire) m *= unit.aura.fire;
@@ -6695,7 +6833,8 @@ function updateTraps(dtMs){
 
       catchable.forEach(u => {
         u.restrained = true;
-        u.restrainRemainingMs = (u.def.netBreakTimeMs != null) ? u.def.netBreakTimeMs : Infinity;
+        const trapMs = (def.netRestrainDurationMs != null ? def.netRestrainDurationMs : 50000) * (trap.owner.aura && trap.owner.aura.trapMul ? trap.owner.aura.trapMul : 1);   // 穽鬼のリーダー効果で、最大時間が伸びる
+        u.restrainRemainingMs = (u.def.netBreakTimeMs != null) ? Math.min(u.def.netBreakTimeMs, trapMs) : trapMs;
         u.img.style.visibility = "hidden"; // 本体だけ隠す(HPバーはelの子のまま残るので見え続ける)
       });
       return;
@@ -6928,7 +7067,7 @@ function launchUnit(target, attacker, opts){
     const awayDir = attacker ? Math.sign(target.x - attacker.x) || (target.side === "player" ? 1 : -1) : 1;
     // 吹き飛びは、レーンをまたがず、後ろへ2マス分だけ飛ぶ(滞空時間で割って速度を決める)
     const airtime = 2 * target.launchVY / LAUNCH_GRAVITY;
-    target.launchVX = awayDir * (opts.knockbackDist || 2 * GRID_CELL) / airtime;
+    target.launchVX = awayDir * (opts.knockbackDist || 2 * GRID_CELL) * (attacker && attacker.aura ? attacker.aura.knock : 1) / airtime;     // 吹き飛ばしの距離(鬼犀のリーダー効果で伸びる)
   } else {
     target.launchVX = 0;
   }
@@ -7117,9 +7256,11 @@ function commitRepairTarget(kind, target){
   return true;
 }
 // 修復兵の行動：対象のそばまで歩き、着いたら直し続ける。対象が満タンでも、その場に留まって待ち、減ったらまた直す
+function repairCellStructure(t){ const st = findStructureAt(t.col, t.lane); return (st && !st.dead && st.side === "player") ? st : null; }
 function repairTargetPos(unit){
   const t = unit.repairTarget;
   if (t.kind === "none") return null;
+  if (t.kind === "cell"){ const st = repairCellStructure(t); return st ? columnCenterX(st.structureCol) + 60 : null; }                   // 指定のマスに、建物が築かれたら、その建物のそばへ
   if (t.kind === "castle"){
     const field = document.getElementById("battlefield");
     return unit.side === "player" ? (field ? field.clientWidth - 90 : STAGE_W - 90) : 90;
@@ -7130,12 +7271,14 @@ function repairTargetPos(unit){
 function repairTargetHp(unit){
   const t = unit.repairTarget;
   if (t.kind === "none") return null;
+  if (t.kind === "cell"){ const st = repairCellStructure(t); return st ? { hp:st.hp, max:st.hpMax } : null; }
   if (t.kind === "castle") return { hp: battle.playerCastleHp, max: battle.playerCastleHpMax };
   if (t.ref.dead) return null;
   return { hp: t.ref.hp, max: t.ref.hpMax };
 }
 function healRepairTarget(unit, amount){
   const t = unit.repairTarget;
+  if (t.kind === "cell"){ const st = repairCellStructure(t); if (st){ st.hp = Math.min(st.hpMax, st.hp + amount); if (st.def.structureUnit) updateStructureStage(st); } return; }
   if (t.kind === "castle"){
     battle.playerCastleHp = Math.min(battle.playerCastleHpMax, battle.playerCastleHp + amount);
     updateCastleBars();
@@ -7278,7 +7421,7 @@ function canClimbTower(unit){
 }
 // 味方の建造物が、この味方の行く手を塞ぐか：望楼台は誰も通れない。壁は、大きい味方だけが通れない
 function structureBlocksAlly(unit, s){
-  if (unit.def.structureUnit || unit.buildTargetX != null) return false; // 望楼兵(築きに向かう途中)は、建造物をすり抜ける
+  if (unit.def.structureUnit || unit.buildTargetX != null || unit.returningHome || unit.standX != null) return false;      // 築きに向かう・戻る・持ち場へ歩く兵は、建物をすり抜ける // 望楼兵(築きに向かう途中)は、建造物をすり抜ける
   if (s.def.structureKind === "platform") return true;
   return isBigAlly(unit.def);
 }
@@ -7593,7 +7736,7 @@ function getFlagSource(unit){
 // 敵城に与えるダメージの倍率(旗バフ)
 function getCastleDamageMult(unit){
   const src = getFlagSource(unit);
-  return (src ? src.def.flagCastleAtkMult : 1) * castleTakenScale(unit.side);
+  return (src ? src.def.flagCastleAtkMult : 1) * castleTakenScale(unit.side) * (unit.aura ? unit.aura.vsCastle : 1);        // 城への攻撃力(礫車のリーダー効果)
 }
 // 戦線ごとの調整：城が受けるダメージの倍率。stage.castleDmgTaken = { player:自城が受ける, enemy:敵城が受ける }。省略は1倍。
 // 最初の戦線(魔野)は、まだ不慣れでも押し切られないよう、自城が受けるダメージを減らしている
@@ -8844,7 +8987,7 @@ function meteorImpact(fx, side, ix, o){
   const enemySide = side === "player" ? "enemy" : "player";
   const impLane = o.lane != null ? o.lane : 0; // 着弾は1レーン、1マスぶん
   battle.units.filter(u => !u.dead && !u.mounted && u.side === enemySide && lanesOverlap(impLane, impLane, u.laneLo, u.laneHi) && Math.abs(unitCenterX(u) - ix) <= o.radius)
-    .forEach(u => applyDamageToUnit(u, o.damage, null));
+    .forEach(u => applyDamageToUnit(u, o.damage * ((battle.sideMul && battle.sideMul[side] && battle.sideMul[side].magic) || 1), null));       // 魔法属性の威力(鬼后のリーダー効果)
 }
 
 /* ---- 第二形態への移行 ---- */
@@ -10138,7 +10281,7 @@ function updateCharge(unit, dtMs){
 
   if (!unit.chargeHit){
     // 前進しながら、最終コマ以外をループ再生する
-    const speed = def.rageChargeSpeed || (def.walkSpeed * 2.5);
+    const speed = (def.rageChargeSpeed || (def.walkSpeed * 2.5)) * (unit.aura ? unit.aura.speed : 1);          // 突進の速さにも、リーダー効果(移動速度)が乗る
     const forwardDir = unit.side === "player" ? -1 : 1;
     unit.x += forwardDir * speed * (dtMs / 1000);
 
@@ -10600,6 +10743,11 @@ function applyDamageToUnit(target, amount, attacker){
   // ただしチャリオットの乗員だけは例外で、遠距離攻撃(弓など)なら乗ったままでも狙い撃たれる
   if (target.mounted && !(target.mount && target.mount.def.chariotUnit && attacker && attacker.def.ranged)) return;
   if (target.def.invulnerable) return;       // 巨大ゲートは壊せない
+  if (attacker && target.def.structureKind === "barricade" && attacker.def.race === "beast" && (attacker.def.laneSpan || 1) === 1 && !attacker.dead){   // 拒馬に突っ込んだ魔獣(犬・鬼犀)：反射ダメージ＋出血の蓄積
+    const back = Math.max(1, amount * 0.5); attacker.hp = Math.max(0, attacker.hp - back); applyFrame(attacker);
+    if (addStatusGauge(attacker, "bleed", 60, 100) && attacker.hp > 0){ attacker.hp = Math.max(0, attacker.hp - (attacker.hpMax * 0.15 + 5)); applyFrame(attacker); playBleedFx(attacker, CHAR_DEFS.chief); }
+    if (attacker.hp <= 0) killUnit(attacker);
+  }
   if (target.reviveInvulnMs > 0) return;     // 蘇生直後の無敵時間中
   // 担がれているキングは、遠距離攻撃(空中に届く攻撃)でしか攻撃できない
   if (target.elevated && attacker && !(attacker.def.ranged || attacker.def.canHitAir)) return;
@@ -10620,6 +10768,7 @@ function applyDamageToUnit(target, amount, attacker){
   const def = target.def;
   const attackerFlags = (attacker && attacker.def.attackFlags) || {};
   const meleeRangeCheck = attacker && edgeDistance(target, attacker) <= def.attackRange;
+  if (attacker && attacker.aura && attacker.aura.splash !== 1 && attacker.def.splashRadius) amount *= attacker.aura.splash;     // 範囲攻撃の威力(鬼象砦のリーダー効果)
   amount = amount * getDamageCutMultiplier(target); // 鼓舞バフの被ダメージカットを適用
   // 甲冑兵などの、鎧そのものによる近接ダメージ軽減(ガードとは別判定なので、ガード貫通の一撃にも効く)
   if (def.meleeDamageCutPercent && !(attacker && attacker.def.ranged)){
@@ -10705,7 +10854,7 @@ function applyDamageToUnit(target, amount, attacker){
   // 出血付与(ゴブリン長の斬撃)：蓄積式。100%で発動し「最大HPの一定割合＋固定値」のダメージ
   if (attacker && attacker.def.bleedStackPerHit && target.hp > 0 && !target.def.bleedImmune && !target.def.structureUnit){ // 建物は生き物ではないので、出血などの状態異常は効かない
     const threshold = attacker.def.bleedStackThreshold || 100;
-    if (addStatusGauge(target, "bleed", attacker.def.bleedStackPerHit, threshold)){ // 出血ゲージも、対象ごとに1つ
+    if (addStatusGauge(target, "bleed", attacker.def.bleedStackPerHit * (attacker.aura ? attacker.aura.bleed : 1), threshold)){ // 出血ゲージも、対象ごとに1つ
       const bleedDmg = target.hpMax * (attacker.def.bleedMaxHpPercent || 0) + (attacker.def.bleedFixedDamage || 0);
       target.hp = Math.max(0, target.hp - bleedDmg);
       applyFrame(target);
@@ -11026,6 +11175,7 @@ function battleStep(dt){
     if (w.leader){                                                       // 敵のリーダー：常に強化されている(最大HP+25%・攻撃力+10%)
       unitAddHpMult(wu, LEADER_HP_MULT); wu.roleAtkMult = (wu.roleAtkMult || 1) * LEADER_ATK_MULT; wu.isEnemyLeader = true;
       const st = document.createElement("div"); st.className = "leader-star"; st.textContent = "★"; wu.el.appendChild(st); wu.el.classList.add("is-leader");
+      if (LEADER_AURA[w.kind]) battleAddAura(w.kind, "enemy");                       // 敵のリーダー効果：味方(自身も)に付く
     }
     if (w.role) applyRole(wu, w.role); // 敵の役職(enemyWavesの role に general/elder/captain/chief)
     onEnemySpawned(wu); // 伝令兵：予測していた戦列に敵が現れたか判定する
