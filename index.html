@@ -195,6 +195,7 @@
   .wm-node .wm-label .wm-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:1px; background:var(--ring); border:1.5px solid #000; box-shadow:0 0 7px var(--ring); }
   .wm-node .wm-label{ font-family:var(--mincho); font-size:.72rem; letter-spacing:.14em; color:#f2e6c0; text-shadow:0 1px 3px #000,0 0 7px #000,0 0 12px #000; white-space:nowrap; margin-top:3px; pointer-events:none; }
   .wm-node.sprite .wm-label{ position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:1px; }
+  .wm-node.sprite::after{ content:""; position:absolute; left:-14px; right:-14px; top:-14px; bottom:-14px; }
   .wm-node.sel .wm-ring{ box-shadow:0 0 0 2px #000, 0 0 18px 6px var(--ring); }
   .wm-node.sel img.wm-sprite{ filter:drop-shadow(0 0 10px var(--ring)) drop-shadow(0 3px 5px rgba(0,0,0,.7)); }
   .wm-title{ position:absolute; left:14px; top:10px; z-index:4; font-family:var(--mincho); font-size:1rem; letter-spacing:.3em; color:#f2e6c0; text-shadow:0 2px 5px #000,0 0 12px #000; pointer-events:none; }
@@ -202,7 +203,7 @@
   .wm-tab{ font-family:var(--mincho); font-weight:700; font-size:1rem; letter-spacing:.2em; padding:6px 20px 6px calc(20px + .2em); color:#a89c7c; background:rgba(10,7,6,.78); border:1px solid #5a4a2c; }
   .wm-tab + .wm-tab{ border-left:0; }
   .wm-tab.on{ color:#f0cf6a; border-color:#c9a24a; box-shadow:0 0 10px rgba(201,162,74,.28); background:rgba(40,28,10,.85); }
-  .wm-info{ position:absolute; left:12px; bottom:12px; z-index:6; width:min(340px,62%); display:none; padding:12px 16px 14px;
+  .wm-info{ position:absolute; left:12px; bottom:12px; z-index:14; width:min(340px,62%); display:none; padding:12px 16px 14px;
     background:linear-gradient(180deg,rgba(32,26,19,.95),rgba(13,10,8,.97)); border:1px solid #6b5630; box-shadow:0 0 0 1px #000, 0 10px 26px rgba(0,0,0,.8); }
   .wm-info.on{ display:block; }
   .wm-info .wi-name{ font-family:var(--mincho); font-size:1.3rem; font-weight:900; letter-spacing:.22em; color:#f0d58a; text-shadow:0 2px 3px #000; }
@@ -216,7 +217,7 @@
   .wm-sub.open{ opacity:1; transform:scale(1); visibility:visible; pointer-events:auto;
     transition:opacity .5s ease, transform .65s cubic-bezier(.2,.8,.2,1), visibility 0s; }
   .wm-sub-panel{ position:relative; overflow:hidden; }
-  .wm-sub-panel img{ position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; user-select:none; -webkit-user-drag:none; }
+  .wm-sub-panel > img{ position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; user-select:none; -webkit-user-drag:none; }
   .wm-sub-panel::after{ content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 55%,rgba(0,0,0,.6) 100%); }
   .wm-sub-title{ position:absolute; left:14px; top:12px; z-index:2; font-family:var(--mincho); font-size:1.3rem; letter-spacing:.3em; color:#f2e6c0; text-shadow:0 2px 5px #000,0 0 14px #000; }
   .wm-sub-note{ position:absolute; left:14px; right:14px; bottom:12px; z-index:2; font-size:.74rem; letter-spacing:.1em; line-height:1.8; color:#d8ccaa; text-shadow:0 1px 4px #000,0 0 10px #000; }
@@ -3423,34 +3424,41 @@ const WM_OWNER = {
 };
 const WORLD_MAP = {
   west: { label:"西", title:"西部　屍城の地", img:"map_west.jpg", w:1672, h:941, nodes:[
-    { id:"castle",   name:"屍城",           reading:"しじょう",             owner:"player",  x:9.6,  y:12.5, desc:"山の頂に築かれた、屍城軍の本拠地。兵はここで雇われ、ここから出陣する。" },
-    { id:"post_up",  name:"山道の砦(上)",   reading:"やまみちのとりで",     owner:"player",  x:17.0, y:35.2, desc:"本拠地へ続く山道を守る、味方の砦。" },
-    { id:"post_dn",  name:"山道の砦(下)",   reading:"やまみちのとりで",     owner:"player",  x:9.3,  y:44.6, desc:"本拠地へ続く山道を守る、味方の砦。" },
-    { id:"village",  name:"川辺の村",       reading:"かわべのむら",         owner:"player",  x:30.2, y:49.0, desc:"山裾の川沿いに開けた村。まだ人の暮らしが残る、最後の里。" },
-    { id:"gate",     name:"壁と門",         reading:"かべともん",           owner:"player",  x:38.5, y:46.4, desc:"山裾と荒野を隔てる長大な城壁。この門だけが、外の世界へ通じている。" },
-    { id:"front",    name:"山間の前線拠点", reading:"やまあいのぜんせんきょてん", owner:"player", x:62.5, y:48.5, sprite:"site_player_outpost.png", sw:9,
-      desc:"二つの山の隙間に築かれた、屍城軍の前線拠点。荒野へ出る兵の足がかりとなる。" },
-    { id:"captured", name:"山上の砦",       reading:"さんじょうのとりで",   owner:"cult",    x:64.0, y:24.0, sprite:"site_captured_castle.png", sw:10,
-      desc:"かつて屍城軍が築いた山上の城。いまは灰燼教団の手に落ち、黒い幟が翻る。" },
-    { id:"forest",   name:"大森林",         reading:"だいしんりん",         owner:"neutral", x:80.7, y:63.5, sub:"forest",
-      desc:"深い木立が続く大森林。木々の陰には、ひとの目に触れぬ戦線が隠れている。" }
+    { id:"castle", name:"屍城", reading:"しじょう", owner:"player", x:9.6, y:12.5, desc:"山の頂に築かれた、屍城軍の本拠地。兵はここで雇われ、ここから出陣する。" },
+    { id:"post_up", name:"山道の砦(上)", reading:"やまみちのとりで", owner:"player", x:17.0, y:35.2, desc:"本拠地へ続く山道を守る、味方の砦。" },
+    { id:"post_dn", name:"山道の砦(下)", reading:"やまみちのとりで", owner:"player", x:9.3, y:44.6, desc:"本拠地へ続く山道を守る、味方の砦。" },
+    { id:"village", name:"川辺の村", reading:"かわべのむら", owner:"player", x:30.2, y:49.0, desc:"山裾の川沿いに開けた村。まだ人の暮らしが残る、最後の里。" },
+    { id:"gate", name:"壁と門", reading:"かべともん", owner:"player", x:38.5, y:46.4, desc:"山裾と荒野を隔てる長大な城壁。この門だけが、外の世界へ通じている。" },
+    { id:"front1", name:"荒野の前線拠点(一)", reading:"こうやのぜんせんきょてん", owner:"player", x:45.2, y:39.7, sprite:"site_player_outpost.png", sw:3.3, desc:"門の外、無防備の荒野に築かれた屍城軍の拠点。ここで兵を雇い、前へ送り出せる。" },
+    { id:"front2", name:"荒野の前線拠点(二)", reading:"こうやのぜんせんきょてん", owner:"player", x:65.2, y:55.8, sprite:"site_player_outpost.png", sw:4.7, desc:"門の外、無防備の荒野に築かれた屍城軍の拠点。ここで兵を雇い、前へ送り出せる。" },
+    { id:"captured", name:"山上の砦", reading:"さんじょうのとりで", owner:"cult", x:63.4, y:21.5, sprite:"site_captured_castle.png", sw:4.8, desc:"かつて屍城軍が築いた山上の城。いまは灰燼教団の手に落ち、黒い幟が翻る。" },
+    { id:"forest", name:"大森林", reading:"だいしんりん", owner:"neutral", x:80.7, y:61.6, sub:"forest", desc:"深い木立が続く大森林。木々の陰には、ひとの目に触れぬ戦線が隠れている。" },
+    { id:"gob_w1", name:"ゴブリン族の前哨", reading:"ゴブリンぞくのぜんしょう", owner:"goblin", x:90.2, y:29.6, sprite:"site_goblin_outpost.png", sw:4.2, desc:"荒野の東の果てに置かれた、ゴブリン族の前哨。攻め落とせば、こちらのものとなる。" }
   ]},
   east: { label:"東", title:"東部　鬼の地", img:"map_east.jpg", w:1536, h:1024, nodes:[
-    { id:"cult_post", name:"灰燼教団の拠点", reading:"かいじんきょうだんのきょてん", owner:"cult", x:28, y:46, sprite:"site_cult_outpost.png", sw:7,
-      desc:"荒れ地の只中に置かれた、黒く無機質な建造物。この世のものとは思えぬ光が、縁を走る。" },
-    { id:"ruin",      name:"滅ぼされた集落", reading:"ほろぼされたしゅうらく", owner:"neutral", x:14, y:72, sprite:"site_goblin_ruin.png", sw:10,
-      desc:"灰燼教団に焼き払われた、ゴブリン族の集落の跡。いまは誰のものでもない。先に辿り着いた者が、ここを占める。" },
-    { id:"gob_post",  name:"ゴブリン族の拠点", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:40, y:28, sprite:"site_goblin_outpost.png", sw:11,
-      desc:"丸太と骨で築かれた、ゴブリン族の砦。攻め落とせば、こちらのものとなる。" },
-    { id:"cave",      name:"ゴブリンの洞窟", reading:"ゴブリンのどうくつ", owner:"goblin", x:61.5, y:68.3, sub:"cave",
-      desc:"山岳地帯へ通じる唯一の入口。洞窟ぜんたいが要塞と化し、道を塞いでいる。ここを突破せねば、先へは進めない。" },
-    { id:"summit",    name:"鬼哭野",         reading:"きこくの", owner:"goblin", x:74.8, y:8.5,
-      desc:"山頂に築かれた、ゴブリン族の本拠地。鬼后が座す。" }
+    { id:"cult1", name:"灰燼教団の拠点", reading:"かいじんきょうだんのきょてん", owner:"cult", x:37.7, y:24.2, sprite:"site_cult_outpost.png", sw:4.2, desc:"荒れ地の只中に置かれた、黒く無機質な建造物。この世のものとは思えぬ光が、縁を走る。" },
+    { id:"ruin1", name:"滅ぼされた集落(一)", reading:"ほろぼされたしゅうらく", owner:"neutral", x:25.8, y:34.7, sprite:"site_goblin_ruin.png", sw:5.9, desc:"灰燼教団に焼き払われた、ゴブリン族の集落の跡。いまは誰のものでもない。先に辿り着いた者が、ここを占める。" },
+    { id:"ruin2", name:"滅ぼされた集落(二)", reading:"ほろぼされたしゅうらく", owner:"neutral", x:47.8, y:31.8, sprite:"site_goblin_ruin.png", sw:5.1, desc:"灰燼教団に焼き払われた、ゴブリン族の集落の跡。いまは誰のものでもない。先に辿り着いた者が、ここを占める。" },
+    { id:"gob_e1", name:"ゴブリン族の拠点(一)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:28.1, y:53.3, sprite:"site_goblin_outpost.png", sw:4.9, desc:"丸太と骨で築かれた、ゴブリン族の砦。攻め落とせば、こちらのものとなる。" },
+    { id:"gob_e2", name:"ゴブリン族の拠点(二)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:37.2, y:45.5, sprite:"site_goblin_outpost.png", sw:5.9, desc:"丸太と骨で築かれた、ゴブリン族の砦。攻め落とせば、こちらのものとなる。" },
+    { id:"gob_e3", name:"ゴブリン族の拠点(三)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:45.1, y:62.7, sprite:"site_goblin_outpost.png", sw:6.5, desc:"丸太と骨で築かれた、ゴブリン族の砦。攻め落とせば、こちらのものとなる。" },
+    { id:"cave", name:"ゴブリンの洞窟", reading:"ゴブリンのどうくつ", owner:"goblin", x:61.5, y:68.3, sub:"cave", desc:"山岳地帯へ通じる唯一の入口。洞窟ぜんたいが要塞と化し、道を塞いでいる。ここを突破せねば、先へは進めない。" },
+    { id:"summit", name:"鬼哭野", reading:"きこくの", owner:"goblin", x:74.8, y:8.5, desc:"山頂に築かれた、ゴブリン族の本拠地。鬼后が座す。" }
   ]}
 };
 const WM_SUBMAPS = {
-  forest: { title:"大森林", img:"sub_forest.jpg", w:1536, h:1024, note:"木々に隠れていた戦線は、ここに姿を現す。(準備中)" },
-  cave:   { title:"ゴブリンの洞窟", img:"sub_cave.jpg", w:1536, h:1024, note:"入口から出口まで、道を塞ぐ戦線が続く。(準備中)" }
+  forest: { title:"大森林", img:"sub_forest.jpg", w:1536, h:1024, note:"木々に隠れていた拠点が、ここに姿を現す。(戦線は準備中)", nodes:[
+    { id:"f_cult1", name:"灰燼教団の拠点", reading:"かいじんきょうだんのきょてん", owner:"cult", x:61.1, y:46.4, sprite:"site_cult_outpost.png", sw:10.0, desc:"隠されていた、灰燼教団の拠点。" },
+    { id:"f_gob1", name:"森のゴブリン拠点(一)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:26.4, y:28.8, sprite:"site_goblin_outpost.png", sw:5.2, desc:"ゴブリン族が築いた拠点。攻め落とせば、こちらのものとなる。" },
+    { id:"f_gob2", name:"森のゴブリン拠点(二)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:29.7, y:74.9, sprite:"site_goblin_outpost.png", sw:7.7, desc:"ゴブリン族が築いた拠点。攻め落とせば、こちらのものとなる。" }
+  ]},
+  cave:   { title:"ゴブリンの洞窟", img:"sub_cave.jpg", w:1536, h:1024, note:"入口から出口まで、道を塞ぐ拠点が続く。(戦線は準備中)", nodes:[
+    { id:"c_gob1", name:"洞窟の拠点(一)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:19.4, y:69.1, sprite:"site_goblin_outpost.png", sw:4.1, desc:"ゴブリン族が築いた拠点。攻め落とせば、こちらのものとなる。" },
+    { id:"c_gob2", name:"洞窟の拠点(二)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:44.7, y:16.4, sprite:"site_goblin_outpost.png", sw:3.1, desc:"ゴブリン族が築いた拠点。攻め落とせば、こちらのものとなる。" },
+    { id:"c_gob3", name:"洞窟の拠点(三)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:48.5, y:47.9, sprite:"site_goblin_outpost.png", sw:5.1, desc:"ゴブリン族が築いた拠点。攻め落とせば、こちらのものとなる。" },
+    { id:"c_gob4", name:"洞窟の拠点(四)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:57.5, y:71.4, sprite:"site_goblin_outpost.png", sw:4.3, desc:"ゴブリン族が築いた拠点。攻め落とせば、こちらのものとなる。" },
+    { id:"c_gob5", name:"洞窟の拠点(五)", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:77.2, y:22.6, sprite:"site_goblin_outpost.png", sw:4.7, desc:"ゴブリン族が築いた拠点。攻め落とせば、こちらのものとなる。" }
+  ]}
 };
 const wmState = { side:"west", root:null, panel:null, ro:null };
 
@@ -3492,6 +3500,9 @@ function wmOpenSub(key, nodeEl){
   sp.querySelector("img").src = MAP_IMG_BASE + sm.img;
   sp.querySelector(".wm-sub-title").textContent = sm.title;
   sp.querySelector(".wm-sub-note").textContent = sm.note;
+  sp.querySelectorAll(".wm-node").forEach(e => e.remove());
+  (sm.nodes || []).forEach(n => sp.appendChild(wmMakeNode(n)));
+  wmHideInfo();
   wmFit();
   // 注目の演出：タップした場所から、地図がぐっと近づいて開く
   const rr = root.getBoundingClientRect(), nr = nodeEl.getBoundingClientRect();
@@ -3555,7 +3566,8 @@ function buildWorldMap(){
   const sub = document.createElement("div"); sub.className = "wm-sub";
   sub.innerHTML = '<div class="wm-sub-panel"><img alt=""><div class="wm-sub-title"></div><div class="wm-sub-note"></div></div><button class="wm-sub-back">戻る</button>';
   root.appendChild(sub);
-  sub.querySelector(".wm-sub-back").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmCloseSub(); });
+  sub.querySelector(".wm-sub-back").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmHideInfo(); wmCloseSub(); });
+  sub.addEventListener("click", e => { if (!e.target.closest(".wm-node") && !e.target.closest(".wm-sub-back")) wmHideInfo(); });
   root.addEventListener("click", e => { if (e.target === root || e.target === panel) wmHideInfo(); });
   wmState.root = root; wmState.panel = panel;
   wmRenderPanel();
