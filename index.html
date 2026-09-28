@@ -257,6 +257,36 @@
   .wm-lcard .lc-line{ margin-top:4px; font-size:.78rem; letter-spacing:.06em; color:#d8ccaa; }
   .wm-lcard .lc-hint{ margin-top:6px; font-size:.68rem; letter-spacing:.06em; color:#9c8f6e; }
   .wm-lcard .lc-stop{ font-family:var(--mincho); letter-spacing:.2em; padding:4px 16px 4px calc(16px + .2em); color:#f0cf6a; background:rgba(10,7,6,.82); border:1px solid #8a6a2c; }
+  /* --- 戦場の左右反転：敵は右、自軍は左(地図と同じ向き) --- */
+  #screen-battle #battlefield, #screen-battle #stage-backdrop{
+    transform:translate(calc(var(--stage-offx) + 2000px * var(--stage-scale)), var(--stage-offy)) scale(calc(var(--stage-scale) * -1), var(--stage-scale)); }
+  #battlefield .castle .flag{ transform:scaleX(-1); }
+  /* --- 地形ごとの背景と演出 --- */
+  #stage-backdrop .bd-scene{ position:absolute; background-repeat:no-repeat; background-position:0 0;
+    -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 90px,#000 calc(100% - 70px),transparent 100%); mask-image:linear-gradient(180deg,transparent 0,#000 90px,#000 calc(100% - 70px),transparent 100%); }
+  #stage-backdrop .bd-scene.mirror{ transform:scaleX(-1); }
+  #screen-battle[class*="atmo-"] #stage-backdrop .bd-cloud{ display:none; }
+  #screen-battle[class*="atmo-"] #stage-art .art-haze{ display:none; }
+  #screen-battle[class*="atmo-"] #stage-atmo .ember{ display:none; }
+  #screen-battle[class*="atmo-"] #stage-vignette{ background:radial-gradient(ellipse at 50% 58%, rgba(0,0,0,0) 56%, rgba(0,0,0,.46) 100%); }
+  #screen-battle.atmo-cave #stage-atmo .ember{ display:block; }
+  #screen-battle.atmo-village #stage-fog .fog.far{ background-image:radial-gradient(ellipse 380px 42px at 180px 55%, rgba(160,160,158,0.3), transparent 72%), radial-gradient(ellipse 300px 34px at 700px 38%, rgba(160,160,158,0.26), transparent 72%); }
+  #screen-battle.atmo-village #stage-fog .fog.low{ background-image:radial-gradient(ellipse 420px 50px at 260px 62%, rgba(160,160,158,0.24), transparent 72%), radial-gradient(ellipse 340px 42px at 760px 45%, rgba(160,160,158,0.20), transparent 72%); }
+  #screen-battle.atmo-village #stage-atmo .ash{ background:#bdb8ae; opacity:.7; }
+  #screen-battle.atmo-field #stage-fog .fog.far{ background-image:radial-gradient(ellipse 380px 42px at 180px 55%, rgba(238,232,210,0.26), transparent 72%), radial-gradient(ellipse 300px 34px at 700px 38%, rgba(238,232,210,0.22), transparent 72%); }
+  #screen-battle.atmo-field #stage-fog .fog.low{ background-image:radial-gradient(ellipse 420px 50px at 260px 62%, rgba(238,232,210,0.2), transparent 72%), radial-gradient(ellipse 340px 42px at 760px 45%, rgba(238,232,210,0.17), transparent 72%); }
+  #screen-battle.atmo-field #stage-atmo .ash{ background:#e8dcb4; box-shadow:0 0 3px 1px rgba(240,225,170,.35); }
+  #screen-battle.atmo-mountain #stage-fog .fog.far{ background-image:radial-gradient(ellipse 380px 42px at 180px 55%, rgba(222,234,246,0.36), transparent 72%), radial-gradient(ellipse 300px 34px at 700px 38%, rgba(222,234,246,0.31), transparent 72%); }
+  #screen-battle.atmo-mountain #stage-fog .fog.low{ background-image:radial-gradient(ellipse 420px 50px at 260px 62%, rgba(222,234,246,0.28), transparent 72%), radial-gradient(ellipse 340px 42px at 760px 45%, rgba(222,234,246,0.24), transparent 72%); }
+  #screen-battle.atmo-mountain #stage-atmo .ash{ background:#ffffff; box-shadow:0 0 3px 1px rgba(255,255,255,.5); }
+  #screen-battle.atmo-forest #stage-fog .fog.far{ background-image:radial-gradient(ellipse 380px 42px at 180px 55%, rgba(150,184,172,0.32), transparent 72%), radial-gradient(ellipse 300px 34px at 700px 38%, rgba(150,184,172,0.27), transparent 72%); }
+  #screen-battle.atmo-forest #stage-fog .fog.low{ background-image:radial-gradient(ellipse 420px 50px at 260px 62%, rgba(150,184,172,0.3), transparent 72%), radial-gradient(ellipse 340px 42px at 760px 45%, rgba(150,184,172,0.26), transparent 72%); }
+  #screen-battle.atmo-forest #stage-atmo .ash{ background:#e6f6a8; box-shadow:0 0 8px 3px rgba(200,236,120,.6); }
+  #screen-battle.atmo-forest #stage-backdrop .crow, #screen-battle.atmo-forest #stage-atmo .crow{ display:none; }
+  #screen-battle.atmo-cave #stage-fog .fog.far{ background-image:radial-gradient(ellipse 380px 42px at 180px 55%, rgba(122,84,52,0.24), transparent 72%), radial-gradient(ellipse 300px 34px at 700px 38%, rgba(122,84,52,0.20), transparent 72%); }
+  #screen-battle.atmo-cave #stage-fog .fog.low{ background-image:radial-gradient(ellipse 420px 50px at 260px 62%, rgba(122,84,52,0.22), transparent 72%), radial-gradient(ellipse 340px 42px at 760px 45%, rgba(122,84,52,0.19), transparent 72%); }
+  #screen-battle.atmo-cave #stage-atmo .ash{ background:#8a7560; opacity:.7; }
+  #screen-battle.atmo-cave #stage-backdrop .crow, #screen-battle.atmo-cave #stage-atmo .crow{ display:none; }
   /* --- 拠点の戦闘 --- */
   .site-unit-btn{ position:relative; width:56px; height:56px; padding:0; border-radius:2px; overflow:hidden; flex-shrink:0; border:1px solid var(--line); background:#0c0a07; }
   .site-unit-btn img{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -3907,6 +3937,7 @@ function wmSelLeader(){ return world.leaders.find(l => l.id === world.sel) || nu
 
 /* ---------- 保存(アプリを閉じている間は、時間も進まない。開いたとき、続きから) ---------- */
 function saveWorld(){
+  return;                                   // いまは、保存しない(開くたびに、最初から)
   try {
     localStorage.setItem(WORLD_SAVE_KEY, JSON.stringify({ v:WORLD_SAVE_VER, sec:world.sec, scaleIdx:world.scaleIdx, corpse:world.corpse, supply:world.supply,
       leaders:world.leaders.map(l => ({ id:l.id, mi:l.mi, x:l.x, y:l.y, path:l.path, pi:l.pi, pf:l.pf, team:l.team })) }));
@@ -3914,6 +3945,8 @@ function saveWorld(){
 }
 function loadWorld(){
   leadersReset();
+  try { localStorage.removeItem(WORLD_SAVE_KEY); } catch(e){}      // 前に保存した状態も、消す
+  return;
   try {
     const s = JSON.parse(localStorage.getItem(WORLD_SAVE_KEY) || "null");
     if (!s || (s.v !== WORLD_SAVE_VER && s.v !== 1)) return;
@@ -4067,7 +4100,15 @@ const SITE_TERRAIN = {
   cave:{ c_gob1:"cave", c_gob2:"cave", c_gob3:"cave", c_gob4:"cave", c_gob5:"cave" }
 };
 function siteTerrain(mapKey, id){ return (SITE_TERRAIN[mapKey] && SITE_TERRAIN[mapKey][id]) || "field"; }
-function siteArt(t){ return { seed:20261001 + t.length * 7, bg:t + "_bg.jpg", ground:[t + "_ground.jpg"], castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }; }
+// 地形ごとの景色(絵の縦横比・地平線の高さ・空/床/枠の色)。地平線から上だけを使う
+const SITE_SCENE = {
+  village:{ aspect:559/1024, hf:.62, sky:"#8d969f", floor:"#4a3f30", frame:"#2a241c" },
+  mountain:{ aspect:559/1024, hf:.58, sky:"#ceDAE7", floor:"#4a4f52", frame:"#22262a" },
+  forest:{ aspect:1024/1536, hf:.58, sky:"#3a4246", floor:"#2a2620", frame:"#12140f" },
+  cave:{ aspect:1024/1536, hf:.62, sky:"#2f1b0d", floor:"#3a2c22", frame:"#140d08" },
+  field:{ aspect:941/1672, hf:.40, scaleW:2800, sky:"#96a5ae", floor:"#3e4426", frame:"#1c2010" }
+};
+function siteArt(t){ return { seed:20261001 + t.length * 7, bg:t + "_bg.jpg", ground:[t + "_ground.jpg"], scene:SITE_SCENE[t], castleEnemy:"plain_castle_enemy.png", castlePlayer:"shijo_castle_player.png" }; }
 function siteAttackable(node, mapKey){ return !!node && node.owner === "goblin" && node.id !== "summit"; }     // 灰燼教団の兵・鬼哭野の守りは、まだ作っていない
 function siteGarrison(node, mapKey){
   const deep = mapKey === "cave" || mapKey === "forest" || node.id === "cave";
@@ -4104,7 +4145,7 @@ function siteBattleSetup(stage){
   const sb = stage.siteBattle, scr = document.getElementById("screen-battle");
   battle.roster = sb.roster; battle.placeKind = null; battle.moveSel = null; battle.siteEnemyEntered = false; battle.corpse = 0;
   battle.hold = { player:sb.mode === "defend", enemy:sb.mode === "attack" };   // 守り：自軍は、持ち場で待ち伏せ(敵は、自城へ攻め寄せる)。攻め：敵は、守りを固める(自軍は、敵城へ進む)
-  scr.classList.add("site-battle");
+  scr.classList.add("site-battle", "atmo-" + sb.terrain);      // 地形に合わせた演出(霧・舞う粒・鳥)
   scr.classList.toggle("site-no-enemy-castle", sb.mode === "defend");
   scr.classList.toggle("site-no-player-castle", sb.mode === "attack");
   buildSiteDeployRow();
@@ -4165,7 +4206,7 @@ function siteBattleCheck(){
   const sb = battle.stage.siteBattle, enemies = battle.units.filter(u => u.side === "enemy" && !u.dead && !u.def.gateUnit && !u.def.structureUnit);
   if (!battle.siteEnemyEntered && enemies.length){
     battle.siteEnemyEntered = true;
-    if (sb.mode === "defend"){ queueBanner("敵、侵入。戦い、始まる", false, true); battle.moveSel = null; siteClearSel(); buildSiteDeployRow(); }
+    if (sb.mode === "defend"){ queueBanner("敵、侵入。戦い、始まる", false, true); battle.hold.player = false; battle.moveSel = null; siteClearSel(); buildSiteDeployRow(); }
   }
   if (battle.ended) return;
   const waves = battle.stage.enemyWaves || [], pendingWaves = battle.nextWave < waves.length;
@@ -4497,7 +4538,7 @@ function buildStageArt(stage){
   const field = document.getElementById("battlefield");
   ["stage-art","stage-fog","stage-atmo","stage-backdrop","stage-vignette"].forEach(id => { const o = document.getElementById(id); if (o) o.remove(); });
   field.classList.remove("bd-on");
-  const frame = document.getElementById("battlefield-frame"); frame.classList.remove("bd-on");
+  const frame = document.getElementById("battlefield-frame"); frame.classList.remove("bd-on"); frame.style.backgroundColor = "";
   const art = stage.art || {};
   const rand = seededRand(art.seed || 20260921);
   const R = (a, b) => a + rand() * (b - a);
@@ -4610,7 +4651,14 @@ function buildStageArt(stage){
         const cl = document.createElement("div"); cl.className = "bd-cloud"; cl.style.top = c[0] + "px"; cl.style.height = c[1] + "px"; cl.style.opacity = c[2]; cl.style.animationDuration = c[3] + "s"; cl.style.animationDelay = (-R(0, 100)) + "s"; bd.appendChild(cl);
       });
       const fl = document.createElement("div"); fl.className = "bd-floor"; bd.appendChild(fl);
+      if (art.scene){ sky.style.background = art.scene.sky; fl.style.background = art.scene.floor; }     // 地形ごとの景色：空の色は、絵の上端の色に合わせる
       [-2000, 0, 2000].forEach((x, i) => {
+        if (art.scene){                                                                                  // 地平線から上の景色だけを、戦場の幅いっぱいに敷く(縦が足りない絵は、少し拡大して、上まで届かせる)
+          const wS = art.scene.scaleW || 2000, hh = Math.round(wS * art.scene.aspect * art.scene.hf), sc = document.createElement("div");
+          sc.className = "bd-scene" + (i === 1 ? "" : " mirror");
+          sc.style.cssText = "left:" + (-(wS - 2000) / 2 + (i - 1) * wS) + "px;top:" + (36 - hh) + "px;width:" + wS + "px;height:" + hh + "px;background-size:" + wS + "px auto;background-image:url(" + probe.src + ");";
+          bd.appendChild(sc); return;
+        }
         const h = document.createElement("div"); h.className = "bd-horizon" + (i === 1 ? "" : " mirror"); h.style.left = x + "px"; h.style.backgroundImage = "url(" + probe.src + ")"; bd.appendChild(h);
       });
       for (let i = 0; i < 4; i++){
@@ -4632,6 +4680,7 @@ function buildStageArt(stage){
       });
       frame.insertBefore(bd, frame.firstChild);
       field.classList.add("bd-on"); frame.classList.add("bd-on");
+      frame.style.backgroundColor = art.scene ? art.scene.frame : "";
       root.classList.add("has-bg");
     };
     probe.onerror = () => {};
@@ -4776,7 +4825,8 @@ function updateGuide(){
 }
 
 function startBattle(stage){
-  { const scr = document.getElementById("screen-battle"); ["site-battle","site-no-enemy-castle","site-no-player-castle"].forEach(c => scr.classList.remove(c)); }   // 前の拠点戦の表示を残さない
+  { const scr = document.getElementById("screen-battle"); ["site-battle","site-no-enemy-castle","site-no-player-castle"].forEach(c => scr.classList.remove(c));
+    Array.from(scr.classList).filter(c => c.indexOf("atmo-") === 0).forEach(c => scr.classList.remove(c)); }   // 前の拠点戦の表示・演出を残さない
   playBgm(stage.bgm || "stage_low"); // 戦線ごとのBGM(魔野・骸原は穏やか、槍原以降は脅威度が高い曲、鬼哭野実装後はボス曲)
   roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
   battle && (battle.repairPickPending = null); repairHighlightEl = null; // 前の戦闘のハイライト状態を持ち越さない
@@ -9774,6 +9824,11 @@ function updateUnitAI(unit, dtMs){
   const approachSpeed = def.approachSpeed != null ? def.approachSpeed : def.runSpeed;
   const attackMotionName = def.attackMotionName || "attack"; // 攻撃モーションの呼び名(火縄銃兵はshoot)
 
+  // 拠点の戦闘：待ち伏せ・持ち場。敵が見つからない間は、待機のモーションで立ち止まる(歩き↔待機を行き来して、ブレることがないよう、ここで先に決める)
+  if (battle.hold && battle.hold[unit.side] && battle.stage.siteBattle && (unit.motion === "idle" || unit.motion === "walk" || unit.motion === approachMotion) && def.frameCounts.idle){
+    const seen = (unit.target && !unit.target.dead) ? unit.target : findNearestEnemyInRange(unit);
+    if (!seen){ if (unit.target) unit.target = null; if (unit.motion !== "idle") setMotion(unit, "idle", { loop:true }); return; }
+  }
   // 一撃モーション中・怯み中などは、それぞれのonMotionEndで次の状態が決まるので何もしない
   if (unit.motion === "idle"){
     // "walk"という名前のコマを持たないキャラ(投石器など)は、代わりにapproachMotionを使う
@@ -9805,10 +9860,6 @@ function updateUnitAI(unit, dtMs){
     }
   }
 
-  if (battle.hold && battle.hold[unit.side] && !unit.target && battle.stage.siteBattle){     // 拠点の戦闘：待ち伏せ・持ち場。相手が見つからない間は、前へ進まない
-    if (unit.motion !== "idle" && unit.def.frameCounts && unit.def.frameCounts.idle) setMotion(unit, "idle", { loop:true });
-    return;
-  }
   const field = document.getElementById("battlefield");
   const fieldWidth = field.clientWidth;
   const forwardDir = unit.side === "player" ? -1 : 1; // 自陣営が進むべき方向。これと逆には進まない
@@ -10695,7 +10746,8 @@ function fieldPointToLogical(e){
   const field = document.getElementById("battlefield");
   const r = field.getBoundingClientRect();
   const scale = r.width / STAGE_W;
-  return { lx: (e.clientX - r.left) / scale, ly: (e.clientY - r.top) / scale };
+  // 戦場は左右反転して描いている(敵は右、自軍は左)。画面の位置から、内部の座標(自軍が右)へ戻す
+  return { lx: STAGE_W - (e.clientX - r.left) / scale, ly: (e.clientY - r.top) / scale };
 }
 // タップした位置にいる兵(小さい兵でも押せるよう、少し広めに判定する)
 function unitAtPoint(lx, ly){
