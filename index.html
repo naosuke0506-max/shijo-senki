@@ -176,6 +176,62 @@
     .map-node .mn-name{ font-size:.68rem; }
     .map-castle .mc-mark{ width:58px; height:58px; font-size:1.4rem; }
   }
+  /* --- 世界地図(西部・東部の2枚を切り替えて見る) --- */
+  .world-map{ position:relative; width:100%; flex:1; min-height:0; margin-top:12px; overflow:hidden; border:1px solid #3d3220; background:#040a0f; touch-action:manipulation; }
+  .wm-panel{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); box-shadow:0 0 34px rgba(0,0,0,.85); }
+  .wm-panel.wm-fade{ animation:wmFade .45s ease; }
+  @keyframes wmFade{ from{ opacity:0; } to{ opacity:1; } }
+  .wm-panel > img.wm-bgimg{ position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; user-select:none; -webkit-user-drag:none; }
+  .wm-node{ position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    --ring:#d8b657; }
+  .wm-node[data-owner="player"]{ --ring:#d8b657; }
+  .wm-node[data-owner="goblin"]{ --ring:#c85a3c; }
+  .wm-node[data-owner="cult"]{ --ring:#74bde0; }
+  .wm-node[data-owner="neutral"]{ --ring:#b9b2a2; }
+  .wm-node .wm-ring{ width:24px; height:24px; border-radius:50%; border:2px solid var(--ring); background:rgba(8,6,5,.28);
+    box-shadow:0 0 0 2px rgba(0,0,0,.65), 0 0 12px 2px var(--ring); animation:wmPulse 3s ease-in-out infinite; }
+  @keyframes wmPulse{ 0%,100%{ opacity:.75; } 50%{ opacity:1; } }
+  .wm-node img.wm-sprite{ display:block; width:100%; height:auto; filter:drop-shadow(0 3px 5px rgba(0,0,0,.7)); pointer-events:none; user-select:none; -webkit-user-drag:none; }
+  .wm-node .wm-label .wm-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:1px; background:var(--ring); border:1.5px solid #000; box-shadow:0 0 7px var(--ring); }
+  .wm-node .wm-label{ font-family:var(--mincho); font-size:.72rem; letter-spacing:.14em; color:#f2e6c0; text-shadow:0 1px 3px #000,0 0 7px #000,0 0 12px #000; white-space:nowrap; margin-top:3px; pointer-events:none; }
+  .wm-node.sprite .wm-label{ position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:1px; }
+  .wm-node.sel .wm-ring{ box-shadow:0 0 0 2px #000, 0 0 18px 6px var(--ring); }
+  .wm-node.sel img.wm-sprite{ filter:drop-shadow(0 0 10px var(--ring)) drop-shadow(0 3px 5px rgba(0,0,0,.7)); }
+  .wm-title{ position:absolute; left:14px; top:10px; z-index:4; font-family:var(--mincho); font-size:1rem; letter-spacing:.3em; color:#f2e6c0; text-shadow:0 2px 5px #000,0 0 12px #000; pointer-events:none; }
+  .wm-tabs{ position:absolute; right:12px; top:8px; z-index:5; display:flex; }
+  .wm-tab{ font-family:var(--mincho); font-weight:700; font-size:1rem; letter-spacing:.2em; padding:6px 20px 6px calc(20px + .2em); color:#a89c7c; background:rgba(10,7,6,.78); border:1px solid #5a4a2c; }
+  .wm-tab + .wm-tab{ border-left:0; }
+  .wm-tab.on{ color:#f0cf6a; border-color:#c9a24a; box-shadow:0 0 10px rgba(201,162,74,.28); background:rgba(40,28,10,.85); }
+  .wm-info{ position:absolute; left:12px; bottom:12px; z-index:6; width:min(340px,62%); display:none; padding:12px 16px 14px;
+    background:linear-gradient(180deg,rgba(32,26,19,.95),rgba(13,10,8,.97)); border:1px solid #6b5630; box-shadow:0 0 0 1px #000, 0 10px 26px rgba(0,0,0,.8); }
+  .wm-info.on{ display:block; }
+  .wm-info .wi-name{ font-family:var(--mincho); font-size:1.3rem; font-weight:900; letter-spacing:.22em; color:#f0d58a; text-shadow:0 2px 3px #000; }
+  .wm-info .wi-read{ font-size:.62rem; letter-spacing:.32em; color:#8f8567; margin-top:1px; }
+  .wm-info .wi-tag{ display:inline-block; margin:8px 0 6px; padding:1px 10px; font-family:var(--mincho); font-size:.7rem; letter-spacing:.2em; color:var(--c); border:1px solid var(--c); background:rgba(0,0,0,.4); }
+  .wm-info .wi-desc{ font-size:.78rem; line-height:1.85; color:#c9bd9b; letter-spacing:.05em; }
+  .wm-info .wi-go{ margin-top:10px; }
+  .wm-sub{ position:absolute; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; background:#000;
+    opacity:0; transform:scale(.22); visibility:hidden; pointer-events:none;
+    transition:opacity .5s ease, transform .65s cubic-bezier(.2,.8,.2,1), visibility 0s linear .65s; }
+  .wm-sub.open{ opacity:1; transform:scale(1); visibility:visible; pointer-events:auto;
+    transition:opacity .5s ease, transform .65s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+  .wm-sub-panel{ position:relative; overflow:hidden; }
+  .wm-sub-panel img{ position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; user-select:none; -webkit-user-drag:none; }
+  .wm-sub-panel::after{ content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 55%,rgba(0,0,0,.6) 100%); }
+  .wm-sub-title{ position:absolute; left:14px; top:12px; z-index:2; font-family:var(--mincho); font-size:1.3rem; letter-spacing:.3em; color:#f2e6c0; text-shadow:0 2px 5px #000,0 0 14px #000; }
+  .wm-sub-note{ position:absolute; left:14px; right:14px; bottom:12px; z-index:2; font-size:.74rem; letter-spacing:.1em; line-height:1.8; color:#d8ccaa; text-shadow:0 1px 4px #000,0 0 10px #000; }
+  .wm-sub-back{ position:absolute; top:10px; right:12px; z-index:12; font-family:var(--mincho); font-weight:700; letter-spacing:.2em; padding:6px 20px 6px calc(20px + .2em); color:#f0cf6a; background:rgba(10,7,6,.82); border:1px solid #c9a24a; }
+  @media (max-height:560px){
+    .world-map{ margin-top:6px; }
+    .wm-node .wm-ring{ width:15px; height:15px; border-width:1.5px; }
+    .wm-node .wm-label{ font-size:.58rem; letter-spacing:.08em; }
+    .wm-title{ font-size:.8rem; top:6px; }
+    .wm-tab{ font-size:.85rem; padding:4px 14px 4px calc(14px + .2em); }
+    .wm-info{ width:min(300px,55%); padding:8px 12px 10px; }
+    .wm-info .wi-name{ font-size:1.05rem; }
+    .wm-info .wi-desc{ font-size:.68rem; line-height:1.7; }
+    .wm-sub-title{ font-size:1rem; }
+  }
   .stage-list{ width:100%; max-width:420px; display:flex; flex-direction:column; gap:10px; margin-top:20px; }
   .stage-card{
     background:linear-gradient(180deg,#252112,#1a1710); border:1px solid var(--line);
@@ -760,10 +816,11 @@
   <!-- ステージ選択 -->
   <section id="screen-stage" class="screen">
     <div class="topbar" style="width:100%;">
-      <h2 data-reading="せんせんせんたく">戦線選択</h2>
-      <div style="display:flex;gap:10px;align-items:center;"><button id="btn-unlock-all" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">全解放(検証用)</button><button id="btn-back-formation" data-reading="きじん">帰陣</button></div>
+      <h2 data-reading="ちいきちず">地域地図</h2>
+      <div style="display:flex;gap:10px;align-items:center;"><button id="btn-map-legacy" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">従来の戦線(検証用)</button><button id="btn-unlock-all" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">全解放(検証用)</button><button id="btn-back-formation" data-reading="きじん">帰陣</button></div>
     </div>
-    <div class="region-map" id="region-map"></div>
+    <div class="world-map" id="world-map"></div>
+    <div class="region-map" id="region-map" style="display:none"></div>
   </section>
 
   <!-- 戦闘 -->
@@ -851,7 +908,7 @@
    ========================================================= */
 // @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
 // コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
-const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@e35c4df2b3ece55c4b6eb22599600744218f1dc5/";
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@e1769edca047e0c94629587bff4522f07352651a/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
@@ -3352,6 +3409,159 @@ function buildUnitGrid(){
 /* =========================================================
    6. ステージ選択画面
    ========================================================= */
+/* =========================================================
+   世界地図：西部・東部の2枚の地図を切り替えて見る。拠点の絵を重ね、森・洞窟はタップで専用の地図(サブマップ)が開く。
+   いまは「見た目」だけ。歩く・占領・戦闘は、これから作る。
+   位置(x,y)は地図画像に対する%。sw は拠点の絵の幅(地図の幅に対する%)。
+   ========================================================= */
+const MAP_IMG_BASE = REPO_BASE + "images/map/";
+const WM_OWNER = {
+  player:  { name:"屍城軍",           color:"#d8b657" },
+  goblin:  { name:"ゴブリン族",       color:"#c85a3c" },
+  cult:    { name:"灰燼教団",         color:"#74bde0" },
+  neutral: { name:"誰のものでもない", color:"#b9b2a2" }
+};
+const WORLD_MAP = {
+  west: { label:"西", title:"西部　屍城の地", img:"map_west.jpg", w:1672, h:941, nodes:[
+    { id:"castle",   name:"屍城",           reading:"しじょう",             owner:"player",  x:9.6,  y:12.5, desc:"山の頂に築かれた、屍城軍の本拠地。兵はここで雇われ、ここから出陣する。" },
+    { id:"post_up",  name:"山道の砦(上)",   reading:"やまみちのとりで",     owner:"player",  x:17.0, y:35.2, desc:"本拠地へ続く山道を守る、味方の砦。" },
+    { id:"post_dn",  name:"山道の砦(下)",   reading:"やまみちのとりで",     owner:"player",  x:9.3,  y:44.6, desc:"本拠地へ続く山道を守る、味方の砦。" },
+    { id:"village",  name:"川辺の村",       reading:"かわべのむら",         owner:"player",  x:30.2, y:49.0, desc:"山裾の川沿いに開けた村。まだ人の暮らしが残る、最後の里。" },
+    { id:"gate",     name:"壁と門",         reading:"かべともん",           owner:"player",  x:38.5, y:46.4, desc:"山裾と荒野を隔てる長大な城壁。この門だけが、外の世界へ通じている。" },
+    { id:"front",    name:"山間の前線拠点", reading:"やまあいのぜんせんきょてん", owner:"player", x:62.5, y:48.5, sprite:"site_player_outpost.png", sw:9,
+      desc:"二つの山の隙間に築かれた、屍城軍の前線拠点。荒野へ出る兵の足がかりとなる。" },
+    { id:"captured", name:"山上の砦",       reading:"さんじょうのとりで",   owner:"cult",    x:64.0, y:24.0, sprite:"site_captured_castle.png", sw:10,
+      desc:"かつて屍城軍が築いた山上の城。いまは灰燼教団の手に落ち、黒い幟が翻る。" },
+    { id:"forest",   name:"大森林",         reading:"だいしんりん",         owner:"neutral", x:80.7, y:63.5, sub:"forest",
+      desc:"深い木立が続く大森林。木々の陰には、ひとの目に触れぬ戦線が隠れている。" }
+  ]},
+  east: { label:"東", title:"東部　鬼の地", img:"map_east.jpg", w:1536, h:1024, nodes:[
+    { id:"cult_post", name:"灰燼教団の拠点", reading:"かいじんきょうだんのきょてん", owner:"cult", x:28, y:46, sprite:"site_cult_outpost.png", sw:7,
+      desc:"荒れ地の只中に置かれた、黒く無機質な建造物。この世のものとは思えぬ光が、縁を走る。" },
+    { id:"ruin",      name:"滅ぼされた集落", reading:"ほろぼされたしゅうらく", owner:"neutral", x:14, y:72, sprite:"site_goblin_ruin.png", sw:10,
+      desc:"灰燼教団に焼き払われた、ゴブリン族の集落の跡。いまは誰のものでもない。先に辿り着いた者が、ここを占める。" },
+    { id:"gob_post",  name:"ゴブリン族の拠点", reading:"ゴブリンぞくのきょてん", owner:"goblin", x:40, y:28, sprite:"site_goblin_outpost.png", sw:11,
+      desc:"丸太と骨で築かれた、ゴブリン族の砦。攻め落とせば、こちらのものとなる。" },
+    { id:"cave",      name:"ゴブリンの洞窟", reading:"ゴブリンのどうくつ", owner:"goblin", x:61.5, y:68.3, sub:"cave",
+      desc:"山岳地帯へ通じる唯一の入口。洞窟ぜんたいが要塞と化し、道を塞いでいる。ここを突破せねば、先へは進めない。" },
+    { id:"summit",    name:"鬼哭野",         reading:"きこくの", owner:"goblin", x:74.8, y:8.5,
+      desc:"山頂に築かれた、ゴブリン族の本拠地。鬼后が座す。" }
+  ]}
+};
+const WM_SUBMAPS = {
+  forest: { title:"大森林", img:"sub_forest.jpg", w:1536, h:1024, note:"木々に隠れていた戦線は、ここに姿を現す。(準備中)" },
+  cave:   { title:"ゴブリンの洞窟", img:"sub_cave.jpg", w:1536, h:1024, note:"入口から出口まで、道を塞ぐ戦線が続く。(準備中)" }
+};
+const wmState = { side:"west", root:null, panel:null, ro:null };
+
+function wmFit(){
+  const root = wmState.root; if (!root) return;
+  const cw = root.clientWidth, ch = root.clientHeight; if (!cw || !ch) return; // 画面が隠れている間は、大きさが取れない
+  const fitBox = (el, w, h) => {
+    const r = w / h; let pw = cw, ph = cw / r;
+    if (ph > ch){ ph = ch; pw = ch * r; }
+    el.style.width = Math.floor(pw) + "px"; el.style.height = Math.floor(ph) + "px";
+  };
+  const def = WORLD_MAP[wmState.side];
+  fitBox(wmState.panel, def.w, def.h);
+  const sp = root.querySelector(".wm-sub-panel");
+  if (sp && sp.dataset.w) fitBox(sp, +sp.dataset.w, +sp.dataset.h);
+}
+function wmHideInfo(){
+  const root = wmState.root; if (!root) return;
+  const info = root.querySelector(".wm-info"); if (info) info.classList.remove("on");
+  root.querySelectorAll(".wm-node.sel").forEach(e => e.classList.remove("sel"));
+}
+function wmSelect(n, el){
+  const root = wmState.root;
+  root.querySelectorAll(".wm-node.sel").forEach(e => e.classList.remove("sel"));
+  el.classList.add("sel");
+  const o = WM_OWNER[n.owner];
+  const info = root.querySelector(".wm-info");
+  info.innerHTML = '<div class="wi-name">' + n.name + '</div><div class="wi-read">' + n.reading + '</div>' +
+    '<div class="wi-tag" style="--c:' + o.color + '">' + o.name + '</div><div class="wi-desc">' + n.desc + '</div>' +
+    (n.sub ? '<button class="primary btn-forge sm wi-go">中へ入る</button>' : '');
+  info.classList.add("on");
+  const go = info.querySelector(".wi-go");
+  if (go) go.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmOpenSub(n.sub, el); });
+}
+function wmOpenSub(key, nodeEl){
+  const root = wmState.root, sm = WM_SUBMAPS[key]; if (!sm) return;
+  const sub = root.querySelector(".wm-sub"), sp = sub.querySelector(".wm-sub-panel");
+  sp.dataset.w = sm.w; sp.dataset.h = sm.h;
+  sp.querySelector("img").src = MAP_IMG_BASE + sm.img;
+  sp.querySelector(".wm-sub-title").textContent = sm.title;
+  sp.querySelector(".wm-sub-note").textContent = sm.note;
+  wmFit();
+  // 注目の演出：タップした場所から、地図がぐっと近づいて開く
+  const rr = root.getBoundingClientRect(), nr = nodeEl.getBoundingClientRect();
+  sub.style.transformOrigin = (nr.left + nr.width / 2 - rr.left) + "px " + (nr.top + nr.height / 2 - rr.top) + "px";
+  void sub.offsetWidth;
+  sub.classList.add("open");
+}
+function wmCloseSub(){
+  const root = wmState.root; if (!root) return;
+  const sub = root.querySelector(".wm-sub"); if (sub) sub.classList.remove("open");
+}
+function wmMakeNode(n){
+  const el = document.createElement("div");
+  el.className = "wm-node" + (n.sprite ? " sprite" : "");
+  el.dataset.owner = n.owner; el.dataset.id = n.id;
+  el.style.left = n.x + "%"; el.style.top = n.y + "%";
+  if (n.sprite){
+    el.style.width = n.sw + "%";
+    const img = document.createElement("img"); img.className = "wm-sprite"; img.alt = ""; img.draggable = false; img.src = MAP_IMG_BASE + n.sprite;
+    el.appendChild(img);
+  } else {
+    const ring = document.createElement("div"); ring.className = "wm-ring"; el.appendChild(ring);
+  }
+  const label = document.createElement("div"); label.className = "wm-label";
+  if (n.sprite){ const dot = document.createElement("span"); dot.className = "wm-dot"; label.appendChild(dot); } // 所属の色の点(絵の角は透明で浮いて見えるので、名前の横に置く)
+  label.appendChild(document.createTextNode(n.name)); el.appendChild(label);
+  el.addEventListener("click", ev => { ev.stopPropagation(); playSfx(REPO_BASE + "audio/tap_common.opus"); wmSelect(n, el); });
+  return el;
+}
+function wmRenderPanel(){
+  const def = WORLD_MAP[wmState.side], panel = wmState.panel, root = wmState.root;
+  panel.innerHTML = "";
+  const img = document.createElement("img"); img.className = "wm-bgimg"; img.alt = ""; img.draggable = false; img.src = MAP_IMG_BASE + def.img;
+  panel.appendChild(img);
+  def.nodes.forEach(n => panel.appendChild(wmMakeNode(n)));
+  root.querySelector(".wm-title").textContent = def.title;
+  root.querySelectorAll(".wm-tab").forEach(b => b.classList.toggle("on", b.dataset.side === wmState.side));
+  wmHideInfo();
+  panel.classList.remove("wm-fade"); void panel.offsetWidth; panel.classList.add("wm-fade");
+  wmFit();
+}
+function wmSwitch(side){
+  if (!WORLD_MAP[side] || side === wmState.side) return;
+  wmState.side = side;
+  wmRenderPanel();
+}
+function buildWorldMap(){
+  const root = document.getElementById("world-map"); if (!root) return;
+  if (wmState.ro){ wmState.ro.disconnect(); wmState.ro = null; }
+  root.innerHTML = "";
+  const panel = document.createElement("div"); panel.className = "wm-panel"; root.appendChild(panel);
+  const title = document.createElement("div"); title.className = "wm-title"; root.appendChild(title);
+  const tabs = document.createElement("div"); tabs.className = "wm-tabs";
+  Object.keys(WORLD_MAP).forEach(k => {
+    const b = document.createElement("button"); b.className = "wm-tab"; b.dataset.side = k; b.textContent = WORLD_MAP[k].label;
+    b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmSwitch(k); });
+    tabs.appendChild(b);
+  });
+  root.appendChild(tabs);
+  const info = document.createElement("div"); info.className = "wm-info"; root.appendChild(info);
+  const sub = document.createElement("div"); sub.className = "wm-sub";
+  sub.innerHTML = '<div class="wm-sub-panel"><img alt=""><div class="wm-sub-title"></div><div class="wm-sub-note"></div></div><button class="wm-sub-back">戻る</button>';
+  root.appendChild(sub);
+  sub.querySelector(".wm-sub-back").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmCloseSub(); });
+  root.addEventListener("click", e => { if (e.target === root || e.target === panel) wmHideInfo(); });
+  wmState.root = root; wmState.panel = panel;
+  wmRenderPanel();
+  if (window.ResizeObserver){ wmState.ro = new ResizeObserver(() => wmFit()); wmState.ro.observe(root); }
+}
+
 // 地域マップ上の配置(%指定)。自城を左端・安全な場所に、そこから右へ二手に分かれ、奥で敵拠点群に合流する形
 const MAP_LAYOUT = {
   plain:   { x: 27, y: 26 },  // 魔野：自城のすぐ右、上の小さな拠点
@@ -3418,7 +3628,17 @@ function buildStageScreen(){
     });
     root.appendChild(node);
   });
+  buildWorldMap(); // 新しい世界地図(西部・東部)も、あわせて作る
 }
+document.getElementById("btn-map-legacy").addEventListener("click", () => {
+  // 検証用：新しい世界地図と、従来の戦線選択(すぐ出撃できる版)を切り替える。バトルの組み込みが終わるまでの暫定
+  const wm = document.getElementById("world-map"), lg = document.getElementById("region-map"), btn = document.getElementById("btn-map-legacy");
+  const showLegacy = lg.style.display === "none";
+  lg.style.display = showLegacy ? "" : "none";
+  wm.style.display = showLegacy ? "none" : "";
+  btn.textContent = showLegacy ? "地域地図へ" : "従来の戦線(検証用)";
+  if (!showLegacy) wmFit();
+});
 document.getElementById("btn-unlock-all").addEventListener("click", () => {
   STAGES.forEach(st => state.cleared.add(st.id)); saveCleared(); buildStageScreen();
 });
