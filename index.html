@@ -247,6 +247,8 @@
   .wm-clock{ position:absolute; left:14px; top:34px; z-index:5; font-family:var(--mincho); font-size:.82rem; letter-spacing:.14em; color:#f0d58a; text-shadow:0 1px 4px #000,0 0 10px #000; pointer-events:none; }
   .wm-leaders{ position:absolute; left:50%; top:8px; transform:translateX(-50%); z-index:5; display:flex; gap:6px; }
   .wm-chip{ width:30px; height:30px; padding:0; border-radius:50%; font-family:var(--mincho); font-weight:900; font-size:.9rem; color:#cbbd94; background:rgba(10,7,6,.78); border:1.5px solid #5a4a2c; }
+  .wm-chip.clr{ color:#8f8567; font-size:1rem; }
+  .wm-leaders{ max-width:62%; flex-wrap:wrap; justify-content:center; }
   .wm-chip.moving{ border-color:#8fb0d8; color:#cfe2ff; }
   .wm-chip.sel{ color:#fff2c4; border-color:#f0d58a; background:rgba(60,42,14,.92); box-shadow:0 0 10px rgba(240,213,138,.55); }
   .wm-lcard{ position:absolute; right:12px; bottom:12px; z-index:14; width:min(300px,52%); display:none; padding:10px 14px 12px;
@@ -323,6 +325,19 @@
   .md-unit .mu-name{ font-family:var(--mincho); font-size:.82rem; letter-spacing:.1em; }
   .md-unit .mu-cost{ font-family:var(--mincho); font-size:.86rem; color:#f0d58a; }
   .md-unit.no{ opacity:.42; }
+  .dp-list{ display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:8px; margin-top:12px; }
+  .dp-row{ display:flex; align-items:center; gap:10px; padding:8px 10px; background:linear-gradient(180deg,rgba(40,32,22,.95),rgba(16,12,9,.98)); border:1px solid #5a4a2c; }
+  .dp-row.lock{ opacity:.78; border-color:#3d3220; }
+  .dp-row img{ width:52px; height:52px; object-fit:contain; flex-shrink:0; }
+  .dp-main{ flex:1; min-width:0; }
+  .dp-name{ font-family:var(--mincho); font-size:.95rem; letter-spacing:.1em; color:#e8dcb8; }
+  .dp-name em{ margin-left:.7em; font-style:normal; font-size:.72rem; color:#9c8f6e; }
+  .dp-sub{ margin-top:2px; font-size:.7rem; letter-spacing:.04em; color:#c9bd9b; }
+  .dp-bar{ margin-top:5px; height:5px; background:#0a0906; border:1px solid #2a2114; }
+  .dp-bar i{ display:block; height:100%; width:0; background:linear-gradient(90deg,#8a6a2c,#f0d58a); }
+  .dp-btn{ font-family:var(--mincho); font-weight:700; font-size:.78rem; letter-spacing:.1em; padding:7px 12px; color:#f0d58a; background:rgba(28,20,8,.92); border:1px solid #8a6a2c; white-space:nowrap; }
+  .dp-btn:disabled{ opacity:.4; }
+  @media (max-height:560px){ .dp-list{ grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:6px; margin-top:8px; } .dp-row{ padding:5px 8px; } .dp-row img{ width:38px; height:38px; } .dp-name{ font-size:.82rem; } .dp-sub{ font-size:.62rem; } .dp-btn{ font-size:.7rem; padding:5px 9px; } }
   .md-cols{ display:flex; gap:16px; margin-top:14px; flex-wrap:wrap; }
   .md-col{ flex:1 1 300px; min-width:240px; padding:10px 12px; background:rgba(0,0,0,.35); border:1px solid #3d3220; }
   .md-colhead{ font-family:var(--mincho); font-size:.86rem; letter-spacing:.12em; color:#f0d58a; margin-bottom:8px; }
@@ -3603,7 +3618,7 @@ function wmSelect(n, el){
   info.innerHTML = '<div class="wi-name">' + n.name + '</div><div class="wi-read">' + n.reading + '</div>' +
     '<div class="wi-tag" style="--c:' + o.color + '">' + o.name + '</div><div class="wi-desc">' + n.desc + '</div>' +
     (n.sub ? '<button class="primary btn-forge sm wi-go">中へ入る</button>' : '') +
-    (wmSelLeader() && wmCanGoTo(n, el) && !(leaderSiteInfo(wmSelLeader()) && leaderSiteInfo(wmSelLeader()).node.id === n.id) ? '<button class="wi-goto">' + wmSelLeader().letter + 'を向かわせる</button>' : '') +
+    (wmSelLeaders().length && wmCanGoTo(n, el) && wmSelLeaders().some(l => { const si = leaderSiteInfo(l); return !(si && si.node.id === n.id); }) ? '<button class="wi-goto">' + wmSelLeaders().map(l => l.letter).join("・") + 'を向かわせる</button>' : '') +
     wmSiteMenuHtml(n, el.closest(".wm-sub-panel") ? wmState.subKey : wmState.side);
   info.classList.add("on");
   wmBindSiteMenu(info, n, el.closest(".wm-sub-panel") ? wmState.subKey : wmState.side);
@@ -3689,13 +3704,7 @@ function buildWorldMap(){
   });
   root.appendChild(tabs);
   const clock = document.createElement("div"); clock.className = "wm-clock"; root.appendChild(clock);
-  const chips = document.createElement("div"); chips.className = "wm-leaders";
-  world.leaders.forEach(l => {
-    const b = document.createElement("button"); b.className = "wm-chip"; b.dataset.lid = l.id; b.textContent = l.letter; b.title = l.name;
-    b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmSelectLeader(l.id, world.sel === l.id ? true : "chip"); });
-    chips.appendChild(b);
-  });
-  root.appendChild(chips);
+  const chips = document.createElement("div"); chips.className = "wm-leaders"; root.appendChild(chips);
   const lcard = document.createElement("div"); lcard.className = "wm-lcard"; root.appendChild(lcard);
   const modal = document.createElement("div"); modal.className = "wm-modal"; root.appendChild(modal);
   const info = document.createElement("div"); info.className = "wm-info"; root.appendChild(info);
@@ -3709,6 +3718,7 @@ function buildWorldMap(){
   const subPanel = sub.querySelector(".wm-sub-panel");
   subPanel.addEventListener("click", e => wmMapClick(e, wmState.subKey, subPanel));
   wmState.root = root; wmState.panel = panel; wmState.subKey = null;
+  wmBuildChips();
   wmRenderPanel();
   if (window.ResizeObserver){ wmState.ro = new ResizeObserver(() => wmFit()); wmState.ro.observe(root); }
 }
@@ -3731,7 +3741,8 @@ const MAP_KEYS = ["west", "east", "forest", "cave"];
 const MAP_LABEL = { west:"西部", east:"東部", forest:"大森林", cave:"ゴブリンの洞窟" };
 const CK_BLOCK = 0, CK_WALK = 1, CK_DEAD = 2, CK_PORTAL = 3;   // 歩けない／歩ける／入れるが通り抜けられない(敵・他軍の拠点)／別の地図へ出る口
 const WG = {};
-const world = { sec:0, scaleIdx:0, leaders:[], sel:null, lastSave:0, lastUi:0, corpse:WORLD_START_CORPSE, supply:{}, events:[] };
+const world = { sec:0, scaleIdx:0, leaders:[], sel:null, selIds:[], lastSave:0, lastUi:0, corpse:WORLD_START_CORPSE, supply:{}, supplyProg:{}, depot:{ unlocked:{ soldier:true }, level:{} }, events:[] };
+const LEADER_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LEADER_SITES = [["castle","屍城"],["post_up","山道の砦(上)"],["post_dn","山道の砦(下)"],["village","川辺の村"],["gate","壁と門"],["front1","荒野の前線拠点(一)"],["front2","荒野の前線拠点(二)"]];
 const nid = (mi, idx) => mi * 65536 + idx;
 function wmNodesOf(mapKey){ return WORLD_MAP[mapKey] ? WORLD_MAP[mapKey].nodes : (WM_SUBMAPS[mapKey] ? WM_SUBMAPS[mapKey].nodes : []); }
@@ -3867,7 +3878,50 @@ function leadersReset(){
     const i = siteStartCell("west", site), g = WG.west;
     return { id:"L" + n, letter:"ABCDEFG"[n], site, name, mi:0, x:i % g.gw, y:(i / g.gw) | 0, path:null, pi:0, pf:0, speed:LEADER_BASE_SPEED, team:{} };
   });
-  world.sel = null; world.corpse = WORLD_START_CORPSE; world.supply = {}; world.events = [];
+  world.sel = null; world.selIds = []; world.corpse = WORLD_START_CORPSE; world.supply = {}; world.supplyProg = {}; world.depot = { unlocked:{ soldier:true }, level:{} }; world.events = [];   // 最初に解放されているのは、戍卒だけ
+}
+function leaderSpawnAtSite(mapKey, node){
+  const g = WG[mapKey], i = siteStartCell(mapKey, node.id); if (i < 0) return null;
+  const n = world.leaders.length, letter = n < LEADER_LETTERS.length ? LEADER_LETTERS[n] : String(n + 1);
+  const l = { id:"L" + n, letter, site:node.id, name:node.name, mi:g.mi, x:i % g.gw, y:(i / g.gw) | 0, path:null, pi:0, pf:0, speed:LEADER_BASE_SPEED, team:{} };
+  world.leaders.push(l); return l;
+}
+// 拠点を占領する：持ち主が自軍になり、その拠点のリーダーが、新しく出てくる
+function siteCapture(mapKey, node){
+  if (isOwnSite(node)) return null;
+  node.owner = "player"; wgClassify();
+  const l = leaderSpawnAtSite(mapKey, node); siteSupply(node.id);
+  if (wmState.root){ wmRenderPanel(); if (wmState.subKey){ wmRefreshSubNodes(); } wmBuildChips(); }
+  return l;
+}
+/* ---------- 補給：兵は、時間がたつと、自軍の拠点ごとに溜まる ----------
+   ・解放した兵だけが溜まる(解放は、屍を払う。全拠点で共通)。速度アップも、全拠点で共通(段階が上がると、溜まる間隔が短くなる)
+   ・溜まる上限は、値段によって決まる(安い兵ほど、たくさん) */
+const SUPPLY_MAX_LEVEL = 5;
+function supplyCost(kind){ return getDeployCost(CHAR_DEFS[kind]); }
+function supplyUnlockCost(kind){ return supplyCost(kind) * 2; }
+function supplyLevel(kind){ return world.depot.level[kind] || 0; }
+function supplyUpgradeCost(kind){ const lv = supplyLevel(kind); return lv >= SUPPLY_MAX_LEVEL ? null : supplyCost(kind) * (lv + 1); }
+function supplyInterval(kind){ return supplyCost(kind) / 5 * Math.pow(0.85, supplyLevel(kind)); }            // 1体溜まるまでの秒数(ワールド時間)
+function supplyCap(kind){ return Math.max(2, Math.min(20, Math.round(3000 / supplyCost(kind)))); }
+function ownSiteIds(){
+  const out = [];
+  MAP_KEYS.forEach(k => wmNodesOf(k).forEach(n => { if (isOwnSite(n) && WG[k] && WG[k].ids[n.id]) out.push(n.id); }));
+  return out;
+}
+function supplyTick(wdt){
+  const ids = ownSiteIds(), D = world.depot;
+  Object.keys(D.unlocked).forEach(k => {
+    if (!D.unlocked[k] || !CHAR_DEFS[k]) return;
+    const iv = supplyInterval(k), cap = supplyCap(k);
+    ids.forEach(id => {
+      const sp = siteSupply(id), pg = world.supplyProg[id] || (world.supplyProg[id] = {});
+      if ((sp[k] || 0) >= cap){ pg[k] = 0; return; }
+      pg[k] = (pg[k] || 0) + wdt / iv;
+      while (pg[k] >= 1 && (sp[k] || 0) < cap){ pg[k] -= 1; sp[k] = (sp[k] || 0) + 1; }
+      if ((sp[k] || 0) >= cap) pg[k] = 0;
+    });
+  });
 }
 function leaderPos(l){
   if (!l.path) return { mi:l.mi, fx:l.x + .5, fy:l.y + .5 };
@@ -3886,6 +3940,10 @@ function leaderArrive(l){
   const g = WG[MAP_KEYS[l.mi]], idx = l.y * g.gw + l.x;
   if (g.cls[idx] === CK_PORTAL && g.portal[idx] >= 0) leaderPlace(l, g.portal[idx]);     // 出入口に触れた：向こうの地図へ
   world.events.push({ type:"arrive", lid:l.id });                                       // 目的地に着いて止まった(途中の通過では、知らせない)
+  const cs = leaderSiteInfo(l);
+  if (cs && cs.node.owner === "neutral" && cs.node.sprite){                              // 誰のものでもない抜け殻の拠点：先に着いた者が、占領する
+    const nl = siteCapture(cs.mapKey, cs.node); if (nl) world.events.push({ type:"captured", lid:l.id, newLid:nl.id, siteId:cs.node.id, mapKey:cs.mapKey });
+  }
 }
 function leaderStep(l, wdt){
   if (!l.path) return;
@@ -3933,7 +3991,14 @@ function leaderSpeedOf(l){
   return LEADER_BASE_SPEED * min / 42;                                                   // いちばん遅い兵に合わせて歩く
 }
 function isOwnSite(node){ return !!node && node.owner === "player"; }
-function wmSelLeader(){ return world.leaders.find(l => l.id === world.sel) || null; }
+function wmSelLeader(){ return world.leaders.find(l => l.id === world.sel) || null; }           // 最後に選んだリーダー(カードの表示用)
+function wmSelLeaders(){ return world.selIds.map(id => world.leaders.find(l => l.id === id)).filter(Boolean); }   // 選んでいるリーダー全員
+function wmIsSel(id){ return world.selIds.indexOf(id) !== -1; }
+// 拠点の戦闘・召喚などで使うリーダー：選んでいる者のうち、その拠点にいる者。いなければ、その拠点にいる者全員
+function battleLeadersAt(siteId){
+  const here = leadersAtSite(siteId), picked = here.filter(l => wmIsSel(l.id));
+  return picked.length ? picked : here;
+}
 
 /* ---------- 保存(アプリを閉じている間は、時間も進まない。開いたとき、続きから) ---------- */
 function saveWorld(){
@@ -3973,6 +4038,7 @@ function worldStep(dt){
   const wdt = dt * WORLD_SCALES[world.scaleIdx];
   world.sec += wdt;
   world.leaders.forEach(l => leaderStep(l, wdt));
+  supplyTick(wdt);
   world.lastSave += dt; if (world.lastSave > 4){ world.lastSave = 0; saveWorld(); }
 }
 let worldLastTs = 0;
@@ -3993,7 +4059,7 @@ function worldStart(){
 }
 
 /* ---------- 地図の上の表示：駒・🚩・道 ---------- */
-const wmTok = { leaders:{}, flag:null, svg:null };
+const wmTok = { leaders:{}, flag:null, svg:null, pl:[], fl:[] };
 function wmHostFor(mapKey){
   if (!wmState.root) return null;
   if (mapKey === "west" || mapKey === "east") return wmState.side === mapKey ? wmState.panel : null;
@@ -4006,7 +4072,7 @@ function wmMakeLeaderEl(l){
     ev.stopPropagation(); playSfx(REPO_BASE + "audio/tap_common.opus");
     const site = leaderSiteInfo(l);
     if (world.sel === l.id && site && wmHostFor(site.mapKey)){ wmOpenSiteCard(site.mapKey, site.node.id); return; }   // 選んでいる駒をもう一度：立っている拠点のメニュー
-    wmSelectLeader(l.id, true);
+    wmSelectLeader(l.id, "token");
   });
   return el;
 }
@@ -4014,56 +4080,70 @@ function wmSyncView(dt){
   const root = wmState.root, scr = document.getElementById("screen-stage");
   if (!root || !scr || !scr.classList.contains("active")) return;
   wmHandleEvents();
-  const sel = wmSelLeader();
+  const sels = wmSelLeaders();
   world.leaders.forEach(l => {
     const p = leaderPos(l), g = WG[MAP_KEYS[p.mi]], host = wmHostFor(g.key);
     let el = wmTok.leaders[l.id]; if (!el) el = wmTok.leaders[l.id] = wmMakeLeaderEl(l);
     if (!host){ if (el.parentNode) el.remove(); return; }
     if (el.parentNode !== host) host.appendChild(el);
     const [px, py] = wmPct(g, p.fx, p.fy); el.style.left = px + "%"; el.style.top = py + "%";
-    el.classList.toggle("sel", !!sel && sel.id === l.id); el.classList.toggle("moving", !!l.path);
+    el.classList.toggle("sel", wmIsSel(l.id)); el.classList.toggle("moving", !!l.path);
   });
-  // 選んだリーダーの道と🚩
-  const hosts = [wmState.panel, root.querySelector(".wm-sub.open .wm-sub-panel")].filter(Boolean);
-  if (!wmTok.svg){ wmTok.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); wmTok.svg.setAttribute("class", "wm-path"); wmTok.svg.setAttribute("preserveAspectRatio", "none"); wmTok.svg.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "polyline")); }
-  if (!wmTok.flag){ wmTok.flag = document.createElement("div"); wmTok.flag.className = "wm-flag2"; wmTok.flag.textContent = "🚩"; }
-  let shownOn = null;
-  if (sel && sel.path){
-    for (const host of hosts){
-      const mapKey = host === wmState.panel ? wmState.side : wmState.subKey, g = WG[mapKey]; if (!g) continue;
+  // 選んだリーダー全員の、道と🚩
+  const hosts = [wmState.panel, root.querySelector(".wm-sub.open .wm-sub-panel")].filter(Boolean), SVGNS = "http://www.w3.org/2000/svg";
+  if (!wmTok.svg){ wmTok.svg = document.createElementNS(SVGNS, "svg"); wmTok.svg.setAttribute("class", "wm-path"); wmTok.svg.setAttribute("preserveAspectRatio", "none"); wmTok.pl = []; wmTok.fl = []; }
+  const used = { pl:0, fl:0 }; let svgHost = null;
+  hosts.forEach(host => {
+    const mapKey = host === wmState.panel ? wmState.side : wmState.subKey, g = WG[mapKey]; if (!g) return;
+    sels.forEach(sel => {
+      if (!sel.path) return;
       const pts = []; const p0 = leaderPos(sel); if (p0.mi === g.mi) pts.push([p0.fx, p0.fy]);
       for (let i = sel.pi + 1; i < sel.path.length; i++){
         const n = sel.path[i]; if (((n / 65536) | 0) !== g.mi) continue;
         pts.push([(n % 65536) % g.gw + .5, (((n % 65536) / g.gw) | 0) + .5]);
       }
-      if (pts.length < 2) continue;
-      wmTok.svg.setAttribute("viewBox", "0 0 " + (g.imgW / g.cell) + " " + (g.imgH / g.cell));
-      wmTok.svg.firstChild.setAttribute("points", pts.map(p => p[0].toFixed(2) + "," + p[1].toFixed(2)).join(" "));
+      if (pts.length < 2) return;
+      let pl = wmTok.pl[used.pl]; if (!pl){ pl = wmTok.pl[used.pl] = document.createElementNS(SVGNS, "polyline"); wmTok.svg.appendChild(pl); }
+      used.pl++; pl.setAttribute("points", pts.map(q => q[0].toFixed(2) + "," + q[1].toFixed(2)).join(" ")); pl.style.display = "";
+      wmTok.svg.setAttribute("viewBox", "0 0 " + (g.imgW / g.cell) + " " + (g.imgH / g.cell)); svgHost = host;
       if (wmTok.svg.parentNode !== host) host.appendChild(wmTok.svg);
       const last = sel.path[sel.path.length - 1];
       if (((last / 65536) | 0) === g.mi){
-        const [fx, fy] = wmPct(g, (last % 65536) % g.gw + .5, (((last % 65536) / g.gw) | 0) + .5);
-        wmTok.flag.style.left = fx + "%"; wmTok.flag.style.top = fy + "%"; if (wmTok.flag.parentNode !== host) host.appendChild(wmTok.flag);
-      } else if (wmTok.flag.parentNode) wmTok.flag.remove();
-      shownOn = host; break;
-    }
-  }
-  if (!shownOn){ if (wmTok.svg.parentNode) wmTok.svg.remove(); if (wmTok.flag.parentNode) wmTok.flag.remove(); }
+        let fl = wmTok.fl[used.fl]; if (!fl){ fl = wmTok.fl[used.fl] = document.createElement("div"); fl.className = "wm-flag2"; fl.textContent = "🚩"; }
+        used.fl++; const [fx, fy] = wmPct(g, (last % 65536) % g.gw + .5, (((last % 65536) / g.gw) | 0) + .5);
+        fl.style.left = fx + "%"; fl.style.top = fy + "%"; if (fl.parentNode !== host) host.appendChild(fl);
+      }
+    });
+  });
+  for (let i = used.pl; i < wmTok.pl.length; i++) wmTok.pl[i].style.display = "none";
+  for (let i = used.fl; i < wmTok.fl.length; i++) if (wmTok.fl[i].parentNode) wmTok.fl[i].remove();
+  if (!used.pl && wmTok.svg.parentNode) wmTok.svg.remove();
   // 時計・リーダーの一覧・カード(1秒に数回だけ更新)
   world.lastUi += dt || 0;
   if (world.lastUi > .2){ world.lastUi = 0; wmUpdateUi(); }
 }
 function wmUpdateUi(){
   const root = wmState.root; if (!root) return;
+  wmDepotLive();
   const clock = root.querySelector(".wm-clock");
   if (clock) clock.innerHTML = worldClockText() + (world.scaleIdx ? "　×" + WORLD_SCALES[world.scaleIdx] : "") + '<div class="wm-wallet">屍 ' + Math.floor(world.corpse) + '</div>';
   root.querySelectorAll(".wm-chip").forEach(ch => {
     const l = world.leaders.find(x => x.id === ch.dataset.lid); if (!l) return;
-    ch.classList.toggle("sel", world.sel === l.id); ch.classList.toggle("moving", !!l.path);
+    ch.classList.toggle("sel", wmIsSel(l.id)); ch.classList.toggle("moving", !!l.path);
   });
-  const card = root.querySelector(".wm-lcard"), l = wmSelLeader();
+  const card = root.querySelector(".wm-lcard"), l = wmSelLeader(), sels = wmSelLeaders();
   if (!card) return;
   if (!l){ card.classList.remove("on"); return; }
+  if (sels.length > 1){                                                       // 複数のチームを選んでいるとき：まとめて表示
+    const moving = sels.filter(x => x.path).length, total = sels.reduce((a, x) => a + teamCount(x), 0);
+    card.innerHTML = '<div class="lc-name">リーダー' + sels.map(x => x.letter).join("・") + '<span>' + sels.length + 'チーム</span></div>' +
+      '<div class="lc-line">兵 合計 ' + total + '人　' + (moving ? moving + 'チームが移動中' : 'すべて待機中') + '</div>' +
+      '<div class="lc-hint">' + (moving ? '<button class="lc-stop">みな止める</button>　' : '') + '<button class="lc-clear">選択を外す</button></div>';
+    card.classList.add("on");
+    const st = card.querySelector(".lc-stop"); if (st) st.addEventListener("click", ev => { ev.stopPropagation(); sels.forEach(x => { if (x.path){ leaderPlace(x, leaderNode(x)); x.path = null; x.pi = 0; x.pf = 0; } }); });
+    card.querySelector(".lc-clear").addEventListener("click", ev => { ev.stopPropagation(); world.selIds = []; world.sel = null; wmUpdateUi(); });
+    return;
+  }
   const p = leaderPos(l), where = MAP_LABEL[MAP_KEYS[p.mi]];
   let status;
   if (l.path){
@@ -4077,8 +4157,11 @@ function wmUpdateUi(){
   const stop = card.querySelector(".lc-stop");
   if (stop) stop.addEventListener("click", ev => { ev.stopPropagation(); const n = leaderNode(l); leaderPlace(l, n); l.path = null; l.pi = 0; l.pf = 0; });
 }
-function wmSelectLeader(id, fromToken){
-  world.sel = world.sel === id && fromToken !== undefined && fromToken !== "chip" ? null : id;
+// リーダーを選ぶ・外す(複数選べる)。押すたびに、選んでいる・いないが入れ替わる
+function wmSelectLeader(id, how){
+  const at = world.selIds.indexOf(id);
+  if (at !== -1){ world.selIds.splice(at, 1); world.sel = world.selIds.length ? world.selIds[world.selIds.length - 1] : null; wmUpdateUi(); return; }
+  world.selIds.push(id); world.sel = id;
   const l = wmSelLeader(); if (!l){ wmUpdateUi(); return; }
   wmHideInfo();
   const mapKey = MAP_KEYS[leaderPos(l).mi];
@@ -4117,17 +4200,21 @@ function siteGarrison(node, mapKey){
   list.forEach(([kind, n]) => { for (let j = 0; j < n; j++, i++) out.push({ t:0, kind, lane:i % GRID_LANES, xOffset:kind === "archer" ? 20 + (j % 2) * 40 : 150 + (i % 3) * 70 }); });
   return out;
 }
-function siteBattleStart(mode, mapKey, node, leader){
-  const supply = siteSupply(node.id); let roster;
+function siteBattleStart(mode, mapKey, node, leaders){
+  leaders = (leaders || []).filter(Boolean);
+  const supply = siteSupply(node.id); let roster = {}, origin = {};
   if (mode === "defend"){
-    if (leader){                                                     // 配置を押したリーダーの部隊は、補給兵枠に入る
-      for (const k in leader.team) supply[k] = (supply[k] || 0) + leader.team[k];
-      leader.team = {}; leader.speed = leaderSpeedOf(leader);
-    }
-    roster = Object.assign({}, supply);
+    leaders.forEach(l => {                                          // 配置を押したリーダー全員の部隊は、補給兵枠に入る
+      for (const k in l.team) supply[k] = (supply[k] || 0) + l.team[k];
+      l.team = {}; l.speed = leaderSpeedOf(l);
+    });
+    roster = Object.assign({}, supply); origin = { supply:Object.assign({}, supply) };
   } else {
-    if (!leader){ showToast("リーダーが、ここにいない"); return; }
-    roster = Object.assign({}, leader.team);
+    if (!leaders.length){ showToast("リーダーが、ここにいない"); return; }
+    leaders.forEach(l => {                                          // 選んだリーダー全員の部隊を、まとめて出せる(生き残りは、もとのチームへ戻る)
+      origin[l.id] = Object.assign({}, l.team);
+      for (const k in l.team) roster[k] = (roster[k] || 0) + l.team[k];
+    });
   }
   if (!Object.keys(roster).some(k => roster[k] > 0) && mode === "attack"){ showToast("連れている兵が、いない"); return; }
   const terrain = siteTerrain(mapKey, node.id), atk = mode === "attack";
@@ -4135,7 +4222,7 @@ function siteBattleStart(mode, mapKey, node, leader){
     id:"site:" + node.id, name:node.name + (atk ? "　攻め" : "　守り"), art:siteArt(terrain), bgm:atk ? "stage_high" : "stage_low", lanes:[0,1,2,3,4],
     enemyCastleHp:atk ? SITE_ENEMY_CASTLE_HP : 1e9, playerCastleHp:atk ? 1e9 : SITE_CASTLE_HP, startCorpse:0, corpseGainRate:1.0,
     enemyWaves:atk ? siteGarrison(node, mapKey) : [],
-    siteBattle:{ mode, siteId:node.id, mapKey, leaderId:leader ? leader.id : null, roster, terrain }
+    siteBattle:{ mode, siteId:node.id, mapKey, leaderIds:leaders.map(l => l.id), roster, origin, terrain }
   };
   saveWorld();
   startBattle(stage);
@@ -4143,7 +4230,7 @@ function siteBattleStart(mode, mapKey, node, leader){
 // 戦闘が始まった直後の準備(startBattle の最後に呼ぶ)
 function siteBattleSetup(stage){
   const sb = stage.siteBattle, scr = document.getElementById("screen-battle");
-  battle.roster = sb.roster; battle.placeKind = null; battle.moveSel = null; battle.siteEnemyEntered = false; battle.corpse = 0;
+  battle.roster = sb.roster; battle.origin = sb.origin; battle.placeKind = null; battle.moveSel = null; battle.siteEnemyEntered = false; battle.corpse = 0;
   battle.hold = { player:sb.mode === "defend", enemy:sb.mode === "attack" };   // 守り：自軍は、持ち場で待ち伏せ(敵は、自城へ攻め寄せる)。攻め：敵は、守りを固める(自軍は、敵城へ進む)
   scr.classList.add("site-battle", "atmo-" + sb.terrain);      // 地形に合わせた演出(霧・舞う粒・鳥)
   scr.classList.toggle("site-no-enemy-castle", sb.mode === "defend");
@@ -4178,6 +4265,8 @@ function siteDeploy(kind, lane, lx){
   const col = columnOfX(lx), u = spawnUnit(kind, "player", 0, { lane });
   u.x = columnCenterX(col) - 30; u.deployedKind = kind; u.siteRoster = true; applyFrame(u);
   if (def.hornAbility) startCommanderHorn(u);
+  { const from = Object.keys(battle.origin).find(k => battle.origin[k][kind] > 0) || "supply";       // 複数のチームを連れているときは、先頭のチームの兵から順に出る
+    if (battle.origin[from] && battle.origin[from][kind] > 0) battle.origin[from][kind]--; u.siteOrigin = from; }
   battle.roster[kind]--; playSfx(REPO_BASE + "audio/tap_command.opus"); buildSiteDeployRow();
   return true;
 }
@@ -4219,14 +4308,21 @@ function siteBattleCheck(){
 }
 // 戦闘が終わったとき：生き残った兵を戻し、得た屍を、地図の屍に足す
 function siteBattleFinish(b, win, reason){
-  const sb = b.stage.siteBattle, back = Object.assign({}, b.roster);
-  b.units.forEach(u => { if (u.side === "player" && !u.dead && u.siteRoster){ const k = u.deployedKind || u.kind; back[k] = (back[k] || 0) + 1; } });
-  for (const k in back) if (back[k] <= 0) delete back[k];
+  const sb = b.stage.siteBattle, node = wmNodesOf(sb.mapKey).find(n => n.id === sb.siteId);
+  // 生き残った兵は、もとのチーム(守りなら、補給兵枠)へ。置かなかった兵も戻る
+  const back = {}; Object.keys(b.origin).forEach(k => { back[k] = Object.assign({}, b.origin[k]); });
+  b.units.forEach(u => {
+    if (u.side === "player" && !u.dead && u.siteRoster){ const k = u.deployedKind || u.kind, o = u.siteOrigin && back[u.siteOrigin] ? u.siteOrigin : Object.keys(back)[0]; back[o][k] = (back[o][k] || 0) + 1; }
+  });
+  Object.keys(back).forEach(o => { for (const k in back[o]) if (back[o][k] <= 0) delete back[o][k]; });
   const gained = Math.floor(b.corpse || 0); world.corpse += gained;
-  if (sb.mode === "defend"){ world.supply[sb.siteId] = back; }
-  else { const l = world.leaders.find(x => x.id === sb.leaderId); if (l){ l.team = back; l.speed = leaderSpeedOf(l); } }
+  if (sb.mode === "defend"){ world.supply[sb.siteId] = back.supply || {}; }
+  else sb.leaderIds.forEach(id => { const l = world.leaders.find(x => x.id === id); if (l){ l.team = back[id] || {}; l.speed = leaderSpeedOf(l); } });
   b.siteGained = gained;
-  b.siteLost = 0;
+  b.siteCaptured = false;
+  if (sb.mode === "attack" && win && node && !isOwnSite(node)){                       // 敵の拠点を攻め落とした：占領。その拠点のリーダーが、新しく出てくる
+    const nl = siteCapture(sb.mapKey, node); if (nl){ b.siteCaptured = true; b.siteNewLeader = nl.letter; }
+  }
   saveWorld();
 }
 
@@ -4237,48 +4333,61 @@ function wmModalOpen(kind, siteId, mapKey){
   const m = wmModalEl(); if (!m) return;
   m.dataset.kind = kind; m.dataset.site = siteId; m.dataset.map = mapKey; m.classList.add("on");
   delete m.dataset.target; delete m.dataset.leader;                       // 開くたびに、その拠点に立っているリーダー(選んでいれば、そのリーダー)から始める
-  if (kind === "hire") wmRenderHire(m); else wmRenderSupply(m);
+  if (kind === "depot") wmRenderDepot(m); else wmRenderSupply(m);
 }
 function wmModalRefresh(){
   const m = wmModalEl(); if (!m || !m.classList.contains("on")) return;
-  if (m.dataset.kind === "hire") wmRenderHire(m); else if (m.dataset.kind === "supply") wmRenderSupply(m);
+  if (m.dataset.kind === "depot") wmDepotLive(); else if (m.dataset.kind === "supply") wmRenderSupply(m);
 }
 function unitBadge(kind, n, extra){
   const def = CHAR_DEFS[kind];
   return '<div class="ub"><img src="' + def.icon + '" alt=""><div class="ub-name">' + def.name + '</div>' + (n != null ? '<div class="ub-n">×' + n + '</div>' : '') + (extra || '') + '</div>';
 }
 function siteNodeOf(siteId, mapKey){ return wmNodesOf(mapKey).find(n => n.id === siteId); }
-function wmHireTarget(m, present){
-  let t = m.dataset.target;                                        // 'supply' か、リーダーのid
-  if (!t || (t !== "supply" && !present.some(l => l.id === t))) t = present.length ? (present.find(l => l.id === world.sel) || present[0]).id : "supply";
-  m.dataset.target = t; return t;
-}
-function wmRenderHire(m){
-  const siteId = m.dataset.site, mapKey = m.dataset.map, node = siteNodeOf(siteId, mapKey), present = leadersAtSite(siteId), target = wmHireTarget(m, present);
-  const tl = target === "supply" ? null : world.leaders.find(l => l.id === target);
-  let html = '<div class="md-head"><div class="md-title">召喚<span>' + node.name + '</span></div><div class="md-wallet">屍 ' + Math.floor(world.corpse) + '</div><button class="md-close">閉じる</button></div>';
-  html += '<div class="md-row"><span class="md-lab">従わせる</span>';
-  present.forEach(l => { html += '<button class="md-tgt' + (target === l.id ? ' on' : '') + '" data-t="' + l.id + '">リーダー' + l.letter + '<em>' + teamCount(l) + '/' + TEAM_CAP + '</em></button>'; });
-  html += '<button class="md-tgt' + (target === "supply" ? ' on' : '') + '" data-t="supply">補給兵枠<em>' + sumCounts(siteSupply(siteId)) + '</em></button></div>';
-  if (!present.length) html += '<div class="md-note">この拠点にリーダーがいないので、雇った兵は、補給兵枠に入る。</div>';
-  html += '<div class="md-grid">';
+function wmRenderDepot(m){
+  const siteId = m.dataset.site, mapKey = m.dataset.map, node = siteNodeOf(siteId, mapKey);
+  let html = '<div class="md-head"><div class="md-title">補給所<span>' + node.name + '</span></div><div class="md-wallet" id="dp-wallet">屍 ' + Math.floor(world.corpse) + '</div><button class="md-close">閉じる</button></div>';
+  html += '<div class="md-note">兵は、時間がたつと、自軍の拠点ごとに溜まる。解放しない兵は、溜まらない。解放と速度アップは、すべての自軍の拠点で共通。</div><div class="dp-list">';
   HIRE_KINDS.forEach(k => {
-    const def = CHAR_DEFS[k]; if (!def) return; const cost = getDeployCost(def), ok = world.corpse >= cost;
-    html += '<button class="md-unit' + (ok ? '' : ' no') + '" data-k="' + k + '"><img src="' + def.icon + '" alt=""><span class="mu-name">' + def.name + '</span><span class="mu-cost">' + cost + '</span></button>';
+    const def = CHAR_DEFS[k]; if (!def) return; const un = !!world.depot.unlocked[k];
+    html += '<div class="dp-row' + (un ? '' : ' lock') + '" data-k="' + k + '"><img src="' + def.icon + '" alt=""><div class="dp-main"><div class="dp-name">' + def.name + '<em>' + supplyCost(k) + '屍</em></div><div class="dp-sub"></div><div class="dp-bar"><i></i></div></div><div class="dp-act"></div></div>';
   });
-  html += '</div>';
-  m.innerHTML = html;
+  m.innerHTML = html + '</div>';
   m.querySelector(".md-close").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmModalClose(); });
-  m.querySelectorAll(".md-tgt").forEach(b => b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); m.dataset.target = b.dataset.t; wmRenderHire(m); }));
-  m.querySelectorAll(".md-unit").forEach(b => b.addEventListener("click", () => wmHire(siteId, b.dataset.k, tl, m)));
+  m.querySelectorAll(".dp-row").forEach(row => wmDepotFillRow(row, siteId));
 }
-function wmHire(siteId, kind, leader, m){
-  const def = CHAR_DEFS[kind], cost = getDeployCost(def);
-  if (world.corpse < cost){ showToast("屍が、足りない"); return; }
-  world.corpse -= cost; playSfx(REPO_BASE + "audio/tap_command.opus");
-  if (leader && teamCount(leader) < TEAM_CAP){ leader.team[kind] = (leader.team[kind] || 0) + 1; leader.speed = leaderSpeedOf(leader); }
-  else { const sp = siteSupply(siteId); sp[kind] = (sp[kind] || 0) + 1; if (leader) showToast("チームが満員なので、補給兵枠に入った"); }
-  saveWorld(); wmRenderHire(m); wmUpdateUi();
+// 1行ぶんの表示と、ボタン(解放・速度アップ)
+function wmDepotFillRow(row, siteId){
+  const k = row.dataset.k, un = !!world.depot.unlocked[k], sp = siteSupply(siteId), pg = world.supplyProg[siteId] || {};
+  row.classList.toggle("lock", !un);
+  const sub = row.querySelector(".dp-sub"), bar = row.querySelector(".dp-bar i"), act = row.querySelector(".dp-act");
+  if (!un){
+    sub.textContent = "未解放　溜まらない"; bar.style.width = "0%";
+    const c = supplyUnlockCost(k);
+    if (act.dataset.mode !== "unlock"){ act.dataset.mode = "unlock"; act.innerHTML = '<button class="dp-btn"></button>'; act.firstChild.addEventListener("click", () => wmDepotBuy(k, "unlock", siteId)); }
+    act.firstChild.textContent = "解放　" + c; act.firstChild.disabled = world.corpse < c; return;
+  }
+  const cap = supplyCap(k), have = sp[k] || 0, full = have >= cap;
+  sub.textContent = "在庫 " + have + "/" + cap + "　間隔 " + Math.round(supplyInterval(k)) + "秒　速度 Lv" + supplyLevel(k) + "/" + SUPPLY_MAX_LEVEL + (full ? "　満杯" : "");
+  bar.style.width = (full ? 100 : Math.min(100, (pg[k] || 0) * 100)) + "%";
+  const up = supplyUpgradeCost(k);
+  if (act.dataset.mode !== "up"){ act.dataset.mode = "up"; act.innerHTML = '<button class="dp-btn"></button>'; act.firstChild.addEventListener("click", () => wmDepotBuy(k, "up", siteId)); }
+  if (up == null){ act.firstChild.textContent = "速度 最大"; act.firstChild.disabled = true; }
+  else { act.firstChild.textContent = "速度UP　" + up; act.firstChild.disabled = world.corpse < up; }
+}
+function wmDepotBuy(k, what, siteId){
+  const c = what === "unlock" ? supplyUnlockCost(k) : supplyUpgradeCost(k);
+  if (c == null) return;
+  if (world.corpse < c){ showToast("屍が、足りない"); return; }
+  world.corpse -= c; playSfx(REPO_BASE + "audio/tap_command.opus");
+  if (what === "unlock") world.depot.unlocked[k] = true; else world.depot.level[k] = supplyLevel(k) + 1;
+  wmDepotLive(); wmUpdateUi();
+}
+// 表示中の補給所を、押しているボタンを壊さないよう、文字と棒だけ更新する
+function wmDepotLive(){
+  const m = wmModalEl(); if (!m || !m.classList.contains("on") || m.dataset.kind !== "depot") return;
+  const w = m.querySelector("#dp-wallet"); if (w) w.textContent = "屍 " + Math.floor(world.corpse);
+  m.querySelectorAll(".dp-row").forEach(row => wmDepotFillRow(row, m.dataset.site));
 }
 function wmRenderSupply(m){
   const siteId = m.dataset.site, mapKey = m.dataset.map, node = siteNodeOf(siteId, mapKey), present = leadersAtSite(siteId), sp = siteSupply(siteId);
@@ -4323,27 +4432,28 @@ function wmMoveUnit(siteId, l, kind, to, n, m){
 function wmSiteMenuHtml(n, mapKey){
   if (!isOwnSite(n)){
     const here2 = leadersAtSite(n.id);
-    if (here2.length && siteAttackable(n, mapKey)) return '<div class="wi-stat">リーダー：' + here2.map(l => l.letter).join("・") + '</div><div class="wi-menu"><button class="wi-m" data-m="attack">攻める</button></div>';
+    if (here2.length && siteAttackable(n, mapKey)){
+      const bl = battleLeadersAt(n.id);
+      return '<div class="wi-stat">リーダー：' + here2.map(l => l.letter).join("・") + '　→　攻めに出る：' + bl.map(l => l.letter).join("・") + '(兵 ' + bl.reduce((a, l) => a + teamCount(l), 0) + '人)</div><div class="wi-menu"><button class="wi-m" data-m="attack">攻める</button></div>';
+    }
     if (here2.length && n.owner === "cult") return '<div class="wi-stat">灰燼教団の兵は、まだ、この戦いには出てこない</div>';
     return "";
   }
   const here = leadersAtSite(n.id);
-  let h = '<div class="wi-stat">補給兵 ' + sumCounts(siteSupply(n.id)) + '人　' + (here.length ? 'リーダー：' + here.map(l => l.letter).join("・") : 'リーダーは、いない') + '</div>';
-  h += '<div class="wi-menu"><button class="wi-m" data-m="hire">召喚</button><button class="wi-m" data-m="place">配置</button>';
+  let h = '<div class="wi-stat">補給兵 ' + sumCounts(siteSupply(n.id)) + '人　' + (here.length ? 'リーダー：' + here.map(l => l.letter).join("・") + (here.length > 1 ? '(配置に出る：' + battleLeadersAt(n.id).map(l => l.letter).join("・") + ')' : '') : 'リーダーは、いない') + '</div>';
+  h += '<div class="wi-menu"><button class="wi-m" data-m="depot">補給所</button><button class="wi-m" data-m="place">配置</button>';
   if (here.length) h += '<button class="wi-m" data-m="pass">通過</button><button class="wi-m" data-m="supply">補給兵</button>';
   return h + '</div>';
 }
 function wmBindSiteMenu(info, n, mapKey){
   info.querySelectorAll(".wi-m").forEach(b => b.addEventListener("click", ev => {
     ev.stopPropagation(); playSfx(REPO_BASE + "audio/tap_common.opus"); const k = b.dataset.m;
-    if (k === "hire" || k === "supply"){ wmHideInfo(); wmModalOpen(k, n.id, mapKey); }
+    if (k === "depot" || k === "supply"){ wmHideInfo(); wmModalOpen(k, n.id, mapKey); }
     else if (k === "place"){                                          // 配置：その拠点にいるリーダー(選んでいれば、そのリーダー)の部隊が、補給兵枠に入る
-      const here = leadersAtSite(n.id), l = here.find(x => x.id === world.sel) || here[0] || null;
-      wmHideInfo(); siteBattleStart("defend", mapKey, n, l);
+      wmHideInfo(); siteBattleStart("defend", mapKey, n, battleLeadersAt(n.id));
     }
     else if (k === "attack"){
-      const here = leadersAtSite(n.id), l = here.find(x => x.id === world.sel) || here[0] || null;
-      wmHideInfo(); siteBattleStart("attack", mapKey, n, l);
+      wmHideInfo(); siteBattleStart("attack", mapKey, n, battleLeadersAt(n.id));
     }
     else showToast("通過は、あとで作る");
   }));
@@ -4356,16 +4466,36 @@ function wmOpenSiteCard(mapKey, siteId){
 function wmHandleEvents(){
   while (world.events.length){
     const ev = world.events.shift(), l = world.leaders.find(x => x.id === ev.lid); if (!l) continue;
+    if (ev.type === "captured"){ const nl = world.leaders.find(x => x.id === ev.newLid); showToast("リーダー" + l.letter + "が、抜け殻の拠点を占領した。リーダー" + (nl ? nl.letter : "") + "が、加わった"); continue; }
     const s = leaderSiteInfo(l);
     if (!s){ continue; }
-    if (l.id === world.sel && wmHostFor(s.mapKey)){ if (isOwnSite(s.node) || siteAttackable(s.node, s.mapKey)) wmOpenSiteCard(s.mapKey, s.node.id); else showToast("リーダー" + l.letter + "が、" + s.node.name + "に着いた"); }
+    if (wmIsSel(l.id) && wmHostFor(s.mapKey)){ if (isOwnSite(s.node) || siteAttackable(s.node, s.mapKey)) wmOpenSiteCard(s.mapKey, s.node.id); else showToast("リーダー" + l.letter + "が、" + s.node.name + "に着いた"); }
     else showToast("リーダー" + l.letter + "が、" + s.node.name + "に着いた");
   }
 }
 
+function wmBuildChips(){
+  const box = wmState.root && wmState.root.querySelector(".wm-leaders"); if (!box) return;
+  box.innerHTML = "";
+  world.leaders.forEach(l => {
+    const b = document.createElement("button"); b.className = "wm-chip"; b.dataset.lid = l.id; b.textContent = l.letter; b.title = l.name;
+    b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmSelectLeader(l.id, "chip"); });
+    box.appendChild(b);
+  });
+  const clr = document.createElement("button"); clr.className = "wm-chip clr"; clr.textContent = "×"; clr.title = "選択を外す";
+  clr.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); world.selIds = []; world.sel = null; wmUpdateUi(); });
+  box.appendChild(clr);
+}
+// サブマップ(森・洞窟)が開いているとき、拠点の絵を作り直す(占領して、持ち主が変わったとき)
+function wmRefreshSubNodes(){
+  const root = wmState.root, key = wmState.subKey, sm = key && WM_SUBMAPS[key]; if (!root || !sm) return;
+  const sp = root.querySelector(".wm-sub-panel"); if (!sp) return;
+  sp.querySelectorAll(".wm-node").forEach(e => e.remove());
+  (sm.nodes || []).forEach(n => sp.appendChild(wmMakeNode(n)));
+}
 function wmMapClick(e, mapKey, host){
   wmHideInfo();
-  const l = wmSelLeader(); if (!l || !mapKey || !WG[mapKey]) return;
+  const ls = wmSelLeaders(); if (!ls.length || !mapKey || !WG[mapKey]) return;
   const g = WG[mapKey], r = host.getBoundingClientRect();
   let cx = Math.floor((e.clientX - r.left) / r.width * g.imgW / g.cell), cy = Math.floor((e.clientY - r.top) / r.height * g.imgH / g.cell);
   cx = Math.min(g.gw - 1, Math.max(0, cx)); cy = Math.min(g.gh - 1, Math.max(0, cy));
@@ -4374,14 +4504,17 @@ function wmMapClick(e, mapKey, host){
     if (!c){ showToast("そこへは、行けない"); return; }
     cx = c[0]; cy = c[1];
   }
-  if (leaderOrder(l, new Set([nid(g.mi, cy * g.gw + cx)]))) playSfx(REPO_BASE + "audio/tap_command.opus");
+  const goal = () => new Set([nid(g.mi, cy * g.gw + cx)]);
+  let ok = 0; ls.forEach(l => { if (leaderOrder(l, goal())) ok++; });         // 選んだリーダー全員が、そこへ向かう
+  if (ok) playSfx(REPO_BASE + "audio/tap_command.opus");
 }
 function wmGoToSite(n, mapKey){
-  const l = wmSelLeader(); if (!l) return;
+  const ls = wmSelLeaders(); if (!ls.length) return;
   const g = WG[mapKey], area = (mapKey === "east" && n.id === "cave") ? "cave_in" : n.id;
-  const goals = new Set(wgCells(mapKey, area).map(i => nid(g.mi, i)));
-  if (!goals.size){ showToast("そこへは、行けない"); return; }
-  if (leaderOrder(l, goals)) playSfx(REPO_BASE + "audio/tap_command.opus");
+  const cells = wgCells(mapKey, area).map(i => nid(g.mi, i));
+  if (!cells.length){ showToast("そこへは、行けない"); return; }
+  let ok = 0; ls.forEach(l => { if (leaderOrder(l, new Set(cells))) ok++; });
+  if (ok) playSfx(REPO_BASE + "audio/tap_command.opus");
 }
 
 // 地域マップ上の配置(%指定)。自城を左端・安全な場所に、そこから右へ二手に分かれ、奥で敵拠点群に合流する形
@@ -10182,7 +10315,7 @@ function endBattle(win, instant, reason){
     resultScreen.classList.add(win ? "win" : "lose");
     document.getElementById("result-title").textContent = reason === "retreat" ? "撤退" : (win ? "勝利" : "敗北");
     document.getElementById("result-sub").textContent =
-      b.stage && b.stage.siteBattle ? (reason === "retreat" ? "兵を、引き上げた。" : reason === "wipe" ? "兵、ことごとく討たれたり。" : reason === "repel" ? "敵を、退けたり。" : (win ? "敵の拠点、陥落。" : "自らの拠点、陥落。")) + (b.siteGained ? "　得た屍 " + b.siteGained : "") :
+      b.stage && b.stage.siteBattle ? (reason === "retreat" ? "兵を、引き上げた。" : reason === "wipe" ? "兵、ことごとく討たれたり。" : reason === "repel" ? "敵を、退けたり。" : (win ? "敵の拠点、陥落。" : "自らの拠点、陥落。")) + (b.siteCaptured ? "　拠点を占領し、リーダー" + b.siteNewLeader + "が加わった。" : "") + (b.siteGained ? "　得た屍 " + b.siteGained : "") :
       reason === "repair" ? "自城、すべて直った。" :
       reason === "survive" ? "鬼の大群、ついに退けたり。" :
       (win ? "敵城、陥落。" : "自城、陥落。");
