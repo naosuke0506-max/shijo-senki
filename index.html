@@ -1002,6 +1002,40 @@
   #debug-panel button{ font-size:.6rem; padding:4px 6px; }
 
   /* ---------- 結果 ---------- */
+
+  /* ===== 昼夜と天気：地図・戦闘画面に重ねる層。時刻の色は、乗算で重ねる(昼は変化なし、夜は暗い青、朝夕は暖かい色) ===== */
+  :root{ --env-tint:#ffffff; --env-vig:0; --env-lit:0; }
+  .env-layer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .env-layer[data-map=""]{ display:none; }
+  .env-layer[data-dark="1"]{ --env-tint:rgb(88,104,164); --env-vig:.55; }
+  .env-layer > *{ position:absolute; inset:0; pointer-events:none; }
+  .env-layer .env-tint{ background:var(--env-tint); mix-blend-mode:multiply; }
+  .env-layer .env-shade{ background:radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0) 38%, rgba(3,5,16,var(--env-vig)) 100%); }
+  .env-layer .env-haze{ opacity:0; transition:opacity 2s ease; background:rgba(205,212,217,.28); }
+  .env-layer[data-wx="fog"] .env-haze{ opacity:1; }
+  .env-layer[data-wx="rain"] .env-haze{ opacity:1; background:rgba(58,68,82,.30); }
+  .env-layer .env-fog{ opacity:0; transition:opacity 2s ease; overflow:hidden; }
+  .env-layer .env-fog i{ position:absolute; width:70%; height:60%; border-radius:50%; background:radial-gradient(ellipse at center, rgba(222,228,231,.62), rgba(222,228,231,0) 68%); animation:envFogDrift 46s ease-in-out infinite alternate; }
+  .env-layer .env-fog i:nth-child(1){ left:-15%; top:12%; }
+  .env-layer .env-fog i:nth-child(2){ left:30%; top:42%; animation-duration:58s; animation-delay:-20s; }
+  .env-layer .env-fog i:nth-child(3){ left:58%; top:-4%; animation-duration:52s; animation-delay:-35s; }
+  @keyframes envFogDrift{ from{ transform:translateX(-12%); } to{ transform:translateX(16%); } }
+  .env-layer[data-wx="fog"] .env-fog{ opacity:1; }
+  .env-layer .env-rain{ opacity:0; transition:opacity 1.5s ease; overflow:hidden; }
+  .env-layer .env-rain::before, .env-layer .env-rain::after{ content:""; position:absolute; left:-10%; width:120%; top:-220px; height:calc(100% + 440px); background-repeat:repeat; will-change:transform; }
+  .env-layer .env-rain::before{ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg stroke='%23d4e4f2' stroke-opacity='.6' stroke-width='1.4' stroke-linecap='round' fill='none'%3E%3Cpath d='M20 10l-4 20'/%3E%3Cpath d='M72 62l-4 20'/%3E%3Cpath d='M122 18l-4 20'/%3E%3Cpath d='M38 104l-4 20'/%3E%3Cpath d='M102 122l-4 20'/%3E%3Cpath d='M136 86l-4 20'/%3E%3Cpath d='M6 70l-4 20'/%3E%3Cpath d='M84 6l-4 20'/%3E%3C/g%3E%3C/svg%3E"); background-size:150px 150px; animation:envRainA .6s linear infinite; }
+  .env-layer .env-rain::after{ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='210' height='210'%3E%3Cg stroke='%23d4e4f2' stroke-opacity='.45' stroke-width='1.9' stroke-linecap='round' fill='none'%3E%3Cpath d='M30 20l-6 30'/%3E%3Cpath d='M110 90l-6 30'/%3E%3Cpath d='M170 40l-6 30'/%3E%3Cpath d='M60 150l-6 30'/%3E%3Cpath d='M150 170l-6 30'/%3E%3Cpath d='M12 110l-6 30'/%3E%3Cpath d='M190 130l-6 30'/%3E%3C/g%3E%3C/svg%3E"); background-size:210px 210px; animation:envRainB .85s linear infinite; }
+  @keyframes envRainA{ from{ transform:translate3d(0,0,0); } to{ transform:translate3d(0,150px,0); } }
+  @keyframes envRainB{ from{ transform:translate3d(0,0,0); } to{ transform:translate3d(0,210px,0); } }
+  .env-layer[data-wx="rain"] .env-rain{ opacity:1; }
+  /* 夜は、拠点に灯りがともる */
+  .wm-node img.wm-sprite{ filter:drop-shadow(0 0 calc(var(--env-lit) * 9px) rgba(255,190,100,var(--env-lit))) drop-shadow(0 3px 5px rgba(0,0,0,.7)); }
+  .wm-node .wm-ring{ box-shadow:0 0 calc(var(--env-lit) * 12px) rgba(255,190,100,calc(var(--env-lit) * .85)); }
+  .wm-clock .wm-wx{ margin-top:2px; font-size:.74rem; color:#cfe2ff; letter-spacing:.1em; }
+  .wm-clock .wm-wx em{ font-style:normal; color:#e8d29a; margin-left:.6em; font-size:.66rem; }
+  #env-chip{ font-family:var(--mincho); font-size:.72rem; letter-spacing:.1em; padding:3px 8px; color:#cfe2ff; background:rgba(10,14,24,.78); border:1px solid #4a5f80; white-space:nowrap; }
+  #battle-env .env-tint{ opacity:.72; } #battle-env .env-shade{ opacity:.6; }     /* 戦闘は、兵が見えなくならないよう、地図より少し明るく */
+  #battle-env{ z-index:auto; }     /* z-index を付けると、乗算が、下の絵と混ざらなくなる(独立した層になるため) */
 </style>
 </head>
 <body>
@@ -1044,7 +1078,7 @@
   <section id="screen-stage" class="screen">
     <div class="topbar" style="width:100%;">
       <h2 data-reading="ちいきちず">地域地図</h2>
-      <div style="display:flex;gap:10px;align-items:center;"><button id="btn-world-corpse" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">屍+3000(検証用)</button><button id="btn-world-speed" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">時間 ×1</button><button id="btn-map-legacy" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">従来の戦線(検証用)</button><button id="btn-unlock-all" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">全解放(検証用)</button><button id="btn-enemy-raid" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">敵、遠征(検証用)</button><button id="btn-back-formation" data-reading="きじん">帰陣</button></div>
+      <div style="display:flex;gap:10px;align-items:center;"><button id="btn-world-corpse" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">屍+3000(検証用)</button><button id="btn-world-speed" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">時間 ×1</button><button id="btn-env-time" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">時刻+3h(検証用)</button><button id="btn-env-wx" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">天気:自動(検証用)</button><button id="btn-map-legacy" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">従来の戦線(検証用)</button><button id="btn-unlock-all" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">全解放(検証用)</button><button id="btn-enemy-raid" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">敵、遠征(検証用)</button><button id="btn-back-formation" data-reading="きじん">帰陣</button></div>
     </div>
     <div class="world-map" id="world-map"></div>
     <div class="region-map" id="region-map" style="display:none"></div>
@@ -1057,6 +1091,7 @@
     <div id="battle-topbar">
       <div id="top-left-controls">
         <div class="stage-plate" id="stage-name-plate" data-reading="まや">魔野</div>
+        <span id="env-chip" style="display:none"></span>
         <div id="final-wave-timer"></div>
         <button id="btn-pause" title="一時停止">Ⅱ</button>
         <button id="btn-speed" title="速度" data-reading="そくど">×1</button>
@@ -3463,7 +3498,8 @@ function wmOpenSub(key, nodeEl){
   sp.querySelector("img").src = MAP_IMG_BASE + sm.img;
   sp.querySelector(".wm-sub-title").textContent = sm.title;
   sp.querySelector(".wm-sub-note").textContent = sm.note;
-  sp.querySelectorAll(".wm-node").forEach(e => e.remove());
+  sp.querySelectorAll(".wm-node, .env-layer").forEach(e => e.remove());
+  const subImg = sp.querySelector("img"); if (subImg) subImg.after(envMakeLayer(key)); else sp.appendChild(envMakeLayer(key));
   (sm.nodes || []).forEach(n => sp.appendChild(wmMakeNode(n)));
   wmHideInfo();
   wmFit();
@@ -3501,6 +3537,7 @@ function wmRenderPanel(){
   panel.innerHTML = "";
   const img = document.createElement("img"); img.className = "wm-bgimg"; img.alt = ""; img.draggable = false; img.src = MAP_IMG_BASE + def.img;
   panel.appendChild(img);
+  panel.appendChild(envMakeLayer(wmState.side));                        // 時刻・天気の層(絵の上、拠点・駒の下)
   def.nodes.forEach(n => panel.appendChild(wmMakeNode(n)));
   root.querySelector(".wm-title").textContent = def.title;
   root.querySelectorAll(".wm-tab").forEach(b => b.classList.toggle("on", b.dataset.side === wmState.side));
@@ -3893,11 +3930,131 @@ function worldClockText(){
   const hrs = world.sec / WORLD_DAY_SEC * 24 + 8, day = 1 + Math.floor(hrs / 24), h = Math.floor(hrs % 24), m = Math.floor((hrs % 1) * 60);
   return "第" + day + "日　" + String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
 }
+/* =========================================================
+   昼夜と天気
+   ・世界の時刻(第N日 HH:MM)から、朝(5〜10時)・昼(10〜18時)・夜(18〜5時)が決まる。天気は、朝5時に、その日の分が決まる(晴・雨・霧)。
+   ・地図と戦闘画面の見た目が変わり(明るさ・色・雨・霧・拠点の灯り)、戦闘・リーダーの歩みにも影響する。数値は、すべて仮
+   ・洞窟は、いつも暗い(夜として扱い、天気はなし)。従来の戦線(検証用)には、影響しない
+   ========================================================= */
+const ENV_START_HOUR = 8;                               // 世界の最初の時刻(朝8時)
+const ENV_TOD_NAME = { morning:"朝", noon:"昼", night:"夜" }, ENV_TOD_READ = { morning:"あさ", noon:"ひる", night:"よる" };
+const ENV_WX_NAME = { clear:"晴", rain:"雨", fog:"霧" };
+const ENV_WX_TABLE = { west:{ clear:.55, rain:.28 }, east:{ clear:.50, rain:.25 }, forest:{ clear:.30, rain:.25 }, cave:null };   // 残りは、霧
+// 時刻ごとの色(乗算)・四隅の暗さ・拠点の灯り。あいだは、なめらかにつなぐ
+const ENV_KEYS = [
+  [0,    [88,104,164], .55, .95], [4.5,  [92,108,168], .50, .90], [5.5,  [255,192,152], .18, .45], [7,    [255,224,192], .08, .15],
+  [10,   [255,255,255], 0, 0],    [16.5, [255,252,240], 0, 0],    [18,   [255,198,142], .16, .35], [19.5, [118,110,156], .42, .80],
+  [21,   [88,104,164], .55, .95], [24,   [88,104,164], .55, .95]
+];
+const ENV_RULES = {
+  tod:{
+    morning:{ goblin:{ atk:.92 }, beast:{ atk:.92 }, text:"朝日に鬼が怯む：鬼・鬼獣の攻撃×0.92" },
+    noon:{ human:{ atk:1.08 }, goblin:{ atk:.96 }, beast:{ atk:.96 }, text:"昼は人の刻：人間の攻撃×1.08、鬼・鬼獣の攻撃×0.96" },
+    night:{ human:{ atk:.95, detect:.8 }, goblin:{ atk:1.15, speed:1.1 }, beast:{ atk:1.15, speed:1.1 }, text:"夜は鬼の刻：鬼・鬼獣の攻撃×1.15・移動×1.1／人間の攻撃×0.95・索敵範囲×0.8" }
+  },
+  wx:{
+    clear:{ text:"" },
+    rain:{ all:{ speed:.92 }, fire:.5, text:"雨：全員の移動×0.92・火の威力×0.5" },
+    fog:{ all:{ detect:.7 }, text:"霧：全員の索敵範囲×0.7" }
+  },
+  walk:{ tod:{ night:.9 }, wx:{ rain:.92, fog:.9 } }      // 地図で、リーダーが歩く速さ(夜・雨・霧で遅くなる)
+};
+const envDebug = { wx:null };                            // 検証用：天気を固定する
+const ENV = { h:ENV_START_HOUR, tod:"morning", wxDay:0, wx:{ west:"clear", east:"clear", forest:"clear", cave:"clear" }, r:255, g:255, b:255, vig:0, lit:0, sig:"" };
+function envHours(){ return world.sec / WORLD_DAY_SEC * 24 + ENV_START_HOUR; }
+function envTodOf(h){ h = ((h % 24) + 24) % 24; return h >= 5 && h < 10 ? "morning" : h >= 10 && h < 18 ? "noon" : "night"; }
+function envWxDayOf(h){ return Math.floor((h - 5) / 24); }
+function envHash(a, b){ let x = (Math.imul(a, 374761393) + Math.imul(b, 668265263)) | 0; x = Math.imul(x ^ (x >>> 13), 1274126177); x ^= x >>> 16; return (x >>> 0) / 4294967296; }
+function envWeatherFor(mapKey, wxDay){
+  const t = ENV_WX_TABLE[mapKey]; if (!t) return "clear";
+  if (envDebug.wx) return envDebug.wx;
+  if (wxDay <= 0) return "clear";                        // 最初の日は、晴れ
+  const r = envHash(MAP_KEYS.indexOf(mapKey) + 1, wxDay);
+  return r < t.clear ? "clear" : r < t.clear + t.rain ? "rain" : "fog";
+}
+function envKeyAt(h){
+  h = ((h % 24) + 24) % 24;
+  for (let i = 1; i < ENV_KEYS.length; i++){
+    const a = ENV_KEYS[i - 1], b = ENV_KEYS[i];
+    if (h <= b[0]){
+      const f = b[0] === a[0] ? 0 : (h - a[0]) / (b[0] - a[0]);
+      return { rgb:[0, 1, 2].map(k => a[1][k] + (b[1][k] - a[1][k]) * f), vig:a[2] + (b[2] - a[2]) * f, lit:a[3] + (b[3] - a[3]) * f };
+    }
+  }
+  const z = ENV_KEYS[ENV_KEYS.length - 1]; return { rgb:z[1].slice(), vig:z[2], lit:z[3] };
+}
+// 毎フレーム(世界が進むたび)：いまの時刻・天気を、ひとまとめにしておく
+function envTick(){
+  const h = envHours(); ENV.h = h; ENV.tod = envTodOf(h); ENV.wxDay = envWxDayOf(h);
+  MAP_KEYS.forEach(k => { ENV.wx[k] = envWeatherFor(k, ENV.wxDay); });
+  const c = envKeyAt(h); ENV.r = Math.round(c.rgb[0]); ENV.g = Math.round(c.rgb[1]); ENV.b = Math.round(c.rgb[2]); ENV.vig = Math.round(c.vig * 100) / 100; ENV.lit = Math.round(c.lit * 20) / 20;
+}
+// その地図の、いまの環境(洞窟は、いつも夜で天気なし。従来の戦線など、地図のないものは null)
+function envForMap(mapKey){
+  if (!mapKey || MAP_KEYS.indexOf(mapKey) < 0) return null;
+  return { mapKey, tod:mapKey === "cave" ? "night" : ENV.tod, wx:ENV.wx[mapKey] || "clear" };
+}
+function envMult(env, unit, key){                       // key: atk / speed / detect
+  if (!env || !unit || !unit.def) return 1;
+  let m = 1; const t = ENV_RULES.tod[env.tod], w = ENV_RULES.wx[env.wx], r = t && t[unit.def.race];
+  if (r && r[key]) m *= r[key];
+  if (w && w.all && w.all[key]) m *= w.all[key];
+  return m;
+}
+function envFireMult(env){ const w = env && ENV_RULES.wx[env.wx]; return (w && w.fire) || 1; }
+function envWalkMult(mapKey){
+  const e = envForMap(mapKey); if (!e) return 1;
+  return ((ENV_RULES.walk.tod[e.tod]) || 1) * ((ENV_RULES.walk.wx[e.wx]) || 1);
+}
+function envBattleOf(b){ const sb = b && b.stage && b.stage.siteBattle; return sb ? envForMap(sb.mapKey) : null; }
+function envEffectText(env){
+  if (!env) return "";
+  const t = ENV_RULES.tod[env.tod].text, w = ENV_RULES.wx[env.wx].text;
+  return t + (w ? "／" + w : "");
+}
+function envLabel(env){ return env ? ENV_TOD_NAME[env.tod] + "・" + (env.mapKey === "cave" ? "暗闇" : ENV_WX_NAME[env.wx]) : ""; }
+// 地図・戦闘画面に重ねる層を作る
+function envMakeLayer(mapKey){
+  const el = document.createElement("div"); el.className = "env-layer";
+  el.innerHTML = '<div class="env-haze"></div><div class="env-fog"><i></i><i></i><i></i></div><div class="env-rain"></div><div class="env-tint"></div><div class="env-shade"></div>';     // 霧・雨の上から、時刻の色を掛ける(夜の霧は、暗く)
+  envSetLayer(el, mapKey); return el;
+}
+function envSetLayer(el, mapKey){
+  const e = envForMap(mapKey); const map = e ? mapKey : "", wx = e ? e.wx : "clear", dark = mapKey === "cave" ? "1" : "0";
+  if (el.dataset.map !== map) el.dataset.map = map;
+  if (el.dataset.wx !== wx) el.dataset.wx = wx;
+  if (el.dataset.dark !== dark) el.dataset.dark = dark;
+}
+// 見た目を、いまの時刻・天気に合わせる(変わったときだけ触る)
+let envLastChip = "";
+function envApplyVisuals(){
+  const sig = [ENV.r, ENV.g, ENV.b, ENV.vig, ENV.lit, ENV.wx.west, ENV.wx.east, ENV.wx.forest].join(",");
+  if (sig !== ENV.sig){
+    ENV.sig = sig;
+    const rs = document.documentElement.style;
+    rs.setProperty("--env-tint", "rgb(" + ENV.r + "," + ENV.g + "," + ENV.b + ")"); rs.setProperty("--env-vig", ENV.vig); rs.setProperty("--env-lit", ENV.lit);
+    document.querySelectorAll(".env-layer[data-map]").forEach(el => { if (el.id !== "battle-env") envSetLayer(el, el.dataset.map); });
+  }
+  const bl = _gid("battle-env"), chip = _gid("env-chip"), b = shownBattle, env = envBattleOf(b);
+  if (bl) envSetLayer(bl, env ? env.mapKey : "");
+  if (chip){
+    const txt = env ? envLabel(env) : "";
+    if (txt !== envLastChip){
+      envLastChip = txt; chip.style.display = txt ? "" : "none"; chip.textContent = txt;
+      chip.dataset.rname = txt; chip.dataset.reading = env ? ENV_TOD_READ[env.tod] : ""; chip.dataset.desc = envEffectText(env);
+    }
+  }
+}
+function envClockHtml(mapKey){
+  const e = envForMap(mapKey); if (!e) return "";
+  const tm = e.mapKey === "cave" ? "" : ENV_WX_NAME[envWeatherFor(mapKey, ENV.wxDay + 1)];
+  return '<div class="wm-wx">' + envLabel(e) + (tm ? '<em>明日 ' + tm + '</em>' : '') + '</div>';
+}
 function worldStep(dt){
   const wdt = dt * WORLD_SCALES[world.scaleIdx];
-  world.sec += wdt;
-  world.leaders.forEach(l => leaderStep(l, wdt));
-  (world.enemyLeaders || []).forEach(l => enemyLeaderStep(l, wdt));
+  world.sec += wdt; envTick();
+  world.leaders.forEach(l => leaderStep(l, wdt * envWalkMult(MAP_KEYS[l.mi])));                 // 夜・雨・霧では、歩みが遅くなる
+  (world.enemyLeaders || []).forEach(l => enemyLeaderStep(l, wdt * envWalkMult(MAP_KEYS[l.mi])));
   fieldCollisionCheck();                                                // リーダー同士が出会ったら、戦線外の戦闘が始まる
   supplyTick(wdt);
   world.lastSave += dt; if (world.lastSave > 4){ world.lastSave = 0; saveWorld(); }
@@ -3909,10 +4066,10 @@ function worldFrame(ts){
   let dt = (ts - worldLastTs) / 1000; worldLastTs = ts;
   if (document.hidden || dt <= 0) return;
   if (dt > .25) dt = .25;                     // 画面が止まっていた間の時間は、進めない
-  worldStep(dt); wmSyncView(dt);
+  worldStep(dt); wmSyncView(dt); envApplyVisuals();
 }
 function worldStart(){
-  wgInit(); loadWorld();
+  wgInit(); loadWorld(); envTick();
   document.addEventListener("visibilitychange", () => { if (document.hidden) saveWorld(); });
   window.addEventListener("pagehide", saveWorld);
   requestAnimationFrame(worldFrame);
@@ -4126,7 +4283,7 @@ function wmUpdateUi(){
     root.querySelectorAll(".wm-node").forEach(e => e.classList.toggle("fighting", fightSites.has(e.dataset.id)));
   }
   const clock = root.querySelector(".wm-clock");
-  if (clock) clock.innerHTML = worldClockText() + (world.scaleIdx ? "　×" + WORLD_SCALES[world.scaleIdx] : "") + '<div class="wm-wallet">屍 ' + Math.floor(world.corpse) + '</div>';
+  if (clock) clock.innerHTML = worldClockText() + (world.scaleIdx ? "　×" + WORLD_SCALES[world.scaleIdx] : "") + envClockHtml(wmState.subKey || wmState.side) + '<div class="wm-wallet">屍 ' + Math.floor(world.corpse) + '</div>';
   root.querySelectorAll(".wm-chip").forEach(ch => {
     const l = world.leaders.find(x => x.id === ch.dataset.lid); if (!l) return;
     ch.classList.toggle("sel", wmIsSel(l.id)); ch.classList.toggle("moving", !!l.path); wmLeaderFace(ch, l);
@@ -5499,6 +5656,11 @@ document.getElementById("btn-world-speed").addEventListener("click", () => {
   world.scaleIdx = (world.scaleIdx + 1) % WORLD_SCALES.length;
   document.getElementById("btn-world-speed").textContent = "時間 ×" + WORLD_SCALES[world.scaleIdx];
 });
+document.getElementById("btn-env-time").addEventListener("click", () => { world.sec += 3 / 24 * WORLD_DAY_SEC; envTick(); wmUpdateUi(); });     // 検証用：3時間、進める
+document.getElementById("btn-env-wx").addEventListener("click", () => {                                                                             // 検証用：天気を、自動→晴→雨→霧と切り替える
+  const order = [null, "clear", "rain", "fog"]; envDebug.wx = order[(order.indexOf(envDebug.wx) + 1) % order.length]; envTick();
+  document.getElementById("btn-env-wx").textContent = "天気:" + (envDebug.wx ? ENV_WX_NAME[envDebug.wx] : "自動") + "(検証用)"; wmUpdateUi();
+});
 document.getElementById("btn-map-legacy").addEventListener("click", () => {
   // 検証用：新しい世界地図と、従来の戦線選択(すぐ出撃できる版)を切り替える。バトルの組み込みが終わるまでの暫定
   const wm = document.getElementById("world-map"), lg = document.getElementById("region-map"), btn = document.getElementById("btn-map-legacy");
@@ -6560,14 +6722,14 @@ function attackBonus(unit, target, commit){
   return m;
 }
 function getEffectiveAtk(unit){
-  let atk = unit.def.atk * getBuffFactor(unit, "buffAtkMult") * (unit.aura ? unit.aura.atk : 1);
+  let atk = unit.def.atk * getBuffFactor(unit, "buffAtkMult") * (unit.aura ? unit.aura.atk : 1) * envMult(battle && battle.env, unit, "atk");     // 朝・昼・夜
   if (unit.def.tamerBuffEligible && hasLivingTamerAlly(unit)){
     atk *= 1.10; // テイマーが在陣している間、攻撃力+10%(範囲無限、テイマーが死ぬと自動的に外れる)
   }
   return atk;
 }
 function getEffectiveSpeed(unit, baseSpeed){
-  return baseSpeed * getBuffFactor(unit, "buffSpeedMult") * (unit.aura ? unit.aura.speed : 1);
+  return baseSpeed * getBuffFactor(unit, "buffSpeedMult") * (unit.aura ? unit.aura.speed : 1) * envMult(battle && battle.env, unit, "speed");     // 夜・雨
 }
 function getDamageCutMultiplier(unit){
   let f = getBuffFactor(unit, "buffDamageCutMult") * (unit.aura ? unit.aura.cut : 1) * (unit.homeCut || 1);   // 本拠地の力：物理・属性・毒/炎上・特殊攻撃、どれも同じだけ軽くなる
@@ -6894,6 +7056,7 @@ const FIRE_STATUS_FX = { count:4, prefix:"burn_fx_", durations:[200,200,200,200]
 // 最大HPの50%を20秒かけて削る(発動のたびに、その時点の最大HPで20秒分を計算し直す)
 function addBurnBuildup(unit, pct, src){
   if (!unit || unit.dead) return;
+  pct *= envFireMult(battle && battle.env);                                             // 雨：炎上も、たまりにくい
   unit.burnBuildup = (unit.burnBuildup || 0) + pct;
   if (unit.burnBuildup >= 100){
     unit.burnBuildup = 0;
@@ -10412,6 +10575,7 @@ function applyDamageToUnit(target, amount, attacker){
   }
   const def = target.def;
   const attackerFlags = (attacker && attacker.def.attackFlags) || {};
+  if (attackerFlags.fire && battle && battle.env) amount *= envFireMult(battle.env);       // 雨：火の威力が弱まる
   const meleeRangeCheck = attacker && edgeDistance(target, attacker) <= def.attackRange;
   if (attacker && attacker.aura && attacker.aura.splash !== 1 && attacker.def.splashRadius) amount *= attacker.aura.splash;     // 範囲攻撃の威力(鬼象砦のリーダー効果)
   if (attacker && attacker.homeAtk) amount *= attacker.homeAtk;     // 本拠地の力：与えるダメージ全て(物理・火炎・爆発・範囲・特殊攻撃)が上がる
@@ -10540,6 +10704,7 @@ function applyDamageToUnit(target, amount, attacker){
 function findNearestEnemyInRange(unit){
   if (!battle) return null;
   let nearest = null, nearestDist = Infinity;
+  const detectR = unit.def.detectionRange * envMult(battle.env, unit, "detect");     // 夜・霧では、遠くの敵に気づきにくい
   let priority = null, priorityDist = Infinity; // 斥候：非戦闘の支援役がいれば、そちらを優先して探す
   battle.units.forEach(other => {
     if (other === unit || other.dead || other.side === unit.side) return;
@@ -10550,7 +10715,7 @@ function findNearestEnemyInRange(unit){
     if (other.elevated && !(unit.def.ranged || unit.def.canHitAir)) return; // 担がれたキングは遠距離攻撃しか届かない
     if (other === unit.dodgedPastUnit && !unit.def.canEngageBehind) return; // 回避してすれ違った相手とは戦わない(斥候は例外)
     const d = edgeDistance(unit, other);
-    if (d > unit.def.detectionRange) return;
+    if (d > detectR) return;
     if (!isEngageable(unit, other)) return; // 完全に背後の敵は無視(密着していれば例外)
     if (d < nearestDist){
       nearest = other;
@@ -10781,6 +10946,7 @@ function battleLoop(now){
 }
 
 function battleStep(dt){
+  battle.env = envBattleOf(battle);                    // 昼夜・天気(拠点の戦闘だけ。従来の戦線は、影響なし)
   updateGuide();
   if (battle.placementCooldowns){
     for (const k in battle.placementCooldowns){ if (battle.placementCooldowns[k] > 0) battle.placementCooldowns[k] = Math.max(0, battle.placementCooldowns[k] - dt); }
@@ -11410,6 +11576,7 @@ function fitStage(){
   root.setProperty("--stage-offy", (frame.clientHeight - STAGE_H * scale) + "px"); // 下に揃える
 }
 
+{ const bf = document.getElementById("battlefield-frame"); if (bf && !document.getElementById("battle-env")){ const l = envMakeLayer(""); l.id = "battle-env"; bf.appendChild(l); } }
 function buildGrid(){
   const field = document.getElementById("battlefield");
   let overlay = document.getElementById("grid-overlay");
