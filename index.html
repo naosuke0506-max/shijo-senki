@@ -239,6 +239,11 @@
     background:radial-gradient(circle at 35% 30%,#8a6620,#2a1c0a); border:2px solid #f0d58a; box-shadow:0 0 0 2px #000,0 3px 8px rgba(0,0,0,.8); }
   .wm-leader::before{ content:""; position:absolute; left:-10px; right:-10px; top:-10px; bottom:-10px; }
   .wm-leader::after{ content:"⚑"; position:absolute; left:50%; top:-15px; transform:translateX(-50%); font-size:.95rem; color:#f0d58a; text-shadow:0 1px 2px #000; }
+  .wm-leader{ overflow:visible; }
+  .wm-leader img.lf-img, .wm-chip img.lf-img{ position:absolute; inset:0; width:100%; height:100%; border-radius:50%; object-fit:cover; pointer-events:none; }
+  .wm-leader .lf-let, .wm-chip .lf-let{ position:absolute; right:-4px; bottom:-4px; min-width:13px; height:13px; padding:0 2px; box-sizing:border-box; border-radius:7px; display:flex; align-items:center; justify-content:center;
+    font-family:var(--mincho); font-weight:900; font-size:.6rem; line-height:1; color:#fff2c4; background:#2a1c0a; border:1px solid #f0d58a; pointer-events:none; }
+  .wm-chip{ position:relative; }
   .wm-leader.sel{ box-shadow:0 0 0 2px #000,0 0 16px 6px rgba(255,226,138,.85); animation:wmLeaderPulse 1.6s ease-in-out infinite; }
   @keyframes wmLeaderPulse{ 0%,100%{ transform:translate(-50%,-50%) scale(1);} 50%{ transform:translate(-50%,-50%) scale(1.12);} }
   .wm-flag2{ position:absolute; z-index:4; transform:translate(-14%,-100%); font-size:1.5rem; line-height:1; filter:drop-shadow(0 2px 3px rgba(0,0,0,.8)); pointer-events:none; }
@@ -4302,8 +4307,15 @@ function wmTargetEnemyLeader(el){
   if (ok) showToast("リーダーを、狙う");
   return ok > 0;
 }
+// リーダーの顔：リーダーにした兵のアイコン(まだ選んでいなければ、文字A・B…)。種類が変わったときだけ作り直す
+function wmLeaderFace(el, l){
+  const key = (l.kind || "") + "|" + l.letter; if (el.dataset.face === key) return; el.dataset.face = key;
+  const def = l.kind && CHAR_DEFS[l.kind];
+  if (def && def.icon) el.innerHTML = '<img class="lf-img" src="' + def.icon + '" alt="' + def.name + '" draggable="false"><span class="lf-let">' + l.letter + '</span>';
+  else el.textContent = l.letter;
+}
 function wmMakeLeaderEl(l){
-  const el = document.createElement("div"); el.className = "wm-leader"; el.dataset.lid = l.id; el.textContent = l.letter;
+  const el = document.createElement("div"); el.className = "wm-leader"; el.dataset.lid = l.id; wmLeaderFace(el, l);
   el.addEventListener("click", ev => {
     ev.stopPropagation(); playSfx(REPO_BASE + "audio/tap_common.opus");
     const site = leaderSiteInfo(l);
@@ -4334,7 +4346,7 @@ function wmSyncView(dt){
     if (!host){ if (el.parentNode) el.remove(); return; }
     if (el.parentNode !== host) host.appendChild(el);
     const [px, py] = wmPct(g, p.fx, p.fy); el.style.left = px + "%"; el.style.top = py + "%";
-    el.classList.toggle("sel", wmIsSel(l.id)); el.classList.toggle("moving", !!l.path);
+    el.classList.toggle("sel", wmIsSel(l.id)); el.classList.toggle("moving", !!l.path); wmLeaderFace(el, l);
   });
   // 遠征中・襲撃中の、敵のリーダー
   const SVGNS = "http://www.w3.org/2000/svg";
@@ -4425,7 +4437,7 @@ function wmUpdateUi(){
   if (clock) clock.innerHTML = worldClockText() + (world.scaleIdx ? "　×" + WORLD_SCALES[world.scaleIdx] : "") + '<div class="wm-wallet">屍 ' + Math.floor(world.corpse) + '</div>';
   root.querySelectorAll(".wm-chip").forEach(ch => {
     const l = world.leaders.find(x => x.id === ch.dataset.lid); if (!l) return;
-    ch.classList.toggle("sel", wmIsSel(l.id)); ch.classList.toggle("moving", !!l.path);
+    ch.classList.toggle("sel", wmIsSel(l.id)); ch.classList.toggle("moving", !!l.path); wmLeaderFace(ch, l);
   });
   const card = root.querySelector(".wm-lcard"), l = wmSelLeader(), sels = wmSelLeaders();
   if (!card) return;
@@ -5643,7 +5655,7 @@ function wmBuildChips(){
   const box = wmState.root && wmState.root.querySelector(".wm-leaders"); if (!box) return;
   box.innerHTML = "";
   world.leaders.forEach(l => {
-    const b = document.createElement("button"); b.className = "wm-chip"; b.dataset.lid = l.id; b.textContent = l.letter; b.title = l.name;
+    const b = document.createElement("button"); b.className = "wm-chip"; b.dataset.lid = l.id; wmLeaderFace(b, l); b.title = l.name;
     b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmSelectLeader(l.id, "chip"); });
     box.appendChild(b);
   });
