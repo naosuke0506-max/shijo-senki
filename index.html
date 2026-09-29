@@ -1036,6 +1036,13 @@
   #env-chip{ font-family:var(--mincho); font-size:.72rem; letter-spacing:.1em; padding:3px 8px; color:#cfe2ff; background:rgba(10,14,24,.78); border:1px solid #4a5f80; white-space:nowrap; }
   #battle-env .env-tint{ opacity:.72; } #battle-env .env-shade{ opacity:.6; }     /* 戦闘は、兵が見えなくならないよう、地図より少し明るく */
   #battle-env{ z-index:auto; }     /* z-index を付けると、乗算が、下の絵と混ざらなくなる(独立した層になるため) */
+
+  /* 時刻ごとの絵(朝=元の絵の上に、昼・夜の絵を重ね、透明度で切り替える)。専用の絵があるときは、色かぶせを弱める */
+  .wm-panel > img.env-var, .wm-sub-panel > img.env-var{ opacity:0; transition:opacity 1.2s linear; }
+  .bd-scene.env-var{ opacity:0; transition:opacity 1.2s linear; }
+  .env-layer .env-tint, .env-layer .env-shade{ transition:opacity 1.5s ease; }
+  .env-layer[data-imgs="1"] .env-tint{ opacity:.3; } .env-layer[data-imgs="1"] .env-shade{ opacity:.35; }
+  #battle-env[data-imgs="1"] .env-tint{ opacity:.5; } #battle-env[data-imgs="1"] .env-shade{ opacity:.45; }
 </style>
 </head>
 <body>
@@ -1170,7 +1177,7 @@
    ========================================================= */
 // @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
 // コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
-const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@e1769edca047e0c94629587bff4522f07352651a/";
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@7769a1d49aab0ba53a53f63e112cf272579fbbcb/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
@@ -3498,8 +3505,10 @@ function wmOpenSub(key, nodeEl){
   sp.querySelector("img").src = MAP_IMG_BASE + sm.img;
   sp.querySelector(".wm-sub-title").textContent = sm.title;
   sp.querySelector(".wm-sub-note").textContent = sm.note;
-  sp.querySelectorAll(".wm-node, .env-layer").forEach(e => e.remove());
-  const subImg = sp.querySelector("img"); if (subImg) subImg.after(envMakeLayer(key)); else sp.appendChild(envMakeLayer(key));
+  sp.querySelectorAll(".wm-node, .env-layer, .env-var").forEach(e => e.remove());
+  const subImg = sp.querySelector("img:not(.env-var)"), subLayer = envMakeLayer(key, "map");
+  if (subImg) subImg.after(subLayer); else sp.appendChild(subLayer);
+  if (subImg) envAttachMapImages(sp, subImg, sm.img, subLayer);
   (sm.nodes || []).forEach(n => sp.appendChild(wmMakeNode(n)));
   wmHideInfo();
   wmFit();
@@ -3537,7 +3546,8 @@ function wmRenderPanel(){
   panel.innerHTML = "";
   const img = document.createElement("img"); img.className = "wm-bgimg"; img.alt = ""; img.draggable = false; img.src = MAP_IMG_BASE + def.img;
   panel.appendChild(img);
-  panel.appendChild(envMakeLayer(wmState.side));                        // 時刻・天気の層(絵の上、拠点・駒の下)
+  const envLayer = envMakeLayer(wmState.side, "map"); panel.appendChild(envLayer);       // 時刻・天気の層(絵の上、拠点・駒の下)
+  envAttachMapImages(panel, img, def.img, envLayer);                                      // 昼・夜の絵(朝の絵の上に重ねる)
   def.nodes.forEach(n => panel.appendChild(wmMakeNode(n)));
   root.querySelector(".wm-title").textContent = def.title;
   root.querySelectorAll(".wm-tab").forEach(b => b.classList.toggle("on", b.dataset.side === wmState.side));
@@ -4014,29 +4024,36 @@ function envEffectText(env){
 }
 function envLabel(env){ return env ? ENV_TOD_NAME[env.tod] + "・" + (env.mapKey === "cave" ? "暗闇" : ENV_WX_NAME[env.wx]) : ""; }
 // 地図・戦闘画面に重ねる層を作る
-function envMakeLayer(mapKey){
-  const el = document.createElement("div"); el.className = "env-layer";
+function envMakeLayer(mapKey, kind){
+  const el = document.createElement("div"); el.className = "env-layer"; if (kind) el.dataset.kind = kind;
   el.innerHTML = '<div class="env-haze"></div><div class="env-fog"><i></i><i></i><i></i></div><div class="env-rain"></div><div class="env-tint"></div><div class="env-shade"></div>';     // 霧・雨の上から、時刻の色を掛ける(夜の霧は、暗く)
   envSetLayer(el, mapKey); return el;
 }
 function envSetLayer(el, mapKey){
-  const e = envForMap(mapKey); const map = e ? mapKey : "", wx = e ? e.wx : "clear", dark = mapKey === "cave" ? "1" : "0";
+  const e = envForMap(mapKey); const map = e ? mapKey : "", wx = e ? e.wx : "clear";
+  const dark = (mapKey === "cave" && !(el.dataset.kind === "map" && el.dataset.imgs === "1")) ? "1" : "0";     // 洞窟の地図は、昼夜の絵が読めたら、その絵に任せる
   if (el.dataset.map !== map) el.dataset.map = map;
   if (el.dataset.wx !== wx) el.dataset.wx = wx;
   if (el.dataset.dark !== dark) el.dataset.dark = dark;
 }
 // 見た目を、いまの時刻・天気に合わせる(変わったときだけ触る)
 let envLastChip = "";
-function envApplyVisuals(){
-  const sig = [ENV.r, ENV.g, ENV.b, ENV.vig, ENV.lit, ENV.wx.west, ENV.wx.east, ENV.wx.forest].join(",");
-  if (sig !== ENV.sig){
+function envApplyVisuals(force){
+  const w = envImgWeights(ENV.h), w2 = envImgWeights(ENV.h + 2);
+  const sig = [ENV.r, ENV.g, ENV.b, ENV.vig, ENV.lit, ENV.wx.west, ENV.wx.east, ENV.wx.forest, Math.round(w.m * 50), Math.round(w.d * 50), Math.round(w.n * 50)].join(",");
+  if (sig !== ENV.sig || force){
     ENV.sig = sig;
+    envAllGroups().forEach(g => envGroupApply(g, w, w2));
     const rs = document.documentElement.style;
     rs.setProperty("--env-tint", "rgb(" + ENV.r + "," + ENV.g + "," + ENV.b + ")"); rs.setProperty("--env-vig", ENV.vig); rs.setProperty("--env-lit", ENV.lit);
     document.querySelectorAll(".env-layer[data-map]").forEach(el => { if (el.id !== "battle-env") envSetLayer(el, el.dataset.map); });
   }
   const bl = _gid("battle-env"), chip = _gid("env-chip"), b = shownBattle, env = envBattleOf(b);
-  if (bl) envSetLayer(bl, env ? env.mapKey : "");
+  if (bl){
+    const has = envGroupHasImgs(b && b.envGroup, w);                                                       // 戦闘の背景に、昼夜の絵があれば、色かぶせを弱める
+    if (bl.dataset.imgs !== has) bl.dataset.imgs = has;
+    envSetLayer(bl, env ? env.mapKey : "");
+  }
   if (chip){
     const txt = env ? envLabel(env) : "";
     if (txt !== envLastChip){
@@ -4045,8 +4062,75 @@ function envApplyVisuals(){
     }
   }
 }
+
+/* ---------- 時刻ごとの絵：朝=元の絵、昼=(元の名前)_noon.png、夜=_night.png。時刻に合わせて、なめらかに重ねて切り替える ---------- */
+// [時刻, 朝, 昼, 夜] の重み。朝は7.5〜10時、昼(黄金色の午後)は13〜17時、夜は20〜4.5時。あいだは、ゆっくり混ぜる
+const ENV_IMG_KEYS = [[0,0,0,1],[4.5,0,0,1],[7.5,1,0,0],[10,1,0,0],[13,0,1,0],[17,0,1,0],[20,0,0,1],[24,0,0,1]];
+function envImgWeights(h){
+  h = ((h % 24) + 24) % 24;
+  for (let i = 1; i < ENV_IMG_KEYS.length; i++){
+    const a = ENV_IMG_KEYS[i - 1], b = ENV_IMG_KEYS[i];
+    if (h <= b[0]){ const f = b[0] === a[0] ? 0 : (h - a[0]) / (b[0] - a[0]); return { m:a[1] + (b[1] - a[1]) * f, d:a[2] + (b[2] - a[2]) * f, n:a[3] + (b[3] - a[3]) * f }; }
+  }
+  return { m:0, d:0, n:1 };
+}
+const envImgState = {}, envImgWait = {};                   // 絵の読み込み状態(url → loading / ok / fail)
+function envImgLoad(url, cb){
+  const st = envImgState[url];
+  if (st === "ok"){ cb(true); return; } if (st === "fail"){ cb(false); return; }
+  (envImgWait[url] = envImgWait[url] || []).push(cb); if (st === "loading") return;
+  envImgState[url] = "loading";
+  const done = ok => { envImgState[url] = ok ? "ok" : "fail"; const l = envImgWait[url] || []; envImgWait[url] = []; l.forEach(f => f(ok)); };
+  const im = new Image(); im.onload = () => done(true); im.onerror = () => done(false); im.src = url;
+}
+function envVariantUrl(base, file, tod){ return base + file.replace(/\.[a-z]+$/i, "") + "_" + tod + ".png"; }
+// 1まとまり(地図1枚・戦闘の背景1つ)。昼・夜の絵の要素(複数でもよい)をまとめて、透明度を決める
+function envNewGroup(base, file){ return { noon:[], night:[], urls:{ noon:envVariantUrl(base, file, "noon"), night:envVariantUrl(base, file, "night") }, st:{ noon:0, night:0 }, sky:null, floor:null, layer:null }; }
+function envShowVariant(el, url){ if (el.tagName === "IMG") el.src = url; else el.style.backgroundImage = "url(" + url + ")"; }
+function envGroupApply(g, w, w2){
+  if (!g) return;
+  ["noon", "night"].forEach(v => {
+    const want = v === "noon" ? (w.d > 0.001 || w2.d > 0.001) : (w.n > 0.001 || w2.n > 0.001);            // 使う時刻(の2時間前)になったら、読み込む
+    if (want && g.st[v] === 0){
+      g.st[v] = 1;
+      envImgLoad(g.urls[v], ok => { g.st[v] = ok ? 2 : 3; if (ok) g[v].forEach(el => envShowVariant(el, g.urls[v])); envApplyVisuals(true); });
+    }
+  });
+  const d = g.st.noon === 2 ? w.d : 0, n = g.st.night === 2 ? w.n : 0;                                        // 読めなかった絵の分は、朝の絵のまま
+  const aN = n, aD = (1 - n) > 0.0001 ? d / (1 - n) : 0;                                                     // 下から 朝→昼→夜 の順に重ねて、混ぜ合わせる
+  g.noon.forEach(el => { el.style.opacity = aD.toFixed(3); }); g.night.forEach(el => { el.style.opacity = aN.toFixed(3); });
+  if (g.sky) g.sky.style.filter = "brightness(" + (1 - .8 * n).toFixed(2) + ")";                              // 絵の外(上)の空・床の色も、夜は暗く
+  if (g.floor) g.floor.style.filter = "brightness(" + (1 - .8 * n).toFixed(2) + ")";
+  const has = envGroupHasImgs(g, w);
+  if (g.layer && g.layer.dataset.imgs !== has){ g.layer.dataset.imgs = has; envSetLayer(g.layer, g.layer.dataset.map || ""); }
+}
+// いま見えている絵が、昼・夜の専用の絵のとき(読み込めているとき)だけ、色かぶせを弱める。朝の絵や、読めなかったときは、これまで通り、色で暗くする
+function envGroupHasImgs(g, w){
+  if (!g) return "0";
+  const need = w.d > 0.01 || w.n > 0.01;
+  return need && (w.d <= 0.01 || g.st.noon === 2) && (w.n <= 0.01 || g.st.night === 2) ? "1" : "0";
+}
+function envAllGroups(){
+  const out = [];
+  if (wmState.panel && wmState.panel._envGroup) out.push(wmState.panel._envGroup);
+  const sp = wmState.root && wmState.root.querySelector(".wm-sub-panel"); if (sp && sp._envGroup) out.push(sp._envGroup);
+  battles.forEach(b => { if (b.envGroup) out.push(b.envGroup); });
+  return out;
+}
+// 地図の絵：朝の絵(base)のあとに、昼・夜の絵を重ねる。layer は、そのあとに来る(色かぶせ・天気の層)
+function envAttachMapImages(panel, baseImg, file, layer){
+  panel.querySelectorAll(".env-var").forEach(e => e.remove());
+  const g = envNewGroup(MAP_IMG_BASE, file); g.layer = layer; let prev = baseImg;
+  ["noon", "night"].forEach(v => {
+    const im = document.createElement("img"); im.className = "wm-bgimg env-var"; im.alt = ""; im.draggable = false; im.dataset.v = v;
+    prev.after(im); prev = im; g[v].push(im);
+  });
+  panel._envGroup = g; envApplyVisuals(true);
+}
+
 function envClockHtml(mapKey){
   const e = envForMap(mapKey); if (!e) return "";
+  if (mapKey === "cave") return '<div class="wm-wx">洞内　外は' + ENV_TOD_NAME[ENV.tod] + '</div>';
   const tm = e.mapKey === "cave" ? "" : ENV_WX_NAME[envWeatherFor(mapKey, ENV.wxDay + 1)];
   return '<div class="wm-wx">' + envLabel(e) + (tm ? '<em>明日 ' + tm + '</em>' : '') + '</div>';
 }
@@ -5987,6 +6071,18 @@ function buildStageArt(stage){
         }
         const h = document.createElement("div"); h.className = "bd-horizon" + (i === 1 ? "" : " mirror"); h.style.left = x + "px"; h.style.backgroundImage = "url(" + probe.src + ")"; bd.appendChild(h);
       });
+      // 昼・夜の絵(拠点の戦闘の、野原・村・山岳・森だけ)：朝の絵と同じ位置に、重ねる。継ぎ目が出ないよう、朝→昼→夜の順に、まとめて並べる
+      if (stage.siteBattle && art.scene && /^(field|village|mountain|forest)_bg\.jpg$/.test(art.bg)){
+        const g = envNewGroup(STAGE_ART_BASE, art.bg); g.sky = sky; g.floor = fl;
+        const morningTiles = Array.from(bd.querySelectorAll(".bd-scene")); let after = morningTiles[morningTiles.length - 1];
+        ["noon", "night"].forEach(v => {
+          morningTiles.forEach(mt => {
+            const t = mt.cloneNode(false); t.classList.add("env-var"); t.dataset.v = v; t.style.backgroundImage = "none"; t.style.opacity = "0";
+            after.after(t); after = t; g[v].push(t);
+          });
+        });
+        if (ownerB) ownerB.envGroup = g;
+      }
       for (let i = 0; i < 4; i++){
         const c = document.createElement("div"); c.className = "crow";
         c.style.cssText = "top:" + R(-700, 0).toFixed(0) + "px;width:" + R(36, 64).toFixed(0) + "px;animation-duration:" + R(40, 70).toFixed(0) + "s;animation-delay:" + (-R(0, 60)).toFixed(0) + "s;";
@@ -6011,6 +6107,7 @@ function buildStageArt(stage){
         frame.style.backgroundColor = art.scene ? art.scene.frame : "";
       }
       root.classList.add("has-bg");
+      envApplyVisuals(true);                                            // 昼夜の絵を、いまの時刻に合わせる
     };
     probe.onerror = () => {};
     probe.src = STAGE_ART_BASE + art.bg;
