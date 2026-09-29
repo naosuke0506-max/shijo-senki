@@ -244,6 +244,12 @@
   .wm-flag2{ position:absolute; z-index:4; transform:translate(-14%,-100%); font-size:1.5rem; line-height:1; filter:drop-shadow(0 2px 3px rgba(0,0,0,.8)); pointer-events:none; }
   svg.wm-path{ position:absolute; inset:0; width:100%; height:100%; z-index:3; pointer-events:none; }
   svg.wm-path polyline{ fill:none; stroke:#ffe28a; stroke-width:.9; stroke-dasharray:1.6 1.4; stroke-linecap:round; stroke-linejoin:round; opacity:.95; filter:drop-shadow(0 0 1.5px #000); }
+  .wm-enemy-leader{ position:absolute; z-index:4; transform:translate(-50%,-50%); width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:var(--mincho); font-weight:900; font-size:.86rem; color:#ffe4d8; cursor:pointer; -webkit-tap-highlight-color:transparent;
+    background:radial-gradient(circle at 35% 30%,#7a1a12,#2a0a06); border:2px solid #ff6a4a; box-shadow:0 0 0 2px #000,0 0 10px rgba(255,90,60,.7); animation:wmEnemyPulse 1.1s ease-in-out infinite; }
+  .wm-enemy-leader.raiding{ box-shadow:0 0 0 2px #000,0 0 16px 6px rgba(255,90,60,.9); }
+  @keyframes wmEnemyPulse{ 0%,100%{ transform:translate(-50%,-50%) scale(1);} 50%{ transform:translate(-50%,-50%) scale(1.15);} }
+  svg.wm-path-enemy polyline{ stroke:#ff6a4a; stroke-dasharray:1.4 1.6; opacity:.85; }
   .wm-clock{ position:absolute; left:14px; top:34px; z-index:5; font-family:var(--mincho); font-size:.82rem; letter-spacing:.14em; color:#f0d58a; text-shadow:0 1px 4px #000,0 0 10px #000; pointer-events:none; }
   .wm-leaders{ position:absolute; left:50%; top:8px; transform:translateX(-50%); z-index:5; display:flex; gap:6px; }
   .wm-chip{ width:30px; height:30px; padding:0; border-radius:50%; font-family:var(--mincho); font-weight:900; font-size:.9rem; color:#cbbd94; background:rgba(10,7,6,.78); border:1.5px solid #5a4a2c; }
@@ -1030,7 +1036,7 @@
   <section id="screen-stage" class="screen">
     <div class="topbar" style="width:100%;">
       <h2 data-reading="ちいきちず">地域地図</h2>
-      <div style="display:flex;gap:10px;align-items:center;"><button id="btn-world-corpse" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">屍+3000(検証用)</button><button id="btn-world-speed" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">時間 ×1</button><button id="btn-map-legacy" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">従来の戦線(検証用)</button><button id="btn-unlock-all" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">全解放(検証用)</button><button id="btn-back-formation" data-reading="きじん">帰陣</button></div>
+      <div style="display:flex;gap:10px;align-items:center;"><button id="btn-world-corpse" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">屍+3000(検証用)</button><button id="btn-world-speed" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">時間 ×1</button><button id="btn-map-legacy" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">従来の戦線(検証用)</button><button id="btn-unlock-all" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">全解放(検証用)</button><button id="btn-enemy-raid" style="opacity:.55;font-size:.68rem;letter-spacing:.08em;">敵、遠征(検証用)</button><button id="btn-back-formation" data-reading="きじん">帰陣</button></div>
     </div>
     <div class="world-map" id="world-map"></div>
     <div class="region-map" id="region-map" style="display:none"></div>
@@ -3983,14 +3989,25 @@ function wgRoute(startNode, goalNodes){
 
 /* ---------- リーダー ---------- */
 function siteStartCell(mapKey, name){
+  // 拠点の見た目の位置に、いちばん近いマスを選ぶ。ただし、歩ける道に接していないマス(拠点の奥まった所)は避ける
+  // (そこを起点にすると、道を探しても、どこへも辿り着けなくなるため)
   const g = WG[mapKey], nd = wmNodesOf(mapKey).find(n => n.id === name), px = nd.x / 100 * g.gw, py = nd.y / 100 * g.gh;
+  const cells = wgCells(mapKey, name);
+  const touchesWalk = i => {
+    const x = i % g.gw, y = (i / g.gw) | 0;
+    for (const [dx, dy] of WG_DIRS){ const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= g.gw || ny >= g.gh) continue; if (g.cls[ny * g.gw + nx] === CK_WALK) return true; }
+    return false;
+  };
   let best = -1, bd = 1e9;
-  wgCells(mapKey, name).forEach(i => { const d = ((i % g.gw) - px) ** 2 + (((i / g.gw) | 0) - py) ** 2; if (d < bd){ bd = d; best = i; } });
+  cells.forEach(i => { if (!touchesWalk(i)) return; const d = ((i % g.gw) - px) ** 2 + (((i / g.gw) | 0) - py) ** 2; if (d < bd){ bd = d; best = i; } });
+  if (best >= 0) return best;
+  cells.forEach(i => { const d = ((i % g.gw) - px) ** 2 + (((i / g.gw) | 0) - py) ** 2; if (d < bd){ bd = d; best = i; } });   // 見つからなければ、もとの選び方(見た目にいちばん近いマス)
   return best;
 }
 function leadersReset(){
   world.leaders = [];                                        // 最初は、リーダーはいない。拠点をタップして、立てる
   world.sel = null; world.selIds = []; world.corpse = WORLD_START_CORPSE; world.supply = {}; world.supplyProg = {}; world.depot = { unlocked:{ soldier:true }, level:{} }; world.events = [];   // 最初に解放されているのは、戍卒だけ
+  enemyLeadersInit();                                          // ゴブリン族の拠点に、遠征を送り出すリーダーを置く
 }
 function leaderSpawnAtSite(mapKey, node){
   const g = WG[mapKey], i = siteStartCell(mapKey, node.id); if (i < 0) return null;
@@ -4170,6 +4187,7 @@ function worldStep(dt){
   const wdt = dt * WORLD_SCALES[world.scaleIdx];
   world.sec += wdt;
   world.leaders.forEach(l => leaderStep(l, wdt));
+  (world.enemyLeaders || []).forEach(l => enemyLeaderStep(l, wdt));
   supplyTick(wdt);
   world.lastSave += dt; if (world.lastSave > 4){ world.lastSave = 0; saveWorld(); }
 }
@@ -4190,7 +4208,7 @@ function worldStart(){
 }
 
 /* ---------- 地図の上の表示：駒・🚩・道 ---------- */
-const wmTok = { leaders:{}, flag:null, svg:null, pl:[], fl:[] };
+const wmTok = { leaders:{}, enemies:{}, flag:null, svg:null, pl:[], fl:[], esvg:null, epl:[] };
 function wmHostFor(mapKey){
   if (!wmState.root) return null;
   if (mapKey === "west" || mapKey === "east") return wmState.side === mapKey ? wmState.panel : null;
@@ -4207,6 +4225,15 @@ function wmMakeLeaderEl(l){
   });
   return el;
 }
+// 遠征に出ている・襲っている、敵のリーダーの駒(押すと、様子が分かる)
+function wmMakeEnemyEl(l){
+  const el = document.createElement("div"); el.className = "wm-enemy-leader"; el.textContent = "！";
+  el.addEventListener("click", ev => {
+    ev.stopPropagation(); playSfx(REPO_BASE + "audio/tap_common.opus");
+    showToast(l.state === "raiding" ? "敵のリーダーが、拠点を襲っている" : l.state === "waiting" ? "敵のリーダーが、様子をうかがっている" : "敵のリーダーが、遠征している");
+  });
+  return el;
+}
 function wmSyncView(dt){
   const root = wmState.root, scr = document.getElementById("screen-stage");
   if (!root || !scr || !scr.classList.contains("active")) return;
@@ -4220,8 +4247,40 @@ function wmSyncView(dt){
     const [px, py] = wmPct(g, p.fx, p.fy); el.style.left = px + "%"; el.style.top = py + "%";
     el.classList.toggle("sel", wmIsSel(l.id)); el.classList.toggle("moving", !!l.path);
   });
+  // 遠征中・襲撃中の、敵のリーダー
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const hosts = [wmState.panel, root.querySelector(".wm-sub.open .wm-sub-panel")].filter(Boolean);
+  const activeEnemies = (world.enemyLeaders || []).filter(l => l.state !== "home");
+  const seenE = {};
+  activeEnemies.forEach(l => {
+    const p = leaderPos(l), g = WG[MAP_KEYS[p.mi]], host = wmHostFor(g.key);
+    seenE[l.id] = true;
+    let el = wmTok.enemies[l.id]; if (!el) el = wmTok.enemies[l.id] = wmMakeEnemyEl(l);
+    if (!host){ if (el.parentNode) el.remove(); return; }
+    if (el.parentNode !== host) host.appendChild(el);
+    const [px, py] = wmPct(g, p.fx, p.fy); el.style.left = px + "%"; el.style.top = py + "%";
+    el.classList.toggle("raiding", l.state === "raiding");
+  });
+  Object.keys(wmTok.enemies).forEach(id => { if (!seenE[id]){ wmTok.enemies[id].remove(); delete wmTok.enemies[id]; } });
+  // 遠征中の、敵のリーダーの道(赤)
+  if (!wmTok.esvg){ wmTok.esvg = document.createElementNS(SVGNS, "svg"); wmTok.esvg.setAttribute("class", "wm-path wm-path-enemy"); wmTok.esvg.setAttribute("preserveAspectRatio", "none"); wmTok.epl = []; }
+  const usedE = { pl:0 };
+  hosts.forEach(host => {
+    const mapKey = host === wmState.panel ? wmState.side : wmState.subKey, g = WG[mapKey]; if (!g) return;
+    activeEnemies.forEach(l => {
+      if (!l.path) return;
+      const pts = []; const p0 = leaderPos(l); if (p0.mi === g.mi) pts.push([p0.fx, p0.fy]);
+      for (let i = l.pi + 1; i < l.path.length; i++){ const n = l.path[i]; if (((n / 65536) | 0) !== g.mi) continue; pts.push([(n % 65536) % g.gw + .5, (((n % 65536) / g.gw) | 0) + .5]); }
+      if (pts.length < 2) return;
+      let pl = wmTok.epl[usedE.pl]; if (!pl){ pl = wmTok.epl[usedE.pl] = document.createElementNS(SVGNS, "polyline"); wmTok.esvg.appendChild(pl); }
+      usedE.pl++; pl.setAttribute("points", pts.map(q => q[0].toFixed(2) + "," + q[1].toFixed(2)).join(" ")); pl.style.display = "";
+      wmTok.esvg.setAttribute("viewBox", "0 0 " + (g.imgW / g.cell) + " " + (g.imgH / g.cell));
+      if (wmTok.esvg.parentNode !== host) host.appendChild(wmTok.esvg);
+    });
+  });
+  for (let i = usedE.pl; i < wmTok.epl.length; i++) wmTok.epl[i].style.display = "none";
+  if (!usedE.pl && wmTok.esvg.parentNode) wmTok.esvg.remove();
   // 選んだリーダー全員の、道と🚩
-  const hosts = [wmState.panel, root.querySelector(".wm-sub.open .wm-sub-panel")].filter(Boolean), SVGNS = "http://www.w3.org/2000/svg";
   if (!wmTok.svg){ wmTok.svg = document.createElementNS(SVGNS, "svg"); wmTok.svg.setAttribute("class", "wm-path"); wmTok.svg.setAttribute("preserveAspectRatio", "none"); wmTok.pl = []; wmTok.fl = []; }
   const used = { pl:0, fl:0 }; let svgHost = null;
   hosts.forEach(host => {
@@ -4389,6 +4448,115 @@ function siteGarrison(node, mapKey){
   kinds.forEach((k, i) => { const c = cells[i]; out.push({ t:0, kind:k, lane:Math.max(0, Math.min(GRID_LANES - 1, 2 + c.dr)), xOffset:Math.max(0, centerX - 90 + c.dc * 100) }); });
   return out;
 }
+/* =========================================================
+   敵のリーダー：ゴブリン族の拠点から、時おり兵を連れて出て、自軍の拠点へ向かう。
+   着いた拠点が自軍のものなら、そこを襲う(守りの戦闘。守備兵がいなければ、置いてある補給兵だけで迎え撃つ)。
+   襲って勝てば、その拠点は失われる(ゴブリン族のものに戻る)。負ければ、そのリーダーは討たれ、消える。
+   ========================================================= */
+const ENEMY_RAID_IDLE_MIN = 240, ENEMY_RAID_IDLE_MAX = 480;     // 世界の秒。次の遠征までの間隔(ばらつきを持たせる)
+const ENEMY_RAID_SCALE = 0.4;                                    // 本拠地の編成のうち、遠征に連れて出る割合
+function enemyRaidDelay(){ return ENEMY_RAID_IDLE_MIN + Math.random() * (ENEMY_RAID_IDLE_MAX - ENEMY_RAID_IDLE_MIN); }
+function enemyLeadersInit(){
+  world.enemyLeaders = [];
+  let n = 0;
+  MAP_KEYS.forEach(mapKey => {
+    wmNodesOf(mapKey).forEach(node => {
+      if (node.owner !== "goblin" || !siteEnemyOf(node.id)) return;                  // 編成の決まっている、ゴブリン族の拠点から
+      const i = siteStartCell(mapKey, node.id); if (i < 0) return;
+      const g = WG[mapKey]; n++;
+      world.enemyLeaders.push({ id:"E" + n, mapKey, site:node.id, mi:g.mi, x:i % g.gw, y:(i / g.gw) | 0,
+        path:null, pi:0, pf:0, speed:LEADER_BASE_SPEED, state:"home", idleT:enemyRaidDelay() });
+    });
+  });
+}
+function enemyRaidWaves(homeSiteId){
+  const e = siteEnemyOf(homeSiteId) || { units:{ goblin:6, archer:2 }, formation:{ name:"方円" } };
+  const kinds = []; Object.keys(e.units).forEach(k => { const n = Math.max(1, Math.round(e.units[k] * ENEMY_RAID_SCALE)); for (let i = 0; i < n; i++) kinds.push(k); });
+  const cells = enemyFormationCells(e.formation.name, kinds.length, !!e.leader).sort((a, b) => a.dc - b.dc);
+  kinds.sort((a, b) => (ENEMY_REAR_KINDS.indexOf(a) >= 0 ? 0 : 1) - (ENEMY_REAR_KINDS.indexOf(b) >= 0 ? 0 : 1));
+  const centerX = 460, out = [];
+  if (e.leader) out.push({ t:0, kind:e.leader, lane:2, xOffset:centerX - 90, leader:true });
+  kinds.forEach((k, i) => { const c = cells[i]; out.push({ t:0, kind:k, lane:Math.max(0, Math.min(GRID_LANES - 1, 2 + c.dr)), xOffset:Math.max(0, centerX - 90 + c.dc * 100) }); });
+  return out;
+}
+function enemyLeaderNode(l){ return l.path ? (l.pf < .5 || l.path[l.pi + 1] === undefined ? l.path[l.pi] : l.path[l.pi + 1]) : nid(l.mi, l.y * WG[MAP_KEYS[l.mi]].gw + l.x); }
+// 自軍の拠点(いま、戦闘・配置中でない所)を目指す。届かなければ、また待つ
+function enemyLeaderTryRaid(l){
+  const goals = new Set();
+  MAP_KEYS.forEach(k => wmNodesOf(k).forEach(n => { if (isOwnSite(n) && WG[k] && WG[k].ids[n.id] && !siteBattleAt(n.id)) wgCells(k, n.id).forEach(i => goals.add(nid(WG[k].mi, i))); }));
+  if (!goals.size){ l.idleT = enemyRaidDelay(); return; }
+  const route = wgRoute(enemyLeaderNode(l), goals);
+  if (!route || route.length < 2){ l.idleT = enemyRaidDelay(); return; }
+  l.path = route; l.pi = 0; l.pf = 0; l.state = "out";
+}
+function enemyLeaderArrive(l){
+  leaderPlace(l, l.path[l.path.length - 1]); l.path = null; l.pi = 0; l.pf = 0;
+  const g = WG[MAP_KEYS[l.mi]], idx = l.y * g.gw + l.x;
+  if (g.cls[idx] === CK_PORTAL && g.portal[idx] >= 0) leaderPlace(l, g.portal[idx]);
+  const v = g.layer[l.y * g.gw + l.x];
+  const node = v >= 2 ? wmNodesOf(MAP_KEYS[l.mi]).find(n => n.id === (g.idName[v] === "cave_in" ? "cave" : g.idName[v])) : null;
+  if (node && isOwnSite(node)) aiRaidStart(l, MAP_KEYS[l.mi], node);
+  else { l.state = "home"; l.idleT = enemyRaidDelay(); }                              // 自軍の拠点ではなかった：また、間を置いて出直す
+}
+function enemyLeaderStep(l, wdt){
+  if (l.state === "home"){ l.idleT -= wdt; if (l.idleT <= 0) enemyLeaderTryRaid(l); return; }
+  if (l.state === "waiting"){                                                          // 目的の拠点が塞がっていた：少し待って、また試す
+    l.idleT -= wdt; if (l.idleT <= 0) enemyLeaderArrive(l);
+    return;
+  }
+  if (!l.path) return;
+  let rem = l.speed * wdt;
+  while (rem > 0 && l.path){
+    const cur = l.path[l.pi], nxt = l.path[l.pi + 1];
+    if (nxt === undefined){ enemyLeaderArrive(l); return; }
+    const cm = (cur / 65536) | 0, nm = (nxt / 65536) | 0;
+    if (cm !== nm){ l.pi++; l.pf = 0; continue; }
+    const g = WG[MAP_KEYS[cm]], ci = cur % 65536, ni = nxt % 65536;
+    const dist = Math.hypot((ni % g.gw) - (ci % g.gw), ((ni / g.gw) | 0) - ((ci / g.gw) | 0)), need = dist * (1 - l.pf);
+    if (rem >= need){ rem -= need; l.pi++; l.pf = 0; } else { l.pf += rem / dist; rem = 0; }
+  }
+  if (l.path && l.pi >= l.path.length - 1) enemyLeaderArrive(l);
+}
+// 着いた拠点が、いま戦闘・配置中でなければ、そこを襲う戦闘を、裏で始める(画面は切り替えない)
+function aiRaidStart(l, mapKey, node){
+  if (siteBattleAt(node.id) || battles.filter(x => !x.ended).length >= MAX_BATTLE_INSTANCES){ l.state = "waiting"; l.idleT = 20; return; }
+  const terrain = siteTerrain(mapKey, node.id), supply = siteSupply(node.id);
+  const stage = {
+    id:"raid:" + node.id + ":" + Math.floor(world.sec * 1000), name:node.name + "　迎撃", art:siteArt(terrain), bgm:"stage_high", lanes:[0, 1, 2, 3, 4],
+    enemyCastleHp:1e9, playerCastleHp:SITE_CASTLE_HP, startCorpse:0, corpseGainRate:1.0,
+    enemyWaves:enemyRaidWaves(l.site),
+    siteBattle:{ mode:"defend", siteId:node.id, mapKey, leaderIds:[], roster:Object.assign({}, supply), origin:{ supply:Object.assign({}, supply) }, terrain, aiRaid:l.id }
+  };
+  const b = startBattle(stage, true);
+  if (!b){ l.state = "waiting"; l.idleT = 20; return; }
+  l.state = "raiding"; l.battle = b;
+  withBattle(b, () => {                                                              // 守り手がいれば、自動で戦列に出す(誰も操作していないので)
+    const kinds = Object.keys(b.roster).filter(k => b.roster[k] > 0 && CHAR_DEFS[k] && !siteIsPlacer(CHAR_DEFS[k]) && !CHAR_DEFS[k].canPickRiders);
+    let lane = 0;
+    kinds.forEach(k => { const n = b.roster[k]; for (let i = 0; i < n; i++){ siteDeploy(k, lane % GRID_LANES, null); lane++; } });
+  });
+  showToast("敵が、" + node.name + "を襲っている");
+  if (wmState.root) wmUpdateUi();
+}
+// 迎撃の戦闘が終わったとき：勝てば、リーダーは討たれて消える。負ければ、拠点はゴブリン族のものに戻る
+function aiRaidFinish(b, win){
+  const sb = b.stage.siteBattle, l = (world.enemyLeaders || []).find(x => x.id === sb.aiRaid); if (!l) return;
+  if (win){
+    world.enemyLeaders = world.enemyLeaders.filter(x => x !== l);
+    showToast(b.stage.name.replace(/　.*$/, "") + "の迎撃に、勝った");
+  } else {
+    const node = wmNodesOf(sb.mapKey).find(n => n.id === sb.siteId);
+    if (node){
+      node.owner = "goblin"; wgClassify();
+      world.leaders.filter(pl => { const s = leaderSiteInfo(pl); return s && s.node.id === sb.siteId; }).forEach(leaderReturnHome);   // そこにいた自軍のリーダーは、もといた拠点へ
+      if (wmState.root){ wmRenderPanel(); if (wmState.subKey) wmRefreshSubNodes(); wmBuildChips(); }
+    }
+    leaderPlace(l, nid(WG[sb.mapKey].mi, siteStartCell(sb.mapKey, sb.siteId))); l.state = "home"; l.idleT = enemyRaidDelay();
+    showToast(b.stage.name.replace(/　.*$/, "") + "を、奪われた");
+  }
+  wmUpdateUi();
+}
+
 function siteBattleStart(mode, mapKey, node, leaders){
   const ex = siteBattleAt(node.id); if (ex){ battleShow(ex); return; }                // この拠点に、すでに戦闘・配置中がある：そちらへ
   if (battles.filter(x => !x.ended).length >= MAX_BATTLE_INSTANCES){                 // 多すぎる：戦闘でない古い配置中を、取りやめる
@@ -4499,9 +4667,8 @@ function siteBattleSetup(stage){
   const sb = stage.siteBattle, scr = document.getElementById("screen-battle");
   battle.roster = sb.roster; battle.origin = sb.origin; battle.leaderUnits = sb.leaderUnits; battle.auraCounts = { player:{}, enemy:{} }; battle.sideMul = { player:{ magic:1 }, enemy:{ magic:1 } }; battle.placeKind = null; battle.moveSel = null; battle.siteEnemyEntered = false; battle.corpse = 0;
   battle.hold = { player:sb.mode === "defend", enemy:sb.mode === "attack" };   // 守り：自軍は、持ち場で待ち伏せ(敵は、自城へ攻め寄せる)。攻め：敵は、守りを固める(自軍は、敵城へ進む)
-  scr.classList.add("site-battle", "atmo-" + sb.terrain);      // 地形に合わせた演出(霧・舞う粒・鳥)
-  scr.classList.toggle("site-no-enemy-castle", sb.mode === "defend");
-  scr.classList.toggle("site-no-player-castle", sb.mode === "attack");
+  battle.screenClasses = ["site-battle", "atmo-" + sb.terrain, sb.mode === "defend" ? "site-no-enemy-castle" : "site-no-player-castle"];   // 裏で始めた戦闘も、あとで画面に出すとき(battleMount)、これで正しい見た目になる
+  battle.screenClasses.forEach(c => scr.classList.add(c));      // いま見えている(かもしれない)画面にも、そのまま反映しておく
   battle.formQueue = []; battle.formUsed = {}; battle.exited = {};       // 陣形は、召喚欄の「○○陣召喚」を押すと、出てくる
   buildSiteDeployRow();
   showToast(sb.mode === "defend" ? "兵を選び、戦場のマスをタップして置け" : "兵を選び、出す戦列をタップせよ。敵の城を落とせば、勝ち");
@@ -4629,11 +4796,12 @@ function siteStandStep(unit, dtMs){
   return false;                                                                                                       // 射程に入った敵がいる：通常の攻撃へ
 }
 // 築き終えた兵が、自軍の端で消えて、召喚欄へ戻る(クールタイムが明けるまでは、出せない)
-function siteBuilderExit(u){
+function siteBuilderExit(u, cooldownMsOverride){
   const kind = u.originalKind || u.deployedKind || u.kind, def0 = CHAR_DEFS[kind] || u.def, o = u.siteOrigin && battle.origin[u.siteOrigin] ? u.siteOrigin : (Object.keys(battle.origin)[0] || "supply");
+  const cd = cooldownMsOverride != null ? cooldownMsOverride : (def0.resupplyCooldownMs || 0);
   u.dead = true; u.exited = true; u.el.style.display = "none"; clearBuffsFrom(u); battle.units = battle.units.filter(x => x !== u);
   battle.roster[kind] = (battle.roster[kind] || 0) + 1; if (!battle.origin[o]) battle.origin[o] = {}; battle.origin[o][kind] = (battle.origin[o][kind] || 0) + 1;
-  (battle.cool = battle.cool || []).push({ kind, readyAt: battle.time + (def0.resupplyCooldownMs || 0) / 1000 });
+  (battle.cool = battle.cool || []).push({ kind, readyAt: battle.time + cd / 1000 });
   if (battle === shownBattle) buildSiteDeployRow();
 }
 function siteCooling(kind){ return (battle.cool || []).filter(c => c.kind === kind && c.readyAt > battle.time); }
@@ -4735,7 +4903,7 @@ function siteDeploy(kind, lane, lx){
   battle.deployed = true;                                                                     // 兵を出した：攻めでは、ここから戦闘になる
   const u = spawnUnit(kind, "player", 0, { lane });
   if (lx != null){ u.standX = columnCenterX(columnOfX(lx)) - 30; u.standDone = false; u.standTemp = true; }   // 守り(配置)：自軍の端から出て、選んだマスまで歩き、そこで待つ。攻め：戦列だけ選び、自軍の端から、いつも通り出る
-  u.deployedKind = kind; u.siteRoster = true; applyFrame(u);
+  u.deployedKind = kind; u.originalKind = kind; u.siteRoster = true; applyFrame(u);
   if (def.hornAbility) startCommanderHorn(u);
   { const from = Object.keys(battle.origin).find(k => battle.origin[k][kind] > 0) || "supply";       // 複数のチームを連れているときは、先頭のチームの兵から順に出る
     if (battle.origin[from] && battle.origin[from][kind] > 0) battle.origin[from][kind]--; u.siteOrigin = from; }
@@ -4819,6 +4987,7 @@ function siteBattleFinish(b, win, reason){
   if (sb.mode === "attack" && win && node && !isOwnSite(node)){                       // 敵の拠点を攻め落とした：占領。その拠点のリーダーが、新しく出てくる
     if (siteCapture(sb.mapKey, node)) b.siteCaptured = true;
   }
+  if (sb.aiRaid) aiRaidFinish(b, win);                                                 // 敵の遠征隊による襲撃だった：勝敗を、そちらにも反映する
   saveWorld();
 }
 
@@ -5470,6 +5639,12 @@ document.getElementById("btn-map-legacy").addEventListener("click", () => {
   btn.textContent = showLegacy ? "地域地図へ" : "従来の戦線(検証用)";
   if (!showLegacy) wmFit();
 });
+document.getElementById("btn-enemy-raid").addEventListener("click", () => {
+  const l = (world.enemyLeaders || []).find(x => x.state === "home" || x.state === "waiting");
+  if (!l){ showToast("いま、動ける敵のリーダーが、いない"); return; }
+  l.state = "home"; l.idleT = 0; enemyLeaderStep(l, 0.001);
+  showToast("敵のリーダーを、遠征に出した");
+});
 document.getElementById("btn-unlock-all").addEventListener("click", () => {
   STAGES.forEach(st => state.cleared.add(st.id)); saveCleared(); buildStageScreen();
 });
@@ -5764,7 +5939,7 @@ function buildStageArt(stage){
   if (art.bg){
     const probe = new Image();
     probe.onload = () => {
-      if (!document.body.contains(root)) return; // 別の戦闘に入り直していたら捨てる
+      if (ownerB && ownerB.ended) return; // すでに終わった戦闘なら、捨てる(裏で始めた戦闘は、読み込み時点では、まだ画面についていない)
       const bd = document.createElement("div"); bd.id = "stage-backdrop";
       const sky = document.createElement("div"); sky.className = "bd-sky"; bd.appendChild(sky);
       [[-300,150,.5,200],[-520,170,.42,260],[-760,190,.34,320],[-1000,200,.28,380]].forEach(c => {
@@ -5947,19 +6122,9 @@ function updateGuide(){
   document.querySelectorAll(".deploy-btn").forEach(b => b.classList.toggle("guide-pulse", !!act && act.pulse === b.dataset.kind));
 }
 
-function startBattle(stage){
+function startBattle(stage, background){
   if (!idleField) idleField = _gid("battlefield");                     // 何も出していないときの、空の戦場(新しい戦場の型にもなる)
-  if (battles.filter(x => !x.ended).length >= MAX_BATTLE_INSTANCES){ showToast("戦闘・配置中が、多すぎる"); return; }
-  if (shownBattle) battleUnmount(shownBattle);                          // 出ていた戦闘は、裏へ回る(裏でも進み続ける)
-  playBgm(stage.bgm || "stage_low"); // 戦線ごとのBGM(魔野・骸原は穏やか、槍原以降は脅威度が高い曲、鬼哭野実装後はボス曲)
-  roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
-  repairHighlightEl = null; // 前の戦闘のハイライト状態を持ち越さない
-  const cpEl = _gid("chariot-picker"); if (cpEl){ cpEl.style.display = "none"; cpEl.innerHTML = ""; }
-  const spb = _gid("btn-speed"); if (spb) spb.textContent = "×1";
-  const pbb = _gid("btn-pause"); if (pbb) pbb.textContent = "Ⅱ";
-  infoUI.unit = null; const uib = _gid("unit-info"); if (uib) uib.style.display = "none";
-  cmdUI.open = false; cmdUI.cmdrId = null; cmdUI.branch = null; cmdUI.pickTarget = false; cmdUI.pickFormation = false;
-  warmKeyedFx();
+  if (battles.filter(x => !x.ended).length >= MAX_BATTLE_INSTANCES){ if (!background) showToast("戦闘・配置中が、多すぎる"); return null; }
 
   // この戦闘だけの戦場を作る(空の戦場の複製)。画面につながっていなくても、幅・高さは決まった値を返す
   const fieldEl = idleField.cloneNode(true); fieldEl.removeAttribute("id");
@@ -5968,7 +6133,7 @@ function startBattle(stage){
 
   const b = {
     stage,
-    fieldEl, backdropEl:null, bdOn:false, frameBg:"", screenClasses:[], bg:false,
+    fieldEl, backdropEl:null, bdOn:false, frameBg:"", screenClasses:[], bg:!!background,
     enemyCastleHp: stage.enemyCastleHp,
     enemyCastleHpMax: stage.enemyCastleHp,
     playerCastleHp: stage.playerCastleStartHp != null ? stage.playerCastleStartHp : stage.playerCastleHp, // 戦線によっては、開始時点ですでに自城が傷んでいる
@@ -5993,10 +6158,28 @@ function startBattle(stage){
     nextWarn: 0,                    // 次に出す警告(warnings)の番号
     fireZones: []                   // 地面に広がる炎(火槍手・ガス缶)
   };
-  battles.push(b); shownBattle = b; battle = b;
-  battleMount(b);                                                       // 画面に出す(この戦闘の戦場を、画面につなぐ)
+  battles.push(b);
 
-  _gid("stage-name-plate").textContent = stage.name;
+  // 裏で始める(敵の来襲など)：画面や音楽には触れず、いま出ている戦闘の処理に戻れるよう、状態を退避して組み立てる
+  const savedBattle = battle, savedBgCtx = bgCtx;
+  if (background){
+    battle = b; bgCtx = { b, dummies:{} };
+  } else {
+    if (shownBattle) battleUnmount(shownBattle);                          // 出ていた戦闘は、裏へ回る(裏でも進み続ける)
+    playBgm(stage.bgm || "stage_low"); // 戦線ごとのBGM(魔野・骸原は穏やか、槍原以降は脅威度が高い曲、鬼哭野実装後はボス曲)
+    roleBannerQueue.length = 0; // 前の戦闘の告知は残さない
+    repairHighlightEl = null; // 前の戦闘のハイライト状態を持ち越さない
+    const cpEl = _gid("chariot-picker"); if (cpEl){ cpEl.style.display = "none"; cpEl.innerHTML = ""; }
+    const spb = _gid("btn-speed"); if (spb) spb.textContent = "×1";
+    const pbb = _gid("btn-pause"); if (pbb) pbb.textContent = "Ⅱ";
+    infoUI.unit = null; const uib = _gid("unit-info"); if (uib) uib.style.display = "none";
+    cmdUI.open = false; cmdUI.cmdrId = null; cmdUI.branch = null; cmdUI.pickTarget = false; cmdUI.pickFormation = false;
+    warmKeyedFx();
+    shownBattle = b; battle = b; bgCtx = null;
+    battleMount(b);                                                       // 画面に出す(この戦闘の戦場を、画面につなぐ)
+  }
+
+  document.getElementById("stage-name-plate").textContent = stage.name;
   applyStageUnits(stage);
   buildStageArt(stage);
 
@@ -6006,11 +6189,17 @@ function startBattle(stage){
   buildDebugPanel();
   updateLaneButtons();
   if (stage.siteBattle) siteBattleSetup(stage);
-  showScreen("screen-battle");
-  fitStage();
-  layoutLaneButtons();
-  requestAnimationFrame(() => { fitStage(); layoutLaneButtons(); });
-  battleSwitchUpdate();
+
+  if (background){
+    battle = savedBattle; bgCtx = savedBgCtx;                             // 呼び出す前の状態(画面に出している戦闘)へ戻す
+  } else {
+    showScreen("screen-battle");
+    fitStage();
+    layoutLaneButtons();
+    requestAnimationFrame(() => { fitStage(); layoutLaneButtons(); });
+    battleSwitchUpdate();
+  }
+  return b;
 }
 
 function updateCastleBars(){
@@ -6701,11 +6890,15 @@ function updateTrapperAI(unit, dtMs){
     unit.facing = dir;
     const field = document.getElementById("battlefield");
     const fieldWidth = field ? field.clientWidth : STAGE_W;
-    const homeX = unit.side === "player" ? fieldWidth - 90 : 90;
+    const siteMode = unit.siteRoster && battle.stage.siteBattle;
+    const homeX = siteMode                                                                     // 味方の城による進める限界より、必ず手前になる位置
+      ? (unit.side === "player" ? fieldWidth - CASTLE_APPROACH_GAP - bodyWidth(unit) - 30 : CASTLE_APPROACH_GAP + bodyWidth(unit) + 30)
+      : (unit.side === "player" ? fieldWidth - 90 : 90);
     unit.x += moveWithCollision(unit, dir * getEffectiveSpeed(unit, def.walkSpeed) * (dtMs / 1000));
     applyFrame(unit);
     const reached = unit.side === "player" ? unit.x >= homeX : unit.x <= homeX;
     if (reached){
+      if (siteMode){ siteBuilderExit(unit, def.trapResupplyCooldownMs); return; }               // 拠点の戦闘：画面から消えて、召喚欄・クールタイムへ(望楼兵などと同じ)
       unit.trapPhase = "cooldown";
       unit.trapCooldownMs = def.trapResupplyCooldownMs || 80000;
       setMotion(unit, "idle", { loop:true });
@@ -7367,7 +7560,7 @@ function startReturnHome(unit){
 function updateReturnHomeAI(unit, dtMs){
   const def = unit.def;
   if (unit.siteRoster && battle.stage.siteBattle){                          // 拠点の戦闘：自軍の端まで歩いたら、画面から消えて、召喚欄に戻る
-    const edge = STAGE_W - 100;                                          // 自軍の端(出てくる位置)に着いたら、消える
+    const edge = STAGE_W - CASTLE_APPROACH_GAP - bodyWidth(unit) - 30;    // 味方の城による進める限界より、必ず手前になる位置
     if (unit.x >= edge){ siteBuilderExit(unit); return; }
     unit.x += moveWithCollision(unit, getEffectiveSpeed(unit, def.walkSpeed || 30) * (dtMs / 1000)); applyFrame(unit); return;
   }
@@ -10935,11 +11128,11 @@ function updateUnitAI(unit, dtMs){
     if (!unit.dismounting) updateMountedAI(unit); // 乗ったまま、遠距離系だけは射程内を狙って撃てる(フォートレスと共通)
     return;
   }
-  if (unit.standX != null && battle.stage.siteBattle && siteStandStep(unit, dtMs)) return;      // 持ち場へ歩く・持ち場で待つ(軍医や、リーダーの設置系の兵も、これに従う)
+  if (def.chariotUnit){ updateChariotAI(unit, dtMs); return; } // チャリオット本体：専用の往復AI(持ち場の概念を持たず、出たら、すぐ動き出す)
+  if (def.courierUnit){ updateCourierAI(unit, dtMs); return; } // 伝令兵：専用の往復・見張りAI(同上)
+  if (def.trapperUnit){ updateTrapperAI(unit, dtMs); return; } // 穽鬼：専用の「置く→帰る→クールタイム→また出る」巡回AI(同上)
 
-  if (def.chariotUnit){ updateChariotAI(unit, dtMs); return; } // チャリオット本体：専用の往復AI
-  if (def.courierUnit){ updateCourierAI(unit, dtMs); return; } // 伝令兵：専用の往復・見張りAI
-  if (def.trapperUnit){ updateTrapperAI(unit, dtMs); return; } // 穽鬼：専用の「置く→帰る→クールタイム→また出る」巡回AI
+  if (unit.standX != null && battle.stage.siteBattle && siteStandStep(unit, dtMs)) return;      // 持ち場へ歩く・持ち場で待つ(軍医や、リーダーの設置系の兵も、これに従う)
 
   if (unit.returningHome){ updateReturnHomeAI(unit, dtMs); return; } // 設置後、自城へ戻っている最中(望楼兵・拒馬兵など)
   if (unit.awaitingResupply || unit.resupplied) return; // 自城で、クールタイム明け・次の指示を待っている間は、その場に留まる
