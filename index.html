@@ -216,6 +216,7 @@
     transition:opacity .5s ease, transform .65s cubic-bezier(.2,.8,.2,1), visibility 0s linear .65s; }
   .wm-sub.open{ opacity:1; transform:scale(1); visibility:visible; pointer-events:auto;
     transition:opacity .5s ease, transform .65s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+  .wm-sub.wm-sub-instant, .wm-sub.wm-sub-instant.open{ transition:none; }
   .wm-sub-panel{ position:relative; overflow:hidden; }
   .wm-sub-panel > img{ position:absolute; inset:0; width:100%; height:100%; display:block; pointer-events:none; user-select:none; -webkit-user-drag:none; }
   .wm-sub-panel::after{ content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 55%,rgba(0,0,0,.6) 100%); }
@@ -422,6 +423,8 @@
   #battlefield .unit-sprite.home-aura img{ filter:drop-shadow(0 0 6px #ff3c2c) drop-shadow(0 0 14px #ff1a10); }
   #battlefield .unit-sprite.home-aura::before{ content:""; position:absolute; left:50%; bottom:0; width:70px; height:70px; transform:translateX(-50%); border-radius:50%;
     background:radial-gradient(circle, rgba(255,50,30,.5), transparent 70%); animation:homeAuraPulse 1.4s ease-in-out infinite; pointer-events:none; z-index:1; }
+  #battlefield .unit-sprite.home-aura-leader img{ filter:drop-shadow(0 0 7px #ffd23c) drop-shadow(0 0 14px #ff2a1a) drop-shadow(0 0 24px #ff1a10); }
+  #battlefield .unit-sprite.home-aura-leader::before{ width:96px; height:96px; background:radial-gradient(circle, rgba(255,210,60,.55), rgba(255,50,30,.35) 45%, transparent 72%); }
   @keyframes homeAuraPulse{ 0%,100%{ opacity:.55; transform:translateX(-50%) scale(1);} 50%{ opacity:.9; transform:translateX(-50%) scale(1.15);} }
   @media (max-height:560px){ .dp-list{ grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:6px; margin-top:8px; } .dp-row{ padding:5px 8px; } .dp-row img{ width:38px; height:38px; } .dp-name{ font-size:.82rem; } .dp-sub{ font-size:.62rem; } .dp-btn{ font-size:.7rem; padding:5px 9px; } }
   .md-cols{ display:flex; gap:16px; margin-top:14px; flex-wrap:wrap; }
@@ -3830,6 +3833,7 @@ function wmSwitch(side){
 }
 function buildWorldMap(){
   const root = document.getElementById("world-map"); if (!root) return;
+  const keepSub = wmState.subKey;                                     // 作り直す前に、開いていた森・洞窟の地図を覚えておく
   if (wmState.ro){ wmState.ro.disconnect(); wmState.ro = null; }
   root.innerHTML = "";
   const panel = document.createElement("div"); panel.className = "wm-panel"; root.appendChild(panel);
@@ -3860,6 +3864,11 @@ function buildWorldMap(){
   wmBuildChips();
   wmRenderPanel();
   if (window.ResizeObserver){ wmState.ro = new ResizeObserver(() => wmFit()); wmState.ro.observe(root); }
+  if (keepSub && WM_SUBMAPS[keepSub]){                                // 戦闘から戻ったとき、リーダーの駒が隠れないよう、同じ地図を開き直す(アニメなし)
+    const sub = root.querySelector(".wm-sub"); if (sub) sub.classList.add("wm-sub-instant");
+    wmOpenSub(keepSub, null);
+    if (sub) requestAnimationFrame(() => requestAnimationFrame(() => sub.classList.remove("wm-sub-instant")));
+  }
 }
 
 /* =========================================================
@@ -4889,7 +4898,7 @@ function siteStandStep(unit, dtMs){
     if (Math.abs(sdx) <= 4){
       unit.standDone = true;
       if (unit.buildAfter){ const t = unit.buildAfter; unit.buildAfter = null; unit.standX = null; unit.buildTargetCol = t.col; unit.buildTargetLane = t.lane; unit.buildTargetX = columnCenterX(t.col); unit.buildStarted = false; return true; }    // 位置に着いた：築く場所へ向かう
-      if (unit.canAfter){ const t = unit.canAfter; unit.canAfter = null; siteMakeGascan(t.col, t.lane); }                                                                                                              // 位置に着いた：ガス缶を据える
+      if (unit.canAfter){ const t = unit.canAfter; unit.canAfter = null; siteMakeGascan(t.col, t.lane, unit); }                                                                                                              // 位置に着いた：ガス缶を据える
       if (unit.repairAfter){ const t = unit.repairAfter; unit.repairAfter = null; unit.standX = null; unit.repairTarget = t.kind === "castle" ? siteRepairAutoTarget(unit) : t; return true; }                            // 位置に着いた：直す建物へ
       if (unit.motion !== "idle" && idleOk) setMotion(unit, "idle", { loop:true }); return true;
     }
@@ -4979,7 +4988,7 @@ function siteDeployPlacer(kind, lane, col, opts){
   } else if (def.canPickGascanSite){                                     // 火槍手：兵の位置に着いたら、前にあるガス缶の場所へ据える
     const from = siteTakeUnit(kind, opts.lid), u = spawnUnit(kind, "player", 0, { lane }); u.deployedKind = kind; u.siteRoster = true; u.siteOrigin = from; siteApplyHomeAuraIfNeeded(u);
     if (form && standing){ u.standX = opts.stand; u.standDone = false; u.canAfter = { col, lane }; }
-    else { siteMakeGascan(col, lane); if (standing){ u.standX = opts.stand; u.standDone = false; u.standTemp = true; } }
+    else { siteMakeGascan(col, lane, u); if (standing){ u.standX = opts.stand; u.standDone = false; u.standTemp = true; } }
   } else if (def.canPickRepairTarget){                                    // 修復兵：兵の位置に着いたら、指定の建物(または自城)を直す
     const from = siteTakeUnit(kind, opts.lid), u = spawnUnit(kind, "player", 0, { lane });
     u.deployedKind = kind; u.siteRoster = true; u.siteOrigin = from; siteApplyHomeAuraIfNeeded(u);
@@ -4990,9 +4999,10 @@ function siteDeployPlacer(kind, lane, col, opts){
   playSfx(REPO_BASE + "audio/tap_command.opus"); buildSiteDeployRow();
   return true;
 }
-function siteMakeGascan(col, lane){
+function siteMakeGascan(col, lane, owner){
   if (findStructureAt(col, lane)) return null;
   const can = spawnUnit("gascan", "player", 0, { lane });
+  if (owner && owner.homeAtk) can.homeAtk = owner.homeAtk;                 // 据えた兵が本拠地の力を持つなら、この缶の爆発・炎にも乗る
   can.x = columnCenterX(col) - (can.def.structureDisplayWidth || 0) / 2; can.structureCol = col;
   setMotion(can, "normal", { loop:true }); applyFrame(can); return can;
 }
@@ -5116,7 +5126,10 @@ function siteBattleFinish(b, win, reason){
    ========================================================= */
 /* 本拠地のリーダー特有の能力：自分の隊(同じ戦線の味方ではなく、その隊員だけ)に、常に赤いオーラを与える。
    全ての攻撃力・最大HP・防御カット率が、大幅に上がる。ただし、リーダーが死んだ瞬間、隊員は全員、即死する */
-const HOME_AURA_ATK_MULT = 1.5, HOME_AURA_HP_MULT = 1.5, HOME_AURA_CUT_MULT = 0.65;
+// 強化は「全ての攻撃力(物理・属性・状態異常ダメージ・特殊攻撃)」と「全ての防御力(物理・属性・状態異常ダメージ・特殊攻撃)」に、一律に掛かる(数値は仮)
+// 隊員：どの兵種でも、大幅に強くなる。本拠地のリーダー本人は、隊員よりさらに高い
+const HOME_SQUAD  = { atk:1.5, hp:1.5, cut:0.65 };     // 隊員：攻撃×1.5・最大HP×1.5・被ダメージ×0.65
+const HOME_LEADER = { atk:2.0, hp:2.0, cut:0.5 };      // 本拠地のリーダー本人：攻撃×2.0・最大HP×2.0・被ダメージ×0.5
 // このリーダーが、いま戦っている拠点が、自分の本拠地(l.site)かどうか(本拠地を守るときだけ、家の力が宿る)
 function leaderIsHomeDefense(lid){
   const sb = battle && battle.stage && battle.stage.siteBattle; if (!sb || sb.mode !== "defend") return false;
@@ -5125,8 +5138,11 @@ function leaderIsHomeDefense(lid){
 function siteApplyHomeAuraIfNeeded(u){ if (battle && u.siteOrigin && battle.homeAuraLeaders && battle.homeAuraLeaders.has(u.siteOrigin)) unitApplyHomeAura(u); }   // siteOriginを決めたあと、必ず呼ぶ
 function unitApplyHomeAura(u){
   if (u.homeAura) return; u.homeAura = true; u.el.classList.add("home-aura");
-  unitAddHpMult(u, HOME_AURA_HP_MULT); u.roleAtkMult = (u.roleAtkMult || 1) * HOME_AURA_ATK_MULT;
-  const a = unitAura(u); a.cut *= HOME_AURA_CUT_MULT;
+  const t = u.isLeader ? HOME_LEADER : HOME_SQUAD;
+  if (u.isLeader) u.el.classList.add("home-aura-leader");
+  unitAddHpMult(u, t.hp);
+  u.homeAtk = t.atk;      // 与えるダメージ全て(applyDamageToUnit・毒・出血・炎上)に掛かる
+  u.homeCut = t.cut;      // 受けるダメージ全て(getDamageCutMultiplier・出血)に掛かる
 }
 const LEADER_AURA = {
   soldier:{ text:"効果なし" },
@@ -5410,6 +5426,7 @@ function wmFormationTap(m, c, r){
 }
 // 戦闘：陣形の兵を、1体ずつ、前の兵から順に出す
 // 陣形の兵を、出す順番に並べる。守備は、選んだ中心(pick)の位置へ歩く。攻めは、前の列から順に、自軍の端から出て、陣形のまま進む
+function formIsAttack(F){ return !!F && F.mode !== "defend"; }
 function siteFormationPlan(lid, pick){
   const l = world.leaders.find(x => x.id === lid), F = l && l.formation; if (!leaderFormationUsable(l)) return;
   const entries = [];
@@ -5417,7 +5434,7 @@ function siteFormationPlan(lid, pick){
   F.cells.forEach(c => entries.push({ kind:c.k, dc:c.dc, dr:c.dr, crew:c.crew, t:c.t, tdc:c.tdc }));
   entries.sort((a, b) => b.dc - a.dc);
   const minDc = Math.min.apply(null, [0].concat(F.cells.map(c => c.dc))), maxDc = Math.max.apply(null, [0].concat(F.cells.map(c => c.dc)));
-  const atk = battle.stage.siteBattle.mode === "attack";
+  const atk = formIsAttack(F);                                         // 陣形の「守備/攻め」で決める(戦闘が守りでも、攻めの陣形は攻めの出方)
   let t = battle.time + 0.2;
   entries.forEach(en => {
     const at = atk ? battle.time + 0.2 + (maxDc - en.dc) * 2.5 + Math.random() * .1 : t;           // 攻め：1列ぶんの間隔をあけて、前の列から。守備：前の兵から、順に
@@ -5453,7 +5470,7 @@ function siteFormPreviewDraw(){
 }
 function siteFormationSpawn(it){
   const l = world.leaders.find(x => x.id === it.lid), F = l && l.formation, sb = battle.stage.siteBattle; if (!F) return;
-  const atk = sb.mode === "attack", en = it.en, pick = it.pick;
+  const atk = formIsAttack(F) || !it.pick, en = it.en, pick = it.pick;      // 中心を選んでいない(pickなし)ときは、必ず攻めの出方(pickを読んで止まらないように)
   // 守備：選んだ中心からの位置。攻め：陣形の戦列のまま(中心の戦列を基準に、戦場に収まるよう寄せる)
   const baseR = atk ? Math.max(-Math.min.apply(null, [0].concat(F.cells.map(c => c.dr))), Math.min(FORM_LANES - 1 - Math.max.apply(null, [0].concat(F.cells.map(c => c.dr))), F.center.r)) : pick.r;
   const lane = Math.max(0, Math.min(FORM_LANES - 1, baseR + en.dr));
@@ -6905,7 +6922,7 @@ function getEffectiveSpeed(unit, baseSpeed){
   return baseSpeed * getBuffFactor(unit, "buffSpeedMult") * vanguard * self * (unit.aura ? unit.aura.speed : 1);
 }
 function getDamageCutMultiplier(unit){
-  let f = getBuffFactor(unit, "buffDamageCutMult") * (unit.aura ? unit.aura.cut : 1);
+  let f = getBuffFactor(unit, "buffDamageCutMult") * (unit.aura ? unit.aura.cut : 1) * (unit.homeCut || 1);   // 本拠地の力：物理・属性・毒/炎上・特殊攻撃、どれも同じだけ軽くなる
   if (unit.cmdMorale) f *= CMD_BUFF.morale;           // 部隊長の軍令による士気
   if (unit.cmdChiefGuard) f *= CMD_BUFF.chiefGuard;   // 組頭の軍令(守り・待機)による防御
   if (unit.footMorale) f *= CMD_BUFF.footMorale;      // 歩兵の士気(対象の役職と同じ戦列)
@@ -7230,13 +7247,13 @@ function updatePoison(unit, dtMs){
 const FIRE_STATUS_FX = { count:4, prefix:"burn_fx_", durations:[200,200,200,200], imageBase: IMG_FX_COMMON2 };
 // 炎上の蓄積(0〜100%)。攻撃の火炎+25%・地面に広がる炎1ヒット+5%・爆発+35%。100%で発動し、
 // 最大HPの50%を20秒かけて削る(発動のたびに、その時点の最大HPで20秒分を計算し直す)
-function addBurnBuildup(unit, pct){
+function addBurnBuildup(unit, pct, src){
   if (!unit || unit.dead) return;
   unit.burnBuildup = (unit.burnBuildup || 0) + pct;
   if (unit.burnBuildup >= 100){
     unit.burnBuildup = 0;
     unit.burnStatusRemainingMs = 20000;
-    unit.burnStatusDamagePerMs = (unit.hpMax * 0.5) / 20000;
+    unit.burnStatusDamagePerMs = (unit.hpMax * 0.5) / 20000 * ((src && src.homeAtk) || 1);   // 本拠地の力：炎上のダメージも、火元の攻撃力に応じて上がる(受ける側の軽減は、毎回のダメージ適用で掛かる)
     unit.burningFxDef = FIRE_STATUS_FX;
   }
 }
@@ -9966,7 +9983,7 @@ function updateFireZones(dtMs){
     z.nextTick -= dtMs;
     if (z.nextTick > 0) return;
     z.nextTick += z.tickMs;
-    const fireAttacker = { def: { attackFlags: { fire: true } }, side: z.side };
+    const fireAttacker = { def: { attackFlags: { fire: true } }, side: z.side, homeAtk: z.homeAtk || 1 };
     battle.units.forEach(u => {
       if (u.dead || u.mounted || u.perch) return;
       if (!lanesOverlap(u.laneLo, u.laneHi, z.lane, z.lane)) return;
@@ -9976,7 +9993,7 @@ function updateFireZones(dtMs){
       if (u.side === z.side) return; // 火元と同じ陣営の、生きているキャラには効かない
       const zDps = z.dps != null ? z.dps : 12; // 明示的に0(見た目だけの炎)の場合を、未指定と区別する
       applyDamageToUnit(u, zDps * (z.tickMs / 1000), fireAttacker);
-      if (zDps > 0) addBurnBuildup(u, 5); // 地面に広がる炎は、1ヒットにつき状態異常「炎上」を+5%
+      if (zDps > 0) addBurnBuildup(u, 5, fireAttacker); // 地面に広がる炎は、1ヒットにつき状態異常「炎上」を+5%
     });
     applyFireDamageToCastle((z.xMin + z.xMax) / 2, (z.xMax - z.xMin) / 2, z.side, (z.dps != null ? z.dps : 12) * (z.tickMs / 1000));
   });
@@ -9986,7 +10003,7 @@ function startIncendiaryAttack(unit){
   const def = unit.def;
   playIncendiaryBurst(unit);
   const dir = unit.facing === 1 ? 1 : -1;
-  const fireAttacker = { def: { attackFlags: { fire: true } }, side: unit.side };
+  const fireAttacker = { def: { attackFlags: { fire: true } }, side: unit.side, homeAtk: unit.homeAtk || 1 };
   // 攻撃の火炎そのもの(自分のマスから攻撃範囲まで)にも、その場で即座にダメージがある
   const burstMin = Math.min(unit.x, unit.x + dir * (def.attackRange || 0));
   const burstMax = Math.max(unit.x, unit.x + dir * (def.attackRange || 0));
@@ -9997,13 +10014,13 @@ function startIncendiaryAttack(unit){
     if (ucx < burstMin || ucx > burstMax) return;
     if (u.def.ignitesInstantly){ explodeGasCan(u, fireAttacker); return; }
     applyDamageToUnit(u, def.burstDamage || 20, fireAttacker);
-    addBurnBuildup(u, 25); // 攻撃の火炎そのものは、状態異常「炎上」の蓄積+25%
+    addBurnBuildup(u, 25, fireAttacker); // 攻撃の火炎そのものは、状態異常「炎上」の蓄積+25%
   });
   applyFireDamageToCastle(unit.x, def.attackRange || 0, unit.side, def.burstDamage || 20);
   // その範囲にも、地面に広がる炎の見た目を出す(ダメージは上のburstMin〜burstMaxで既に与えているので、見た目のみ)
   addFireZone({
     lane: unit.lane, xMin: burstMin, xMax: burstMax, side: unit.side,
-    dps: 0, growing: false, tickMs: 99999, expiresAt: battle.time + 1.0
+    dps: 0, growing: false, tickMs: 99999, expiresAt: battle.time + 1.0, homeAtk: unit.homeAtk
   });
   // そこからさらに前方3マス(自分のマスは含まない)には、しばらく燃え続ける炎を残す
   const from = unit.x + dir * GRID_CELL * 0.5;   // 自分のマスのすぐ先から
@@ -10011,7 +10028,7 @@ function startIncendiaryAttack(unit){
   addFireZone({
     lane: unit.lane, xMin: Math.min(from, to), xMax: Math.max(from, to), side: unit.side,
     dps: def.fireZoneDps || 12, growing: false, tickMs: 500,
-    expiresAt: battle.time + (def.fireZoneDurationS || 6)
+    expiresAt: battle.time + (def.fireZoneDurationS || 6), homeAtk: unit.homeAtk
   });
 }
 // ガス缶の誘爆：火炎属性の一撃(体力に関係なく即座)か、通常のダメージでHPが尽きたときに呼ばれる
@@ -10045,26 +10062,27 @@ function doGasCanBlast(can){
   for (let l = centerLane - 2; l <= centerLane + 2; l++) if (l >= 0 && l < GRID_LANES) lanes.push(l);
   const cx = can.x + bodyWidth(can) / 2;
   const blastRadius = def.blastRadius || 200; // 爆発そのものの、即時ダメージが届く範囲(仮)
-  const attacker = { def: { attackFlags: { fire: true } }, side };
+  const blastHome = (side === can.side && can.homeAtk) ? can.homeAtk : 1;          // 自軍のガス缶が、敵に爆発したときだけ、据えた兵の攻撃力が乗る
+  const attacker = { def: { attackFlags: { fire: true } }, side, homeAtk: blastHome };
   battle.units.forEach(u => {
     if (u.dead || u.side !== targetSide || u.mounted) return;
     if (!lanes.includes(u.lane)) return;
     const ucx = u.x + bodyWidth(u) / 2;
     if (Math.abs(ucx - cx) > blastRadius) return;
     applyDamageToUnit(u, def.blastDamage || 60, attacker);
-    addBurnBuildup(u, 35); // 爆発そのものは、状態異常「炎上」の蓄積+35%
+    addBurnBuildup(u, 35, attacker); // 爆発そのものは、状態異常「炎上」の蓄積+35%
   });
   applyFireDamageToCastle(cx, blastRadius, side, def.blastDamage || 60);
   // 爆発の範囲(5戦列)にも、地面に広がる炎の見た目を出す(ダメージは上で既に与えているので、見た目のみ)
   lanes.forEach(l => addFireZone({
     lane: l, xMin: cx - blastRadius, xMax: cx + blastRadius, side,
-    dps: 0, growing: false, tickMs: 99999, expiresAt: battle.time + 1.2
+    dps: 0, growing: false, tickMs: 99999, expiresAt: battle.time + 1.2, homeAtk: blastHome
   }));
   // 同時に、爆発した場所から、ガス缶があった戦列1つぶんの、端から端まで広がる炎を残す(20秒)
   addFireZone({
     lane: centerLane, xMin: cx - 4, xMax: cx + 4, side,
     dps: def.fireZoneDps || 12, growing: true, growSpeed: def.fireGrowSpeed || 150, tickMs: 500,
-    expiresAt: battle.time + (def.fireZoneDurationS || 20)
+    expiresAt: battle.time + (def.fireZoneDurationS || 20), homeAtk: blastHome
   });
 }
 // 炎の範囲(x方向)が、城の立つ場所まで届いていれば、城にもダメージを与える
@@ -11106,6 +11124,7 @@ function applyDamageToUnit(target, amount, attacker){
   const attackerFlags = (attacker && attacker.def.attackFlags) || {};
   const meleeRangeCheck = attacker && edgeDistance(target, attacker) <= def.attackRange;
   if (attacker && attacker.aura && attacker.aura.splash !== 1 && attacker.def.splashRadius) amount *= attacker.aura.splash;     // 範囲攻撃の威力(鬼象砦のリーダー効果)
+  if (attacker && attacker.homeAtk) amount *= attacker.homeAtk;     // 本拠地の力：与えるダメージ全て(物理・火炎・爆発・範囲・特殊攻撃)が上がる
   amount = amount * getDamageCutMultiplier(target); // 鼓舞バフの被ダメージカットを適用
   // 甲冑兵などの、鎧そのものによる近接ダメージ軽減(ガードとは別判定なので、ガード貫通の一撃にも効く)
   if (def.meleeDamageCutPercent && !(attacker && attacker.def.ranged)){
@@ -11180,7 +11199,7 @@ function applyDamageToUnit(target, amount, attacker){
       const durationMs = attacker.def.poisonDurationMs || 0;
       const tickInterval = attacker.def.poisonTickIntervalMs || 1000;
       const tickCount = Math.max(1, Math.round(durationMs / tickInterval));
-      const totalDamage = target.hpMax * (attacker.def.poisonMaxHpPercent || 0);
+      const totalDamage = target.hpMax * (attacker.def.poisonMaxHpPercent || 0) * (attacker.homeAtk || 1);   // 本拠地の力：状態異常ダメージも上がる
       target.poisonRemainingMs = durationMs;
       target.poisonTickTimer = tickInterval;
       target.poisonTickIntervalMs = tickInterval;
@@ -11192,7 +11211,7 @@ function applyDamageToUnit(target, amount, attacker){
   if (attacker && attacker.def.bleedStackPerHit && target.hp > 0 && !target.def.bleedImmune && !target.def.structureUnit){ // 建物は生き物ではないので、出血などの状態異常は効かない
     const threshold = attacker.def.bleedStackThreshold || 100;
     if (addStatusGauge(target, "bleed", attacker.def.bleedStackPerHit * (attacker.aura ? attacker.aura.bleed : 1), threshold)){ // 出血ゲージも、対象ごとに1つ
-      const bleedDmg = target.hpMax * (attacker.def.bleedMaxHpPercent || 0) + (attacker.def.bleedFixedDamage || 0);
+      const bleedDmg = (target.hpMax * (attacker.def.bleedMaxHpPercent || 0) + (attacker.def.bleedFixedDamage || 0)) * (attacker.homeAtk || 1) * (target.homeCut || 1);   // 本拠地の力：与える側は上がり、受ける側は軽くなる
       target.hp = Math.max(0, target.hp - bleedDmg);
       applyFrame(target);
       playBleedFx(target, attacker.def);
@@ -12305,7 +12324,8 @@ function renderUnitInfo(){
   title.textContent = (u.side === "enemy" ? "敵 " : "") + u.def.name + (role ? "　" + role.label : "");
   box.appendChild(title);
   const line = t => { const d = document.createElement("div"); d.textContent = t; box.appendChild(d); };
-  line("HP " + Math.ceil(u.hp) + " / " + u.hpMax + "　攻 " + Math.round(getEffectiveAtk(u) * 10) / 10);
+  line("HP " + Math.ceil(u.hp) + " / " + u.hpMax + "　攻 " + Math.round(getEffectiveAtk(u) * (u.homeAtk || 1) * 10) / 10);
+  if (u.homeAura) line((u.isLeader ? "本拠地の力(リーダー)" : "本拠地の力(隊員)") + "　攻撃×" + u.homeAtk + "・被ダメージ×" + u.homeCut);
   line(LANE_LABELS[u.lane] + (u.laneHi > u.laneLo ? "ほか" : "") + "　" + (u.side === "player" ? "味方" : "敵"));
   if (u.side === "player" && u.slotIdx >= 0){
     const slRole = roleCfg(u.slotRole);
