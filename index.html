@@ -1209,7 +1209,7 @@
    ========================================================= */
 // @mainブランチ指定だとjsDelivr側に古い(存在しない扱いの)キャッシュが残ることがあるため、
 // コミットハッシュ固定にして新しいバージョンとして扱わせる。素材を追加・更新したら、この値も都度更新すること。
-const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@7769a1d49aab0ba53a53f63e112cf272579fbbcb/";
+const REPO_BASE = "https://cdn.jsdelivr.net/gh/naosuke0506-max/shijo-senki@023d3aa0f18e33d1cc4c702b6387b1420c305cad/";
 const IMG_SOLDIER = REPO_BASE + "images/soldier_repo_upload/";
 const ICON_SOLDIER = REPO_BASE + "icons/soldier_icon.png";
 const IMG_SPEARMAN = REPO_BASE + "images/spearman_repo_upload/";
@@ -3580,31 +3580,44 @@ function wmCloseSub(){
   wmState.subKey = null;
   const sub = root.querySelector(".wm-sub"); if (sub) sub.classList.remove("open");
 }
-// 拠点の絵：人間陣営(自軍)は、基地の種類ごとの絵(なければ標準の絵)。人間陣営以外は、どの基地も標準の見た目
+// 拠点の絵：どの陣営も、基地の種類ごとの絵(まだなければ、その陣営の標準の絵)
+const SPRITE_ASPECT = {"site_academy.png": 0.769, "site_beast_base.png": 0.828, "site_cult_academy.png": 0.817, "site_cult_beast.png": 0.775, "site_cult_culture.png": 0.714, "site_cult_defile.png": 0.734, "site_cult_fortress.png": 0.791, "site_cult_fusion.png": 0.753, "site_cult_home.png": 1.252, "site_cult_lookout.png": 1.675, "site_cult_massprod.png": 0.762, "site_cult_port.png": 0.758, "site_cult_prayer.png": 0.764, "site_cult_recovery.png": 0.748, "site_cult_road.png": 0.828, "site_cult_supply.png": 0.575, "site_cult_teleport.png": 0.883, "site_cult_upgrade.png": 0.844, "site_cult_workshop.png": 0.853, "site_fortress_base.png": 0.816, "site_goblin_academy.png": 0.923, "site_goblin_beast.png": 0.795, "site_goblin_beastpen.png": 0.698, "site_goblin_fortress.png": 0.83, "site_goblin_lookout.png": 1.053, "site_goblin_nest.png": 0.827, "site_goblin_plunder.png": 0.786, "site_goblin_recovery.png": 0.678, "site_goblin_road.png": 0.691, "site_goblin_supply.png": 0.894, "site_goblin_trapyard.png": 0.738, "site_goblin_upgrade.png": 0.761, "site_goblin_workshop.png": 0.777, "site_lookout_base.png": 1.628, "site_recovery_base.png": 0.738, "site_road_base.png": 0.789, "site_supply_base.png": 0.787, "site_upgrade_base.png": 0.77, "site_workshop_base.png": 0.802, "site_player_outpost.png": 0.821, "site_goblin_outpost.png": 0.942, "site_cult_outpost.png": 1.065, "site_captured_castle.png": 0.697, "site_goblin_ruin.png": 0.711};     // 絵の 高さ÷幅(基地の絵ごと。大きさをそろえるのに使う)
+const SPRITE_KIND_SCALE = { home:1.45, fortress:1.2 };                              // 絵の指定どおり、本拠地は大きく、砦は2割大きく
+const SPRITE_REF_ASPECT = 0.85;
+// 地図での幅：もとの絵の見た目の大きさ(面積)を保つ。絵ごとに縦横比が違っても、大きさが極端に変わらないようにする
+function spriteWidth(n, sp, kind){
+  const base = n.sw || 4.6; let w = base;
+  const ar = SPRITE_ASPECT[sp.file], r0 = (n.sprite && SPRITE_ASPECT[n.sprite]) || SPRITE_REF_ASPECT;
+  if (ar && sp.file !== n.sprite){ w = base * Math.sqrt(r0 / ar); if (SPRITE_KIND_SCALE[kind]) w *= SPRITE_KIND_SCALE[kind]; }
+  return Math.round(w * 100) / 100;
+}
 const spriteMissing = {};
 function nodeSprite(n){
   if (n.build) return n.sprite ? { file:n.sprite, sw:n.sw } : null;
   if (n.owner === "player"){
     if (!(n.sprite || n.built)) return null;
-    const want = HUMAN_KIND_SPRITE[SITE_KIND[n.id]] || "site_player_outpost.png", f = spriteMissing[want] ? "site_player_outpost.png" : want;
-    return { file:f, want, sw:n.sw || 4.6 };
+    const want = factionKindSprite("player", SITE_KIND[n.id]), fb = "site_player_outpost.png";
+    return { file:spriteMissing[want] ? fb : want, want, fb, sw:n.sw || 4.6, kind:SITE_KIND[n.id] };
   }
   if (n.owner === "goblin" || n.owner === "cult"){
-    if (n.sprite && !n.lostFromPlayer) return { file:n.sprite, sw:n.sw };
-    if (n.sprite || n.built) return { file:n.owner === "cult" ? "site_cult_outpost.png" : "site_goblin_outpost.png", sw:n.sw || 4.6 };
-    return null;
+    const std = ENEMY_STD_SPRITE[n.owner], unique = n.sprite && n.sprite !== ENEMY_STD_SPRITE.goblin && n.sprite !== ENEMY_STD_SPRITE.cult && !n.lostFromPlayer && !n.built;   // 山上の砦のような、ここだけの絵は、そのまま
+    if (unique) return { file:n.sprite, sw:n.sw };
+    if (!(n.sprite || n.built)) return null;
+    const want = factionKindSprite(n.owner, SITE_KIND[n.id]), fb = (n.sprite && !n.lostFromPlayer && !n.built) ? n.sprite : std;
+    return { file:spriteMissing[want] ? fb : want, want, fb, sw:n.sw || 4.6, kind:SITE_KIND[n.id] };
   }
   return n.sprite ? { file:n.sprite, sw:n.sw } : null;
 }
+
 function wmMakeNode(n){
   const el = document.createElement("div"), sp = nodeSprite(n);
   el.className = "wm-node" + (sp ? " sprite" : "") + (n.build ? " building" : "") + (isFreeSlot(n) ? " slot" : "");
   el.dataset.owner = n.owner; el.dataset.id = n.id;
   el.style.left = n.x + "%"; el.style.top = n.y + "%";
   if (sp){
-    el.style.width = sp.sw + "%";
+    el.style.width = spriteWidth(n, sp, sp.kind) + "%";
     const img = document.createElement("img"); img.className = "wm-sprite"; img.alt = ""; img.draggable = false; img.src = MAP_IMG_BASE + sp.file;
-    if (sp.want && sp.want !== "site_player_outpost.png") img.onerror = () => { spriteMissing[sp.want] = true; img.onerror = null; img.src = MAP_IMG_BASE + "site_player_outpost.png"; };     // 絵がまだなければ、標準の絵
+    if (sp.want && sp.want !== sp.fb) img.onerror = () => { spriteMissing[sp.want] = true; img.onerror = null; img.src = MAP_IMG_BASE + sp.fb; el.style.width = (n.sw || 4.6) + "%"; };     // 絵がまだなければ、標準の絵
     el.appendChild(img);
   } else {
     const ring = document.createElement("div"); ring.className = "wm-ring"; el.appendChild(ring);
@@ -4548,7 +4561,20 @@ const SITE_KINDS = {
   workshop:{ name:"工廠基地", read:"こうしょうきち", mark:"廠", hp:3000, lanes:ALL_LANES, desc:"破城槌・戦車・望楼兵などの重装備を補給する拠点。ほかの基地では、重装備は作れなくなる。(働きは、これから)" },
   fortress:{ name:"砦基地", read:"とりできち", mark:"砦", hp:5000, lanes:ALL_LANES, desc:"戦闘の開始時から、壁と望楼台が築かれている、守りの要の拠点。(働きは、これから)" },
   academy: { name:"リーダー教訓基地", read:"りーだーきょうくんきち", mark:"教", hp:2500, lanes:ALL_LANES, desc:"兵を送って、リーダーの兵を作る。リーダーの連れた兵を、補給兵へ戻せるのは、ここだけ。" },
-  upgrade: { name:"能力強化基地", read:"のうりょくきょうかきち", mark:"強", hp:2500, lanes:ALL_LANES, desc:"兵ごとの能力を強める。全拠点に効き、兵を送る必要はない。(強化は、これから)" }
+  upgrade: { name:"能力強化基地", read:"のうりょくきょうかきち", mark:"強", hp:2500, lanes:ALL_LANES, desc:"兵ごとの能力を強める。全拠点に効き、兵を送る必要はない。(強化は、これから)" },
+  // ゴブリン族だけの基地(働きは、これから)
+  nest:    { name:"巣窟基地", read:"そうくつきち", mark:"巣", hp:2500, lanes:ALL_LANES, only:"goblin", desc:"毎朝、餓鬼を大量に産む拠点。(働きは、これから)" },
+  beastpen:{ name:"獣舎基地", read:"じゅうしゃきち", mark:"舎", hp:3000, lanes:ALL_LANES, only:"goblin", desc:"鬼犀・鬼象砦などの、大型の鬼獣を補給する拠点。(働きは、これから)" },
+  plunder: { name:"略奪基地", read:"りゃくだつきち", mark:"奪", hp:2500, lanes:ALL_LANES, only:"goblin", desc:"襲撃に勝つと、奪った屍が増える拠点。(働きは、これから)" },
+  trapyard:{ name:"罠場基地", read:"わなばきち", mark:"罠", hp:3000, lanes:ALL_LANES, only:"goblin", desc:"戦闘の開始時から、戦場に罠が仕掛けてある拠点。(働きは、これから)" },
+  // 灰燼教団だけの基地(働きは、これから)
+  prayer:  { name:"祈祷基地", read:"きとうきち", mark:"祈", hp:3000, lanes:ALL_LANES, only:"cult", desc:"下位・中位・上位の呪術師を補給する拠点。階位が上がるほど、強い呪いを使う。(働きは、これから)" },
+  defile:  { name:"穢祭基地", read:"えさいきち", mark:"穢", hp:3000, lanes:ALL_LANES, only:"cult", desc:"機械系クリーチャーに穢れを付与し、凶暴化させる拠点。(働きは、これから)" },
+  culture: { name:"培養基地", read:"ばいようきち", mark:"培", hp:2500, lanes:ALL_LANES, only:"cult", desc:"赤い体毛の化け物を、毎朝補給する拠点。(働きは、これから)" },
+  fusion:  { name:"融合基地", read:"ゆうごうきち", mark:"融", hp:3500, lanes:ALL_LANES, only:"cult", desc:"機械系クリーチャーと、赤い体毛の化け物を融合して、完全体にする拠点。(働きは、これから)" },
+  massprod:{ name:"量産基地", read:"りょうさんきち", mark:"量", hp:3000, lanes:ALL_LANES, only:"cult", desc:"ドローンやロボットを、大量に補給する拠点。(働きは、これから)" },
+  port:    { name:"軍港・航空基地", read:"ぐんこうこうくうきち", mark:"港", hp:3500, lanes:ALL_LANES, only:"cult", desc:"戦艦・潜水艦・戦闘機による支援攻撃を、戦闘中に呼べる拠点。(働きは、これから)" },
+  teleport:{ name:"転送基地", read:"てんそうきち", mark:"転", hp:3000, lanes:ALL_LANES, only:"cult", desc:"拠点間の輸送が、一瞬で着く拠点。(働きは、これから)" }
 };
 const SITE_KIND = {                                                                       // 拠点ごとの、基地の種類(ユーザーが決めた配置。建築・改築で変わる)
   castle:"home", post_up:"upgrade", post_dn:"academy", village:"supply", gate:"fortress", front1:"front", front2:"front", captured:"fortress", gob_w1:"front",
@@ -4561,18 +4587,30 @@ const SITE_KIND = {                                                             
    ・空き枠：どちらの陣営も、先に辿り着いた者が、屍を払って基地を建てられる場所(マップに決まっている)。建築には1日かかる
    ・建築中(空き枠の建築・既存の基地の改築とも)は、襲われることも、奪われることもない。終わるまで、その拠点は使えない
    ・敵の拠点を落としたときは、屍を払わず、そのままの基地として占領できる。建て替えたいときは、改築(屍・1日)
-   ・本拠地は、建てられず、変えられない。敵(クリーチャー陣営)も、同じ屍で、同じように建てる(見た目は、標準のまま)
+   ・本拠地は、建てられず、変えられない。敵も、同じ屍で、同じように建てる。人間・ゴブリン族・灰燼教団は、それぞれ、共通の基地に加えて、自分の陣営だけの基地を建てられる
    ========================================================= */
-const BUILD_COST = { supply:500, front:700, academy:700, upgrade:900, beast:900, recovery:600, lookout:400, road:400, workshop:800, fortress:1000 };    // 屍(仮)
-const BUILD_KINDS = {
-  human:    ["supply", "front", "academy", "upgrade", "beast", "recovery", "lookout", "road", "workshop", "fortress"],
-  creature: ["supply", "front", "academy", "upgrade", "beast", "recovery", "lookout", "road", "workshop", "fortress"]      // クリーチャー陣営だけの基地は、これから(見た目が別になるので、絵も要る)
+const BUILD_COST = { supply:500, front:700, academy:700, upgrade:900, beast:900, recovery:600, lookout:400, road:400, workshop:800, fortress:1000,
+  nest:600, beastpen:900, plunder:700, trapyard:600,
+  prayer:800, defile:900, culture:800, fusion:1200, massprod:900, port:1200, teleport:1000 };    // 屍(仮)
+const SHARED_KINDS = ["supply", "front", "academy", "upgrade", "beast", "recovery", "lookout", "road", "workshop", "fortress"];
+const GOBLIN_ONLY_KINDS = ["nest", "beastpen", "plunder", "trapyard"];                                   // ゴブリン族(クリーチャー陣営)だけの基地
+const CULT_ONLY_KINDS = ["prayer", "defile", "culture", "fusion", "massprod", "port", "teleport"];        // 灰燼教団だけの基地(灰燼教団は、クリーチャーではない)
+const BUILD_KINDS = {                                                                                     // 陣営ごとに、建てられる基地の一覧(人間は、共通の基地だけ)
+  human:  SHARED_KINDS,
+  goblin: SHARED_KINDS.concat(GOBLIN_ONLY_KINDS),
+  cult:   SHARED_KINDS.concat(CULT_ONLY_KINDS)
 };
 const BUILD_SEC = WORLD_DAY_SEC;                                                        // 建築にかかる時間：1日
 const DAILY_CORPSE = { player:400, enemy:400 };                                          // 毎朝もらえる屍(仮)。敵も同じ
 const ENEMY_START_CORPSE = 1500;
 const SITE_CORPSE_RATE = 0.25;                                                            // 拠点の戦闘で、敵を倒したときの屍(倒した敵の値段 × この割合)(仮)
 const LEADER_KILL_CORPSE = 300;                                                          // リーダーを倒したときの、屍の加算(仮)
+const ENEMY_STD_SPRITE = { goblin:"site_goblin_outpost.png", cult:"site_cult_outpost.png" };          // 前線基地の絵(いま、ある)
+function factionKindSprite(owner, kind){
+  if (owner === "player") return HUMAN_KIND_SPRITE[kind] || "site_player_outpost.png";
+  if (!kind || kind === "front") return ENEMY_STD_SPRITE[owner];
+  return "site_" + owner + "_" + kind + ".png";                                                     // 例：site_goblin_supply.png / site_cult_home.png
+}
 const HUMAN_KIND_SPRITE = { front:"site_player_outpost.png", supply:"site_supply_base.png", academy:"site_academy.png", upgrade:"site_upgrade_base.png", beast:"site_beast_base.png",
   recovery:"site_recovery_base.png", lookout:"site_lookout_base.png", road:"site_road_base.png", workshop:"site_workshop_base.png", fortress:"site_fortress_base.png" };   // 人間陣営の、基地ごとの絵(なければ、標準の絵)
 const SITE_KIND_DEFAULT = { hp:3000, lanes:ALL_LANES };
@@ -4698,15 +4736,15 @@ function enemyRaidWaves(homeSiteId){
 function enemyLeaderNode(l){ return l.path ? (l.pf < .5 || l.path[l.pi + 1] === undefined ? l.path[l.pi] : l.path[l.pi + 1]) : nid(l.mi, l.y * WG[MAP_KEYS[l.mi]].gw + l.x); }
 // 自軍の拠点(いま、戦闘・配置中でない所)を目指す。届かなければ、また待つ
 // 敵も、同じ屍で、空き枠に基地を建てる：屍が足りていれば、ときどき、いちばん近い空き枠へ向かう。先に辿り着いた陣営が、建てられる
-const ENEMY_KIND_WEIGHT = { front:3, supply:2, fortress:1, academy:1, workshop:1, recovery:1, upgrade:1, beast:1, lookout:1, road:1 };
+const ENEMY_KIND_WEIGHT = { front:3, supply:2, fortress:1, academy:1, workshop:1, recovery:1, upgrade:1, beast:1, lookout:1, road:1, nest:2, beastpen:1, plunder:1, trapyard:1 };
 function enemyPickKind(){
-  const opts = BUILD_KINDS.creature.filter(k => BUILD_COST[k] <= world.enemyCorpse); if (!opts.length) return null;
+  const opts = BUILD_KINDS.goblin.filter(k => BUILD_COST[k] <= world.enemyCorpse); if (!opts.length) return null;
   let tot = 0; opts.forEach(k => { tot += ENEMY_KIND_WEIGHT[k] || 1; }); let r = Math.random() * tot;
   for (const k of opts){ r -= ENEMY_KIND_WEIGHT[k] || 1; if (r <= 0) return k; }
   return opts[0];
 }
 function enemyTryExpand(l){
-  if (world.enemyCorpse < Math.min.apply(null, BUILD_KINDS.creature.map(k => BUILD_COST[k]))) return false;
+  if (world.enemyCorpse < Math.min.apply(null, BUILD_KINDS.goblin.map(k => BUILD_COST[k]))) return false;
   const goals = new Set();
   MAP_KEYS.forEach(k => wmNodesOf(k).forEach(n => { if (isFreeSlot(n) && WG[k] && WG[k].ids[n.id] && !(world.enemyLeaders || []).some(o => o !== l && o.state === "expand" && o.target === n.id)) wgCells(k, n.id).forEach(i => goals.add(nid(WG[k].mi, i))); }));
   if (!goals.size) return false;
@@ -5857,7 +5895,8 @@ function wmModalLive(){
 /* ---------- 建築・改築 ---------- */
 function siteBuildStart(node, mapKey, kind, by){
   const pl = by === "player", pool = pl ? "corpse" : "enemyCorpse";
-  if (!node || node.build || BUILD_KINDS[pl ? "human" : "creature"].indexOf(kind) < 0) return false;
+  const faction = pl ? "human" : (by === "cult" ? "cult" : "goblin");
+  if (!node || node.build || BUILD_KINDS[faction].indexOf(kind) < 0) return false;
   const free = isFreeSlot(node), rebuild = pl ? isOwnSite(node) : node.owner === "goblin";
   if (!free && !rebuild) return false;
   if (rebuild && SITE_KIND[node.id] === "home"){ if (pl) showToast("本拠地は、建て替えられない"); return false; }
