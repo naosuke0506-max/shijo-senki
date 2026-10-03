@@ -1075,6 +1075,26 @@
   .wm-node.building.sprite::before{ content:""; position:absolute; left:-5%; right:-5%; top:-6%; bottom:-6%; border:2px dashed rgba(200,160,80,.9); border-radius:8px; pointer-events:none; }
   .dp-row .bd-mark{ width:42px; height:42px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:var(--mincho); font-weight:900; font-size:1.2rem; color:#f0d58a; background:rgba(12,9,6,.92); border:1.5px solid #8a6a2c; }
   .dp-row .dp-name em.cost{ color:#e8c86a; }
+
+  /* ===== 基地のボス ===== */
+  #battlefield .unit-sprite.is-boss::before{ content:""; position:absolute; left:50%; top:46%; width:130px; height:130px; margin:-65px 0 0 -65px; border-radius:50%; background:radial-gradient(circle, rgba(255,215,90,.38), rgba(255,215,90,0) 70%); pointer-events:none; }
+  .unit-sprite.is-boss .leader-star{ color:#ffe27a; text-shadow:0 0 6px #ff9a1a, 0 0 2px #000; font-size:1.05rem; }
+  .wm-info .wi-boss{ margin:6px 0 4px; font-size:.7rem; line-height:1.7; color:#d9ceab; letter-spacing:.04em; border-top:1px dashed rgba(240,213,138,.35); padding-top:5px; }
+  .wm-info .wi-boss b{ font-family:var(--mincho); color:#ffe27a; letter-spacing:.14em; margin-right:.6em; }
+  .wm-info .wi-boss em{ font-style:normal; color:#f0d58a; }
+
+  /* ===== 強化・日次補給 ===== */
+  .unit-sprite .pop-text{ position:absolute; left:50%; top:-8px; transform:translateX(-50%); white-space:nowrap; font-family:var(--mincho); font-weight:900; font-size:.85rem; letter-spacing:.1em; color:#ffe27a; text-shadow:0 0 5px #ff7a1a, 0 0 2px #000, 1px 1px 0 #000; pointer-events:none; animation:popUp .9s ease-out forwards; z-index:9; }
+  @keyframes popUp{ 0%{ opacity:0; margin-top:6px; } 15%{ opacity:1; } 100%{ opacity:0; margin-top:-34px; } }
+  .dp-row .dp-stars{ color:#f0d58a; letter-spacing:.1em; margin-left:.6em; font-size:.8rem; }
+  .dp-row .dp-sub b{ color:#e8d29a; font-weight:700; }
+  .dp-row.noup{ opacity:.55; }
+
+  .unit-sprite.mutant > img{ filter:drop-shadow(0 0 5px #b24bff) drop-shadow(0 0 10px rgba(178,75,255,.7)) saturate(1.25); }
+  .unit-sprite.mutant .uhp i{ background:linear-gradient(90deg,#8a3bd6,#d58cff) !important; }
+  .md-row .mu-src.on{ border-color:#d58cff; }
+  .dp-row.mut .dp-name{ color:#e2b8ff; }
+  .tp-going.mu b{ color:#d9a8ff; }
 </style>
 </head>
 <body>
@@ -3519,16 +3539,15 @@ function wmStartIdleAnims(box){
 }
 function wmEnemyHtml(n){
   if (isOwnSite(n)) return "";
-  const e = siteEnemyOf(n.id);
-  if (!e){
-    if (n.owner === "cult") return '<div class="we-box"><div class="we-head">敵の編成</div><div class="we-none">灰燼教団の兵は、まだ、分からない。</div></div>';
-    if (n.owner === "neutral" && n.sprite) return '<div class="we-box"><div class="we-head">敵の編成</div><div class="we-none">守りは、いない。先に着いた者が、占領できる。</div></div>';
-    return "";
-  }
-  let h = '<div class="we-box"><div class="we-head">敵の編成<span>合計 ' + siteEnemyTotal(e) + '体</span></div>';
-  h += '<div class="we-form">陣形：' + e.formation.name + '陣(' + e.formation.mode + ')' + (e.leader ? '　リーダーあり' : '') + '</div><div class="we-grid">';
-  if (e.leader && CHAR_DEFS[e.leader]) h += '<div class="we-unit lead"><div class="we-img"><img class="idle-anim" data-kind="' + e.leader + '" data-k=".5" alt=""><i>★</i></div><div class="we-name">' + CHAR_DEFS[e.leader].name + '<em>リーダー</em></div></div>';
-  Object.keys(e.units).forEach(k => { if (!CHAR_DEFS[k]) return; h += '<div class="we-unit"><div class="we-img"><img class="idle-anim" data-kind="' + k + '" data-k=".5" alt=""></div><div class="we-name">' + CHAR_DEFS[k].name + '<em>×' + e.units[k] + '</em></div></div>'; });
+  if (n.build) return "";
+  if (n.owner === "cult") return '<div class="we-box"><div class="we-head">敵の編成</div><div class="we-none">灰燼教団の兵は、まだ、分からない。</div></div>';
+  if (n.owner === "neutral" && n.sprite && !n.slot) return '<div class="we-box"><div class="we-head">敵の編成</div><div class="we-none">守りは、いない。先に着いた者が、占領できる。</div></div>';
+  if (n.owner !== "goblin" || !SITE_KIND[n.id]) return "";
+  const info = baseBossInfo(n.id, "goblin"), e = siteEnemyOf(n.id);
+  let h = '<div class="we-box"><div class="we-head">敵の編成<span>合計 ' + (info.total + 1) + '体</span></div>';
+  h += '<div class="we-form">陣形：' + ((e && e.formation.name) || "方円") + '陣(守備)　基地の強さ ' + info.T.stars + '</div><div class="we-grid">';
+  if (CHAR_DEFS[info.bossKind]) h += '<div class="we-unit lead"><div class="we-img"><img class="idle-anim" data-kind="' + info.bossKind + '" data-k=".5" alt=""><i>★</i></div><div class="we-name">' + CHAR_DEFS[info.bossKind].name + '<em>ボス</em></div></div>';
+  info.lineup.forEach(x => { if (!CHAR_DEFS[x.kind]) return; h += '<div class="we-unit"><div class="we-img"><img class="idle-anim" data-kind="' + x.kind + '" data-k=".5" alt=""></div><div class="we-name">' + CHAR_DEFS[x.kind].name + '<em>×' + x.count + '</em></div></div>'; });
   return h + '</div></div>';
 }
 function wmSelect(n, el){
@@ -3538,7 +3557,7 @@ function wmSelect(n, el){
   const o = WM_OWNER[n.owner];
   const info = root.querySelector(".wm-info");
   info.innerHTML = '<div class="wi-name">' + n.name + '</div><div class="wi-read">' + n.reading + '</div>' +
-    '<div class="wi-tag" style="--c:' + o.color + '">' + o.name + '</div><div class="wi-desc">' + n.desc + '</div>' + wmKindHtml(n) + wmEnemyHtml(n) +
+    '<div class="wi-tag" style="--c:' + o.color + '">' + o.name + '</div><div class="wi-desc">' + n.desc + '</div>' + wmKindHtml(n) + wmKindExtra(n) + wmBossHtml(n) + wmEnemyHtml(n) +
     (n.sub ? '<button class="primary btn-forge sm wi-go">中へ入る</button>' : '') +
     (wmSelLeaders().length && wmCanGoTo(n, el) && wmSelLeaders().some(l => { const si = leaderSiteInfo(l); return !(si && si.node.id === n.id); }) ? '<button class="wi-goto">' + wmSelLeaders().map(l => l.letter).join("・") + 'を向かわせる</button>' : '') +
     wmSiteMenuHtml(n, el.closest(".wm-sub-panel") ? wmState.subKey : wmState.side);
@@ -3700,7 +3719,6 @@ const WORLD_SAVE_KEY = "shijoSenkiWorld";
 const WORLD_SAVE_VER = 2;
 const WORLD_DAY_SEC = 1800;                 // 現実の30分 = ゲーム内の1日
 const LEADER_BASE_SPEED = 2.5;              // 歩兵(歩く速さ42)だけを連れたときの、1秒(ワールド時間)に歩くマス数。連れている兵のうち、いちばん遅い者に合わせて遅くなる
-const TEAM_CAP = 50;                        // 1チーム(リーダー1人)が連れられる人数の上限
 const WORLD_START_CORPSE = 3000;            // 仮の、地図での最初の屍(戦闘用の START_CORPSE とは別)
 const HIRE_KINDS = ["soldier","spearman","langxian","armored","scout","repairer","watchtower","shieldman","arquebusier","batteringRam","chariot","medic","spikeBarricade","courier","incendiary","commander"];
 const WORLD_SCALES = [1, 5, 20, 60];        // 検証用の早送り(時間も、歩く速さも、同じ倍率で進む)
@@ -3868,14 +3886,16 @@ function siteStartCell(mapKey, name){
   return best;
 }
 function leadersReset(){
-  world.leaders = [];                                        // 最初は、リーダーはいない。拠点をタップして、立てる
-  world.sel = null; world.selIds = []; world.corpse = WORLD_START_CORPSE; world.supply = {}; world.supplyProg = {}; world.depot = { unlocked:{ soldier:true }, level:{} }; world.events = []; world.transports = []; world.enemyCorpse = ENEMY_START_CORPSE; world.dayIdx = null;   // 最初に解放されているのは、戍卒だけ
+  world.leaders = []; mutSeq = 0;                                        // 最初は、リーダーはいない。拠点をタップして、立てる
+  world.sel = null; world.selIds = []; world.corpse = WORLD_START_CORPSE; world.supply = {}; world.supplyProg = {}; world.depot = { unlocked:{ soldier:true }, level:{} }; world.events = []; world.transports = []; world.enemyCorpse = ENEMY_START_CORPSE; world.dayIdx = null; world.fallen = {}; world.mutations = []; world.depot.bossLevel = 0;   // 最初に解放されているのは、戍卒だけ
   enemyLeadersInit();                                          // ゴブリン族の拠点に、遠征を送り出すリーダーを置く
+  world.over = false; homeBossInit();                          // 最初からいるのは、本拠地のボス(50人の隊員を連れて、地図を動ける)
+  dailySupplyTick(true);                                       // 最初の日の朝ぶんの補給兵は、はじめから、ある
 }
 function leaderSpawnAtSite(mapKey, node){
   const g = WG[mapKey], i = siteStartCell(mapKey, node.id); if (i < 0) return null;
-  const n = world.leaders.length, letter = n < LEADER_LETTERS.length ? LEADER_LETTERS[n] : String(n + 1);
-  const l = { id:"L" + n, letter, site:node.id, homeMap:mapKey, name:node.name, mi:g.mi, x:i % g.gw, y:(i / g.gw) | 0, path:null, pi:0, pf:0, speed:LEADER_BASE_SPEED, team:{}, kind:null, formation:null };
+  const n = world.leaders.filter(x => !x.boss).length, letter = n < LEADER_LETTERS.length ? LEADER_LETTERS[n] : String(n + 1);
+  const l = { id:"L" + n, letter, site:node.id, homeMap:mapKey, name:node.name, mi:g.mi, x:i % g.gw, y:(i / g.gw) | 0, path:null, pi:0, pf:0, speed:LEADER_BASE_SPEED, team:{}, kind:null, rank:"platoon", formation:null };
   world.leaders.push(l); return l;
 }
 // 拠点を占領する：持ち主が自軍になり、その拠点のリーダーが、新しく出てくる
@@ -3883,37 +3903,121 @@ function siteCapture(mapKey, node){
   if (isOwnSite(node)) return null;
   node.owner = "player"; delete node.lostFromPlayer; wgClassify(); siteSupply(node.id);
   if (wmState.root){ wmRenderPanel(); if (wmState.subKey){ wmRefreshSubNodes(); } wmBuildChips(); }
+  { const bi = baseBossInfo(node.id, "human"); if (CHAR_DEFS[bi.bossKind]) showToast("占領：基地のボス(" + CHAR_DEFS[bi.bossKind].name + ")が、現れた。兵 " + bi.total + "体を従える"); }
   return true;
 }
-/* ---------- 補給：兵は、時間がたつと、自軍の拠点ごとに溜まる ----------
-   ・解放した兵だけが溜まる(解放は、屍を払う。全拠点で共通)。速度アップも、全拠点で共通(段階が上がると、溜まる間隔が短くなる)
-   ・溜まる上限は、値段によって決まる(安い兵ほど、たくさん) */
-const SUPPLY_MAX_LEVEL = 5;
+/* ---------- 補給：兵は、毎朝(5時)、一定数が、補給基地(と、本拠地の基本の兵科)に補給される ----------
+   ・解放した兵だけが補給される(解放は、屍を払う。全拠点で共通)。1日の最中には、補給されない
+   ・兵ごとに、1日の補給数が決まっている。強化(能力強化基地・3段階)すると、1日の補給数が増え、能力も上がる
+   ・強化は、全拠点の、その兵すべてに効く。すでに戦場にいる兵も、すぐに強くなる。強化できない兵もいる(数値は、すべて仮) */
+const UPGRADABLE = ["soldier", "spearman", "langxian", "armored", "shieldman", "arquebusier", "scout"];
+const UPG_STAT = [1, 1.10, 1.22, 1.35];                          // 強化の段階ごとの、最大HP・攻撃力の倍率(段階が上がるほど、積み重なって、大きくなる)
+const UPG_COST_MULT = [2, 4, 7];                                  // 段階ごとの強化の値段(兵の値段 × この倍率)
+const DAILY_SUPPLY_BASE = { soldier:6, spearman:5, langxian:3, armored:2, scout:2, repairer:1, watchtower:1, shieldman:3, arquebusier:3, batteringRam:1, chariot:1, medic:2, spikeBarricade:2, courier:2, incendiary:2, commander:1 };
+// 本拠地のボス専用の強化(能力強化基地)：3段階。最大HP・攻撃力が上がり、3段階めは「覚醒」(HPが半分以下で、攻撃力×1.5・被ダメージ×0.8)
+const BOSS_UPG = { cost:[3000, 6000, 10000], stat:[1, 1.2, 1.45, 1.75], t3:{ name:"覚醒", text:"HPが半分以下になると、攻撃力×1.5・被ダメージ×0.8" } };
+function bossUpgTier(){ return Math.min(3, (world.depot && world.depot.bossLevel) || 0); }
+function bossUpgCost(){ const t = bossUpgTier(); return t >= 3 ? null : BOSS_UPG.cost[t]; }
+const UPG_T3 = {                                                  // 3段階めの、特別な能力
+  soldier:{ name:"衝撃波", text:"攻撃時、たまに、指揮官の衝撃波を前方へ放つ" },
+  spearman:{ name:"会心", text:"魔獣に当たると、たまに、会心の一撃(威力×2.5)" },
+  langxian:{ name:"絡め取り", text:"当たった敵を、たまに、3秒間、半分の速さにする" },
+  armored:{ name:"反撃", text:"近接攻撃を受けると、たまに、受けた分の3割を返す" },
+  shieldman:{ name:"鉄壁", text:"ガードの待ち時間が、半分になる" },
+  arquebusier:{ name:"貫通弾", text:"撃つと、たまに、同じ戦列の後ろの敵も撃ち抜く(威力5割)" },
+  scout:{ name:"暗殺", text:"非戦闘の敵(支援役)に当たると、たまに、一撃で倒す" }
+};
 function supplyCost(kind){ return getDeployCost(CHAR_DEFS[kind]); }
 function supplyUnlockCost(kind){ return supplyCost(kind) * 2; }
-function supplyLevel(kind){ return world.depot.level[kind] || 0; }
-function supplyUpgradeCost(kind){ const lv = supplyLevel(kind); return lv >= SUPPLY_MAX_LEVEL ? null : supplyCost(kind) * (lv + 1); }
-function supplyInterval(kind){ return supplyCost(kind) / 5 * Math.pow(0.85, supplyLevel(kind)); }            // 1体溜まるまでの秒数(ワールド時間)
-function supplyCap(kind){ return Math.max(2, Math.min(20, Math.round(3000 / supplyCost(kind)))); }
+function upgradeTier(kind){ return UPGRADABLE.indexOf(kind) < 0 ? 0 : Math.min(3, (world.depot && world.depot.level[kind]) || 0); }
+function upgradeCost(kind){ const t = upgradeTier(kind); if (UPGRADABLE.indexOf(kind) < 0 || t >= 3) return null; return Math.round(supplyCost(kind) * UPG_COST_MULT[t] / 50) * 50; }
+function dailySupplyOf(kind){ return (DAILY_SUPPLY_BASE[kind] || 2) + upgradeTier(kind); }                   // 強化の1段階ごとに、1日に+1体
+function upgradeStatText(t){ return "最大HP・攻撃力 ×" + UPG_STAT[t]; }
+/* =========================================================
+   変異(変異基地)：兵(と、本拠地のボス)を、厄災(鬼・鬼獣)に変異させる。屍を払い、2日かかる
+   ・変異させる兵の強さに合わせて、選べる厄災が決まる(厄災の値段 が、兵の強さ×1.5 以下)。本拠地のボスは、最強扱い(全ての厄災を選べる)
+   ・変異した厄災は、通常より強い(最大HP×1.6・攻撃力×1.4)。「変異・○○」として、補給兵に入る
+   ・変異中のボスは、動けず、戦えない(終われば、厄災の姿で戻る) 数値は仮
+   ========================================================= */
+const MUT_SEC = 2 * WORLD_DAY_SEC, MUT_RATIO = 1.5, MUT_HP = 1.6, MUT_ATK = 1.4, MUT_BOSS_STRENGTH_MULT = 4;
+function mutCalamities(){ return Object.keys(CHAR_DEFS).filter(k => { const d = CHAR_DEFS[k]; return (d.race === "goblin" || d.race === "beast") && !d.structureUnit && !d.gateUnit && !d.mutantOf && k !== "queenBeast" && d.cost > 0; }).sort((a, b) => CHAR_DEFS[a].cost - CHAR_DEFS[b].cost); }
+function mutKind(k){                                                                        // 変異した厄災の定義(通常より強い)を、必要なときに作る
+  const id = "mut_" + k; if (CHAR_DEFS[id]) return id;
+  const b = CHAR_DEFS[k]; CHAR_DEFS[id] = Object.assign({}, b, { name:"変異・" + b.name, hp:Math.round(b.hp * MUT_HP), atk:Math.round(b.atk * MUT_ATK), cost:Math.round(b.cost * 1.5), mutantOf:k });
+  return id;
+}
+function mutStrength(src){ return src === "BOSS" ? CHAR_DEFS[HOME_BOSS_KIND].cost * MUT_BOSS_STRENGTH_MULT : (CHAR_DEFS[src] ? CHAR_DEFS[src].cost : 0); }
+function mutOptions(src){ const lim = mutStrength(src) * MUT_RATIO; return mutCalamities().filter(k => CHAR_DEFS[k].cost <= lim); }
+function mutCost(to){ return CHAR_DEFS[to].cost; }
+function mutStart(siteId, src, to){
+  const mk = siteMapKeyOf(siteId), node = mk && siteNodeOf(siteId, mk);
+  if (SITE_KIND[siteId] !== "beast" || !isOwnSite(node)){ showToast("変異基地で、変異させる"); return false; }
+  if (siteBattleAt(siteId)){ showToast("戦闘中の基地では、変異させられない"); return false; }
+  if (mutOptions(src).indexOf(to) < 0){ showToast("その厄災には、変異させられない(強さが足りない)"); return false; }
+  const cost = mutCost(to); if (world.corpse < cost){ showToast("屍が、足りない(" + cost + ")"); return false; }
+  let boss = null;
+  if (src === "BOSS"){
+    boss = world.leaders.find(l => l.boss); if (!boss || boss.mutating || String(boss.kind).indexOf("mut_") === 0){ showToast("本拠地のボスは、変異させられない"); return false; }
+    if (!leadersAtSite(siteId).some(l => l.boss)){ showToast("本拠地のボスが、この基地にいない"); return false; }
+    if (leaderInBattle(boss)){ showToast("戦闘に出ているボスは、変異させられない"); return false; }
+  } else {
+    const sp = siteSupply(siteId); if (!((sp[src] || 0) > 0) || !CHAR_DEFS[src] || CHAR_DEFS[src].race !== "human"){ showToast("この基地の補給兵に、その兵がいない"); return false; }
+    sp[src]--; if (sp[src] <= 0) delete sp[src];
+  }
+  world.corpse -= cost; mutKind(to);
+  const job = { id:"M" + (++mutSeq), siteId, src, to, doneAt:world.sec + MUT_SEC }; world.mutations.push(job);
+  if (boss){ boss.mutating = job; boss.path = null; }
+  return job;
+}
+let mutSeq = 0;
+function mutTick(){
+  (world.mutations || []).slice().forEach(j => {
+    if (world.sec < j.doneAt) return;
+    world.mutations = world.mutations.filter(x => x !== j); const id = mutKind(j.to);
+    if (j.src === "BOSS"){ const b = world.leaders.find(l => l.boss); if (b){ b.kind = id; b.mutating = null; b.speed = leaderSpeedOf(b); showToast("本拠地のボスが、" + CHAR_DEFS[id].name + "に変異した"); } return; }
+    const mk = siteMapKeyOf(j.siteId), node = mk && siteNodeOf(j.siteId, mk);
+    if (!isOwnSite(node) || SITE_KIND[j.siteId] !== "beast"){ showToast("基地を失い、変異は、潰えた"); return; }
+    const sp = siteSupply(j.siteId); sp[id] = (sp[id] || 0) + 1; showToast("変異が、終わった：" + CHAR_DEFS[id].name + "が、" + node.name + "に加わった");
+  });
+}
+function wmRenderMutate(m){
+  const siteId = m.dataset.site, node = siteNodeOf(siteId, m.dataset.map);
+  if (!node || SITE_KIND[siteId] !== "beast" || !isOwnSite(node)){ wmModalClose(); return; }
+  const sp = siteSupply(siteId), boss = world.leaders.find(l => l.boss), bossHere = !!(boss && !boss.mutating && String(boss.kind).indexOf("mut_") !== 0 && leadersAtSite(siteId).some(l => l.boss));
+  const srcs = Object.keys(sp).filter(k => sp[k] > 0 && CHAR_DEFS[k] && CHAR_DEFS[k].race === "human");
+  if (bossHere) srcs.unshift("BOSS");
+  let src = m.dataset.src; if (srcs.indexOf(src) < 0) src = srcs[0] || ""; m.dataset.src = src;
+  let html = '<div class="md-head"><div class="md-title">変異<span>' + node.name + '</span></div><div class="md-wallet" id="mu-wallet">屍 ' + Math.floor(world.corpse) + '</div><button class="md-close">閉じる</button></div>';
+  html += '<div class="md-note">兵(と本拠地のボス)を、厄災に変異させる。屍を払い、2日かかる。変異させる兵の強さに合わせて、選べる厄災が決まる。変異した厄災は、通常より強い(最大HP×' + MUT_HP + '・攻撃力×' + MUT_ATK + ')。変異する兵は、この基地の補給兵から1体、使う。本拠地のボスは、この基地にいれば、変異させられる(最強なので、全ての厄災を選べる)。</div>';
+  const jobs = (world.mutations || []).filter(j => j.siteId === siteId);
+  if (jobs.length) html += '<div class="tp-going mu"><b>変異中</b><br>' + jobs.map(j => (j.src === "BOSS" ? "本拠地のボス" : CHAR_DEFS[j.src].name) + ' → ' + CHAR_DEFS[mutKind(j.to)].name + '　あと約' + Math.ceil(Math.max(0, j.doneAt - world.sec) / WORLD_DAY_SEC * 24) + '時間').join('<br>') + '</div>';
+  if (!srcs.length){ m.innerHTML = html + '<div class="md-empty">この基地に、変異させられる兵がいない。補給兵(人間の兵)を、輸送で送る。</div>'; m.querySelector(".md-close").addEventListener("click", () => wmModalClose()); return; }
+  html += '<div class="md-row"><span class="md-lab">変異させる</span>' + srcs.map(k => '<button class="md-tgt mu-src' + (k === src ? ' on' : '') + '" data-s="' + k + '">' + (k === "BOSS" ? '本拠地のボス' : CHAR_DEFS[k].name + '<em>×' + sp[k] + '</em>') + '</button>').join("") + '</div>';
+  const opts = mutOptions(src); html += '<div class="md-note">強さ ' + mutStrength(src) + ' → 選べる厄災：値段 ' + Math.round(mutStrength(src) * MUT_RATIO) + ' まで</div><div class="dp-list">';
+  mutCalamities().forEach(k => {
+    const d = CHAR_DEFS[k], ok = opts.indexOf(k) >= 0, c = mutCost(k), afford = world.corpse >= c;
+    html += '<div class="dp-row mut' + (ok ? '' : ' lock') + '" data-t="' + k + '"><img src="' + d.icon + '" alt=""><div class="dp-main"><div class="dp-name">' + d.name + '<em>強さ ' + d.cost + '</em></div><div class="dp-sub">' + (ok ? '変異すると：最大HP ' + Math.round(d.hp * MUT_HP) + '・攻撃 ' + Math.round(d.atk * MUT_ATK) + '(通常は ' + d.hp + '・' + d.atk + ')' : '強さが足りない') + '</div></div><div class="dp-act"><button class="dp-btn"' + (ok && afford ? '' : ' disabled') + '>変異　屍' + c + '</button></div></div>';
+  });
+  m.innerHTML = html + '</div>';
+  m.querySelector(".md-close").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmModalClose(); });
+  m.querySelectorAll(".mu-src").forEach(b => b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); m.dataset.src = b.dataset.s; wmRenderMutate(m); }));
+  m.querySelectorAll(".dp-row.mut .dp-btn").forEach(b => b.addEventListener("click", () => { const to = b.closest(".dp-row").dataset.t; if (mutStart(siteId, src, to)){ playSfx(REPO_BASE + "audio/tap_command.opus"); showToast(CHAR_DEFS[mutKind(to)].name + "への変異を始めた(2日)"); wmRenderMutate(m); wmUpdateUi(); } }));
+}
+// 毎朝：補給できる拠点に、解放した兵が、1日ぶん補給される
+function dailySupplyTick(quiet){
+  const ids = ownSiteIds(), D = world.depot; let total = 0;
+  Object.keys(D.unlocked).forEach(k => {
+    if (!D.unlocked[k] || !CHAR_DEFS[k]) return;
+    ids.forEach(id => { if (!siteProduces(id, k)) return; const sp = siteSupply(id), n = dailySupplyOf(k); sp[k] = (sp[k] || 0) + n; total += n; });
+  });
+  if (!quiet && total) showToast("朝になった：補給兵 +" + total + "体");
+  return total;
+}
+function supplyTick(wdt){ /* 補給は、毎朝だけ(dailySupplyTick)。時間では、溜まらない */ }
 function ownSiteIds(){
   const out = [];
   MAP_KEYS.forEach(k => wmNodesOf(k).forEach(n => { if (isOwnSite(n) && WG[k] && WG[k].ids[n.id]) out.push(n.id); }));
   return out;
-}
-function supplyTick(wdt){
-  const ids = ownSiteIds(), D = world.depot;
-  Object.keys(D.unlocked).forEach(k => {
-    if (!D.unlocked[k] || !CHAR_DEFS[k]) return;
-    const iv = supplyInterval(k), cap = supplyCap(k);
-    ids.forEach(id => {
-      if (!siteProduces(id, k)) return;                                   // 補給基地と、本拠地(限られた兵科)だけが、兵を作る。ほかの拠点へは、輸送で送る
-      const sp = siteSupply(id), pg = world.supplyProg[id] || (world.supplyProg[id] = {});
-      if ((sp[k] || 0) >= cap){ pg[k] = 0; return; }
-      pg[k] = (pg[k] || 0) + wdt / iv;
-      while (pg[k] >= 1 && (sp[k] || 0) < cap){ pg[k] -= 1; sp[k] = (sp[k] || 0) + 1; }
-      if ((sp[k] || 0) >= cap) pg[k] = 0;
-    });
-  });
 }
 // 全滅などで負けたとき：リーダーは、もといた拠点へ、勝手に戻る
 function leaderReturnHome(l){
@@ -3943,6 +4047,7 @@ function leaderArrive(l){
   }
 }
 function leaderStep(l, wdt){
+  if (l.mutating){ l.path = null; return; }                                  // 変異中のボス：動けない
   if (!l.path) return;
   let rem = l.speed * wdt;
   while (rem > 0 && l.path){
@@ -3993,7 +4098,7 @@ function isFreeSlot(node){ return !!node && !!node.slot && node.owner === "neutr
 function siteLeaderOf(siteId){ return world.leaders.find(l => l.site === siteId) || null; }
 function siteMakeLeader(mapKey, node){
   if (!isOwnSite(node) || siteLeaderOf(node.id)) return null;
-  if (world.leaders.length >= ownSiteIds().length){ showToast("リーダーは、自軍の拠点の数までしか作れない"); return null; }
+  if (world.leaders.filter(x => !x.boss).length >= ownSiteIds().length){ showToast("リーダーは、自軍の拠点の数までしか作れない"); return null; }
   const l = leaderSpawnAtSite(mapKey, node); if (!l) return null;
   wmBuildChips(); wmSelectLeader(l.id, "make"); return l;
 }
@@ -4011,7 +4116,7 @@ function wmSelLeaders(){ return world.selIds.map(id => world.leaders.find(l => l
 function wmIsSel(id){ return world.selIds.indexOf(id) !== -1; }
 // 拠点の戦闘・召喚などで使うリーダー：選んでいる者のうち、その拠点にいる者。いなければ、その拠点にいる者全員
 function battleLeadersAt(siteId){
-  const here = leadersAtSite(siteId), picked = here.filter(l => wmIsSel(l.id));
+  const here = leadersAtSite(siteId).filter(l => !l.mutating), picked = here.filter(l => wmIsSel(l.id));
   return picked.length ? picked : here;
 }
 
@@ -4244,13 +4349,14 @@ function envClockHtml(mapKey){
   return '<div class="wm-wx">' + envLabel(e) + (tm ? '<em>明日 ' + tm + '</em>' : '') + '</div>';
 }
 function worldStep(dt){
+  if (world.over) return;                                                         // 本拠地が滅びた：時間は、止まる
   const wdt = dt * WORLD_SCALES[world.scaleIdx];
-  world.sec += wdt; envTick(); worldDayTick(); siteBuildTick();
-  world.leaders.forEach(l => leaderStep(l, wdt * envWalkMult(MAP_KEYS[l.mi])));                 // 夜・雨・霧では、歩みが遅くなる
+  world.sec += wdt; envTick(); worldDayTick(); siteBuildTick(); mutTick();
+  world.leaders.forEach(l => leaderStep(l, wdt * envWalkMult(MAP_KEYS[l.mi]) * roadBonus()));                 // 夜・雨・霧では、歩みが遅くなる
   { const eb = enemyBonus().speed; (world.enemyLeaders || []).forEach(l => enemyLeaderStep(l, wdt * envWalkMult(MAP_KEYS[l.mi]) * (1 + eb))); }     // 前線基地を奪った敵は、足が速まる
   fieldCollisionCheck();                                                // リーダー同士が出会ったら、戦線外の戦闘が始まる
   supplyTick(wdt);
-  world.transports.slice().forEach(t => transportStep(t, wdt));                                   // 輸送隊
+  world.transports.slice().forEach(t => transportStep(t, wdt * roadBonus()));                                   // 輸送隊
   world.lastSave += dt; if (world.lastSave > 4){ world.lastSave = 0; saveWorld(); }
 }
 let worldLastTs = 0;
@@ -4406,7 +4512,7 @@ function wmSyncView(dt){
   // 遠征中・襲撃中の、敵のリーダー
   const SVGNS = "http://www.w3.org/2000/svg";
   const hosts = [wmState.panel, root.querySelector(".wm-sub.open .wm-sub-panel")].filter(Boolean);
-  const activeEnemies = (world.enemyLeaders || []).filter(l => l.state !== "home");
+  const activeEnemies = (world.enemyLeaders || []).filter(l => l.state !== "home" && enemyVisible(l));         // 見える敵だけ
   const seenE = {};
   activeEnemies.forEach(l => {
     const p = leaderPos(l), g = WG[MAP_KEYS[p.mi]], host = wmHostFor(g.key);
@@ -4513,9 +4619,9 @@ function wmUpdateUi(){
     const secs = leaderRemaining(l) / l.speed, hrs = secs / WORLD_DAY_SEC * 24;
     status = "移動中　あと約" + (hrs >= 24 ? (hrs / 24).toFixed(1) + "日" : hrs >= 1 ? Math.round(hrs) + "時間" : Math.max(1, Math.round(hrs * 60)) + "分");
   } else { const here = leaderSiteHere(l); status = here ? here + "にいる" : "待機中"; }
-  const here2 = leaderSiteInfo(l), canPick = !!(here2 && isOwnSite(here2.node) && SITE_KIND[here2.node.id] === "academy");     // リーダーの兵は、リーダー教訓基地で作る
-  card.innerHTML = '<div class="lc-name">リーダー' + l.letter + '<span>' + l.name + '</span></div><div class="lc-line">' + where + '　' + status + '</div>' +
-    '<div class="lc-line">リーダーの兵：' + (l.kind ? CHAR_DEFS[l.kind].name : '未選択(教訓基地で作る)') + '　兵 ' + teamCount(l) + '/' + TEAM_CAP + '　歩く速さ ×' + (l.speed / LEADER_BASE_SPEED).toFixed(2) + '</div>' +
+  const here2 = leaderSiteInfo(l), canPick = !l.boss && !!(here2 && isOwnSite(here2.node) && SITE_KIND[here2.node.id] === "academy");     // リーダーの兵は、リーダー教訓基地で作る
+  card.innerHTML = '<div class="lc-name">' + (l.boss ? '本拠地のボス' : 'リーダー' + l.letter) + '<span>' + leaderRankOf(l).name + '　' + l.name + '</span></div><div class="lc-line">' + where + '　' + status + '</div>' +
+    '<div class="lc-line">' + (l.boss ? '本拠地のボス：' : 'リーダーの兵：') + (l.kind ? CHAR_DEFS[l.kind].name : '未選択(教訓基地で作る)') + '　兵 ' + teamCount(l) + '/' + leaderCap(l) + '　歩く速さ ×' + (l.speed / LEADER_BASE_SPEED).toFixed(2) + '</div>' +
     '<div class="lc-hint">' + (l.path ? '<button class="lc-stop">止める</button>' : (canPick ? '<button class="lc-pick">リーダーの兵を作る</button>' : '地図をタップして、🚩を立てる')) +
     (l.path ? '' : '　<button class="lc-form">陣形' + (l.formation ? '　' + formDisplayName(l.formation) + '(' + (l.formation.mode === "defend" ? '守備' : '攻め') + ')' : (teamCount(l) >= FORM_MIN_TEAM ? '' : '　10人から')) + '</button>') + '</div>';
   card.classList.add("on");
@@ -4554,12 +4660,12 @@ const SITE_KINDS = {
   home:    { name:"本拠地", read:"ほんきょち", mark:"本", hp:6000, lanes:ALL_LANES, desc:"限られた兵科(戍卒・鎗卒・楯衛・鳥銃手・狼筅手)だけを補給できる、もっとも城の堅い拠点。兵は、すべての拠点へ輸送できる。" },
   supply:  { name:"補給基地", read:"ほきゅうきち", mark:"補", hp:1500, lanes:[1, 2, 3], desc:"兵を補給する専用の拠点。城は脆く、戦列は中央の3つだけ。兵は、すべての拠点へ輸送できる(輸送の間は、襲われない)。" },
   front:   { name:"前線基地", read:"ぜんせんきち", mark:"前", hp:4500, lanes:ALL_LANES, march:25, formSpeed:.12, desc:"敵が城へ辿り着くまで、時間がかかる。城も堅く、5つの戦列を使え、陣形も素早く出せる。" },
-  beast:   { name:"変異基地", read:"へんいきち", mark:"変", hp:3000, lanes:ALL_LANES, desc:"兵を、獣など、別の姿へ変える拠点。(働きは、これから)" },
-  recovery:{ name:"療養基地", read:"りょうようきち", mark:"療", hp:2500, lanes:ALL_LANES, desc:"討たれた兵の一部が、毎朝、補給兵として戻る拠点。(働きは、日次補給のあとに)" },
-  lookout: { name:"物見基地", read:"ものみきち", mark:"物", hp:2000, lanes:ALL_LANES, desc:"敵リーダーの動きが見え、襲撃の予告が出る拠点。夜・霧では、視界が狭まる。(働きは、これから)" },
-  road:    { name:"街道基地", read:"かいどうきち", mark:"街", hp:2500, lanes:ALL_LANES, desc:"輸送とリーダーの移動が速くなる拠点。(働きは、これから)" },
-  workshop:{ name:"工廠基地", read:"こうしょうきち", mark:"廠", hp:3000, lanes:ALL_LANES, desc:"破城槌・戦車・望楼兵などの重装備を補給する拠点。ほかの基地では、重装備は作れなくなる。(働きは、これから)" },
-  fortress:{ name:"砦基地", read:"とりできち", mark:"砦", hp:5000, lanes:ALL_LANES, desc:"戦闘の開始時から、壁と望楼台が築かれている、守りの要の拠点。(働きは、これから)" },
+  beast:   { name:"変異基地", read:"へんいきち", mark:"変", hp:3000, lanes:ALL_LANES, desc:"兵(と本拠地のボス)を、厄災に変異させる拠点。変異させる兵の強さに合わせて、選べる厄災が決まる。屍を払い、2日かかる。変異した厄災は、通常より強い。" },
+  recovery:{ name:"療養基地", read:"りょうようきち", mark:"療", hp:2500, lanes:ALL_LANES, desc:"討たれた兵の2割が、毎朝、補給兵として、この基地に戻る。療養基地が多いほど、戻る数が増える(最大3つぶん)。" },
+  lookout: { name:"物見基地", read:"ものみきち", mark:"物", hp:2000, lanes:ALL_LANES, desc:"広い範囲の敵リーダーの動きが見え、襲撃の予告が出る。夜・霧・雨では、視界が狭まる。物見基地がなければ、自軍の拠点・リーダーの近くしか見えない。" },
+  road:    { name:"街道基地", read:"かいどうきち", mark:"街", hp:2500, lanes:ALL_LANES, desc:"輸送とリーダーの歩みが、速くなる(1つにつき+15%、最大3つぶん)。" },
+  workshop:{ name:"工廠基地", read:"こうしょうきち", mark:"廠", hp:3000, lanes:ALL_LANES, desc:"破城槌・戦車・望楼兵・拒馬兵の、重装備を補給する(毎朝)。重装備は、ここでしか補給されない。" },
+  fortress:{ name:"砦基地", read:"とりできち", mark:"砦", hp:5000, lanes:ALL_LANES, desc:"守りの戦闘では、始めから、壁と望楼台が築かれている。" },
   academy: { name:"リーダー教訓基地", read:"りーだーきょうくんきち", mark:"教", hp:2500, lanes:ALL_LANES, desc:"兵を送って、リーダーの兵を作る。リーダーの連れた兵を、補給兵へ戻せるのは、ここだけ。" },
   upgrade: { name:"能力強化基地", read:"のうりょくきょうかきち", mark:"強", hp:2500, lanes:ALL_LANES, desc:"兵ごとの能力を強める。全拠点に効き、兵を送る必要はない。(強化は、これから)" },
   // ゴブリン族だけの基地(働きは、これから)
@@ -4615,12 +4721,43 @@ const HUMAN_KIND_SPRITE = { front:"site_player_outpost.png", supply:"site_supply
   recovery:"site_recovery_base.png", lookout:"site_lookout_base.png", road:"site_road_base.png", workshop:"site_workshop_base.png", fortress:"site_fortress_base.png" };   // 人間陣営の、基地ごとの絵(なければ、標準の絵)
 const SITE_KIND_DEFAULT = { hp:3000, lanes:ALL_LANES };
 const HOME_SUPPLY_KINDS = ["soldier", "spearman", "shieldman", "arquebusier", "langxian"];     // 本拠地が補給できる兵科(限られた種類)
-const LEADER_TRAIN_COST = 3;                                                                // リーダーの兵を1人作るのに要る、同じ兵の数
+// リーダーの階級：使う兵の数で決まる。階級が上がるほど、強いバフを受け、連れられる兵(隊員)も増える。数値は仮
+const LEADER_RANKS = {
+  platoon:{ name:"小隊長", mark:"小", cost:3,  cap:15, atk:1.2, hp:1.6, cut:.85, note:"少なめのバフ" },
+  company:{ name:"中隊長", mark:"中", cost:10, cap:40, atk:1.5, hp:2.4, cut:.7,  note:"バフ" },
+  general:{ name:"将軍",   mark:"将", cost:16, cap:60, atk:2.2, hp:4.0, cut:.5,  note:"絶対なバフ" },
+  boss:   { name:"本拠地のボス", mark:"主", cost:0, cap:50, atk:3.0, hp:10, cut:.35, note:"最強のバフ", size:1.5 }
+};
+const LEADER_RANK_ORDER = ["platoon", "company", "general"];                                    // リーダー教訓基地で作れる階級(本拠地のボスは、作れない)
+function leaderRankOf(l){ return LEADER_RANKS[(l && l.rank) || "platoon"] || LEADER_RANKS.platoon; }
+function leaderCap(l){ return leaderRankOf(l).cap; }
 const TRANSPORT_SPEED = 3.0;                                                                // 輸送隊が、1秒(ワールド時間)に歩くマス数
 function siteKindInfo(id){ return SITE_KINDS[SITE_KIND[id]] || null; }
 function siteMapKeyOf(siteId){ for (const k of MAP_KEYS){ if (wmNodesOf(k).some(n => n.id === siteId)) return k; } return null; }
 function siteHasDepot(id){ const k = SITE_KIND[id]; return k === "home" || k === "supply"; }             // 補給所(解放・強化)を開ける拠点
-function siteProduces(id, kind){ const k = SITE_KIND[id]; return k === "supply" || (k === "home" && HOME_SUPPLY_KINDS.indexOf(kind) !== -1); }
+// 物見：敵リーダーが見える範囲(マス)。自軍の拠点・リーダーの近くは、いつも見える。物見基地は、遠くまで見える。夜・霧・雨で狭まる
+const VIEW_BASE = 24, VIEW_LEADER = 18, VIEW_LOOKOUT = 95;
+function viewMult(mapKey){
+  const e = envForMap(mapKey); if (!e) return 1;
+  return ({ morning:.9, noon:1, night:.6 }[e.tod] || 1) * ({ clear:1, rain:.8, fog:.5 }[e.wx] || 1);
+}
+function enemyVisible(l){
+  if (l.state === "raiding" || l.fightWith) return true;
+  const p = leaderPos(l), mapKey = MAP_KEYS[p.mi], vm = viewMult(mapKey); let ok = false;
+  const near = (x, y, r) => Math.hypot(p.fx - x, p.fy - y) <= r * vm;
+  ownSiteIds().forEach(id => { if (ok) return; const mk = siteMapKeyOf(id); if (mk !== mapKey) return; const i = siteStartCell(mk, id); if (i < 0) return; const g = WG[mk]; ok = near(i % g.gw + .5, ((i / g.gw) | 0) + .5, SITE_KIND[id] === "lookout" ? VIEW_LOOKOUT : VIEW_BASE); });
+  world.leaders.forEach(l2 => { if (ok) return; const q = leaderPos(l2); if (MAP_KEYS[q.mi] === mapKey) ok = Math.hypot(p.fx - q.fx, p.fy - q.fy) <= VIEW_LEADER * vm; });
+  return ok;
+}
+const HEAVY_KINDS = ["batteringRam", "chariot", "watchtower", "spikeBarricade"];                    // 重装備：工廠基地でだけ、補給される
+function siteProduces(id, kind){
+  const k = SITE_KIND[id];
+  if (HEAVY_KINDS.indexOf(kind) !== -1) return k === "workshop";
+  return k === "supply" || (k === "home" && HOME_SUPPLY_KINDS.indexOf(kind) !== -1);
+}
+// 基地の働き：数えるもの
+function ownKindCount(kind){ return ownSiteIds().filter(id => SITE_KIND[id] === kind).length; }
+function roadBonus(){ return 1 + .15 * Math.min(3, ownKindCount("road")); }
 function siteBattleParams(id){ const k = siteKindInfo(id) || SITE_KIND_DEFAULT; return { hp:k.hp, lanes:k.lanes.slice(), march:k.march || 0, formSpeed:k.formSpeed || .28 }; }
 function siteLaneNearest(lane, lanes){ if (!lanes || !lanes.length || lanes.indexOf(lane) !== -1) return lane; let best = lanes[0]; lanes.forEach(l => { if (Math.abs(l - lane) < Math.abs(best - lane)) best = l; }); return best; }
 // 敵の出る位置を、使える戦列へ寄せ、到着を遅らせる(前線基地)
@@ -4631,6 +4768,11 @@ function enemyBonus(){
   let raid = 0, speed = 0;
   MAP_KEYS.forEach(k => wmNodesOf(k).forEach(n => { if (n.lostFromPlayer && n.owner === "goblin"){ if (SITE_KIND[n.id] === "supply") raid += .15; if (SITE_KIND[n.id] === "front") speed += .1; } }));
   return { raid:Math.min(raid, .6), speed:Math.min(speed, .3) };
+}
+function wmKindExtra(n){
+  if (SITE_KIND[n.id] === "recovery" && isOwnSite(n)) return '<div class="wi-kind">療養待ちの兵：' + fallenText() + '</div>';
+  if (SITE_KIND[n.id] === "beast" && isOwnSite(n)){ const js = (world.mutations || []).filter(j => j.siteId === n.id); return js.length ? '<div class="wi-kind">変異中：' + js.map(j => CHAR_DEFS[j.to].name + '(あと約' + Math.ceil(Math.max(0, j.doneAt - world.sec) / WORLD_DAY_SEC * 24) + '時間)').join('・') + '</div>' : ''; }
+  return "";
 }
 function wmKindHtml(n){
   if (n.build){ const bk = SITE_KINDS[n.build.kind], left = Math.max(0, (n.build.doneAt - world.sec) / WORLD_DAY_SEC * 24); return '<div class="wi-kind"><b>建築中</b>' + bk.name + '　あと約' + Math.ceil(left) + '時間<br>終わるまで、襲われることも、奪われることもない。この拠点は、まだ使えない。</div>'; }
@@ -4692,16 +4834,117 @@ function enemyFormationCells(name, n, skipCenter){
 }
 function siteEnemyOf(nodeId){ return SITE_ENEMY[nodeId] || null; }
 function siteEnemyTotal(e){ let n = e.leader ? 1 : 0; for (const k in e.units) n += e.units[k]; return n; }         // リーダーも数える
-function siteGarrison(node, mapKey){
-  const e = siteEnemyOf(node.id) || { units:{ goblin:5, archer:2 }, formation:{ name:"方円", mode:"守備" } };
-  const kinds = []; Object.keys(e.units).forEach(k => { for (let i = 0; i < e.units[k]; i++) kinds.push(k); });
-  const total = kinds.length, cells = enemyFormationCells(e.formation.name, total, !!e.leader).sort((a, b) => a.dc - b.dc);     // 後ろの位置から順に
-  kinds.sort((a, b) => (ENEMY_REAR_KINDS.indexOf(a) >= 0 ? 0 : 1) - (ENEMY_REAR_KINDS.indexOf(b) >= 0 ? 0 : 1));                 // 後ろの位置に、遠距離・支援
-  const centerX = 460, out = [];
-  if (e.leader) out.push({ t:0, kind:e.leader, lane:2, xOffset:centerX - 90, leader:true });
-  kinds.forEach((k, i) => { const c = cells[i]; out.push({ t:0, kind:k, lane:Math.max(0, Math.min(GRID_LANES - 1, 2 + c.dr)), xOffset:Math.max(0, centerX - 90 + c.dc * 100) }); });
+/* =========================================================
+   基地のボス：どの基地にもいる(占領した瞬間に、自軍のボスとして現れる)。攻められると、自動で現れ、基地独自の陣形(攻め)で、迎え撃つ
+   ・基地の強さに合わせて、3種の兵を引き連れる。ボスは1.5倍の大きさで、HPが大幅に高い
+   ・ボスが倒された瞬間、引き連れた兵は全滅し、その基地は占領される(自軍のボスなら、奪われる)
+   ・本拠地のボスだけは、リーダーのように地図を動ける(50人の隊員)。リーダーにはできない。倒されると、隊員は全滅し、本拠地は滅びる
+   数値は、すべて仮
+   ========================================================= */
+const BOSS_SIZE = 1.5;
+const BASE_TIER = { fortress:3, front:3, fusion:3, port:3, workshop:2, beast:2, upgrade:2, academy:2, nest:2, beastpen:2, plunder:2, trapyard:2, prayer:2, defile:2, massprod:2,
+  supply:1, recovery:1, lookout:1, road:1, culture:1, teleport:1 };
+const BOSS_TIERS = { 1:{ stars:"★", troops:12, hp:5, atk:1.2 }, 2:{ stars:"★★", troops:20, hp:7, atk:1.4 }, 3:{ stars:"★★★", troops:30, hp:10, atk:1.6 } };
+const BOSS_SPLIT = [.5, .3, .2];                                                    // 3種の兵の割合
+// 基地の種類ごとの、ボスの兵種(仮)。人間は、その基地らしい兵種。ゴブリン族も、基地らしい鬼・鬼獣
+const BOSS_KIND = {
+  human:{ front:"armored", fortress:"shieldman", supply:"soldier", academy:"commander", upgrade:"langxian", beast:"spearman", recovery:"medic", lookout:"scout", road:"courier", workshop:"arquebusier" },
+  goblin:{ front:"chief", fortress:"rusher", supply:"goblin", academy:"drummerGoblin", upgrade:"bruteGoblin", beast:"tamer", recovery:"healer", lookout:"archer", road:"hound", workshop:"catapult",
+    nest:"goblin", beastpen:"fortress", plunder:"bruteGoblin", trapyard:"trapper" }
+};
+const BOSS_KIND_DEFAULT = { human:"commander", goblin:"bruteGoblin" };
+const BOSS_LINEUP = {
+  human:{
+    front:["soldier", "spearman", "arquebusier"], fortress:["shieldman", "arquebusier", "armored"], supply:["soldier", "shieldman", "medic"], academy:["soldier", "spearman", "langxian"],
+    upgrade:["soldier", "armored", "langxian"], beast:["soldier", "langxian", "armored"], recovery:["soldier", "medic", "shieldman"], lookout:["scout", "arquebusier", "soldier"],
+    road:["soldier", "scout", "spearman"], workshop:["soldier", "armored", "spearman"], _:["soldier", "spearman", "arquebusier"]
+  },
+  goblin:{
+    front:["goblin", "archer", "bruteGoblin"], fortress:["bruteGoblin", "archer", "goblin"], supply:["goblin", "archer", "healer"], academy:["goblin", "bruteGoblin", "drummerGoblin"],
+    upgrade:["goblin", "bruteGoblin", "archer"], beast:["goblin", "hound", "bruteGoblin"], recovery:["goblin", "healer", "archer"], lookout:["archer", "goblin", "drummerGoblin"],
+    road:["goblin", "hound", "archer"], workshop:["goblin", "catapult", "bruteGoblin"], nest:["goblin", "archer", "drummerGoblin"], beastpen:["bruteGoblin", "hound", "goblin"],
+    plunder:["goblin", "archer", "bruteGoblin"], trapyard:["goblin", "trapper", "archer"], _:["goblin", "archer", "bruteGoblin"]
+  }
+};
+const HOME_BOSS_KIND = "commander";                                                  // 自軍の本拠地のボスの兵種(仮)
+const HOME_BOSS_TEAM = { soldier:22, spearman:16, arquebusier:12 };                    // 本拠地のボスが連れる50人
+function bossFactionOf(owner){ return owner === "player" ? "human" : "goblin"; }
+// その拠点の、ボスの情報(誰が、どんな兵を、どれだけ連れているか)
+function baseBossInfo(siteId, faction){
+  const kind = SITE_KIND[siteId] || "front", tier = BASE_TIER[kind] || 2, T = BOSS_TIERS[tier];
+  const set = (BOSS_LINEUP[faction] && (BOSS_LINEUP[faction][kind] || BOSS_LINEUP[faction]._)) || BOSS_LINEUP.human._;
+  let total = T.troops; const lineup = []; let left = total;
+  set.forEach((k, i) => { const n = i === set.length - 1 ? left : Math.round(total * BOSS_SPLIT[i]); lineup.push({ kind:k, count:n }); left -= n; });
+  return { siteId, faction, kindId:kind, tier, T, bossKind:(BOSS_KIND[faction] && BOSS_KIND[faction][kind]) || BOSS_KIND_DEFAULT[faction], lineup, total };
+}
+function bossLineupText(info){ return info.lineup.map(e => CHAR_DEFS[e.kind].name + "×" + e.count).join("・"); }
+function wmBossHtml(n){
+  if (!SITE_KIND[n.id] || n.build || (n.owner !== "player" && n.owner !== "goblin") || SITE_KIND[n.id] === "home") return "";
+  const info = baseBossInfo(n.id, bossFactionOf(n.owner)); if (!CHAR_DEFS[info.bossKind]) return "";
+  return '<div class="wi-boss"><b>基地のボス</b>' + CHAR_DEFS[info.bossKind].name + '　強さ <em>' + info.T.stars + '</em><br>引き連れる兵(' + info.total + '体)：' + bossLineupText(info) + '<br>倒されると、兵は全滅し、この基地は' + (n.owner === "player" ? '奪われる' : '占領される') + '。</div>';
+}
+function unitApplyBoss(u, info){
+  if (u.bossApplied) return; u.bossApplied = true; u.isBoss = true;
+  unitAddHpMult(u, info.T.hp); unitSetMod(u, "boss", info.T.atk, 1); u.scaleMult = BOSS_SIZE;
+  u.el.classList.add("is-boss", "is-leader");
+  if (!u.el.querySelector(".leader-star")){ const st = document.createElement("div"); st.className = "leader-star"; st.textContent = "★"; u.el.appendChild(st); }
+}
+// 敵(攻められる側)の、ボスと、引き連れた兵：出現する波のリスト
+function baseBossWaves(node){
+  const faction = bossFactionOf(node.owner), info = baseBossInfo(node.id, faction), e = siteEnemyOf(node.id) || { formation:{ name:"方円" } };
+  const kinds = []; info.lineup.forEach(x => { for (let i = 0; i < x.count; i++) kinds.push(x.kind); });
+  const cells = enemyFormationCells(e.formation.name, kinds.length, true).sort((a, b) => a.dc - b.dc);
+  kinds.sort((a, b) => (ENEMY_REAR_KINDS.indexOf(a) >= 0 ? 0 : 1) - (ENEMY_REAR_KINDS.indexOf(b) >= 0 ? 0 : 1));
+  const centerX = 460, out = [{ t:0, kind:info.bossKind, lane:2, xOffset:centerX - 90, leader:true, boss:true, bossInfo:info }];
+  kinds.forEach((k, i) => { const c = cells[i]; out.push({ t:0, kind:k, lane:Math.max(0, Math.min(GRID_LANES - 1, 2 + c.dr)), xOffset:Math.max(0, centerX - 90 + c.dc * 100), bossKid:true }); });
   return out;
 }
+// 自軍の基地が攻められた：ボスと、引き連れた兵が、基地独自の陣形(攻め)で、自動で現れる
+function siteSpawnBaseBoss(){
+  const sb = battle.stage.siteBattle, node = siteNodeOf(sb.siteId, sb.mapKey); if (!node || sb.bossSpawned) return; sb.bossSpawned = true;
+  const info = baseBossInfo(sb.siteId, "human"); if (!CHAR_DEFS[info.bossKind]) return;
+  const lanes = battle.stage.lanes, lane = d => siteLaneNearest(Math.max(0, Math.min(GRID_LANES - 1, 2 + d)), lanes);
+  const fort = SITE_KIND[sb.siteId] === "fortress", D0 = fort ? 210 : 380, boss = spawnUnit(info.bossKind, "player", -D0, { lane:lane(0) });      // 砦基地：壁の、うしろで守る
+  unitApplyBoss(boss, info); boss.baseBoss = true; if (LEADER_AURA[info.bossKind]) battleAddAura(info.bossKind, "player");
+  (battle.bossUnits = battle.bossUnits || {}).player = boss; (battle.bossInfo = battle.bossInfo || {}).player = info;
+  const kinds = []; info.lineup.forEach(x => { for (let i = 0; i < x.count; i++) kinds.push(x.kind); });
+  const cells = enemyFormationCells("方円", kinds.length, true).sort((a, b) => a.dc - b.dc);
+  kinds.sort((a, b) => (ENEMY_REAR_KINDS.indexOf(a) >= 0 ? 1 : 0) - (ENEMY_REAR_KINDS.indexOf(b) >= 0 ? 1 : 0));          // 遠距離・支援は、後ろ(自城側)
+  const dcs = cells.map(c => c.dc), dMin = Math.min.apply(null, dcs), dMax = Math.max.apply(null, dcs);
+  kinds.forEach((k, i) => { const c = cells[kinds.length - 1 - i];
+    const off = fort ? 50 + (dMax - c.dc) / Math.max(1, dMax - dMin) * 340 : Math.max(40, D0 + c.dc * 100);                // 砦基地：全員が、壁(15列め)より、うしろに並ぶ
+    const u = spawnUnit(k, "player", -off, { lane:lane(c.dr) }); u.bossLeaderUnit = boss; if (LEADER_AURA[k] && false) battleAddAura(k, "player"); });
+  queueBanner("基地のボス、現る：" + CHAR_DEFS[info.bossKind].name, false, false);
+}
+// ボスが倒れた：引き連れた兵は、その瞬間に、全滅する。基地は、占領される(自軍のボスなら、奪われる)
+function onBossKilled(target){
+  if (!battle || !battle.stage.siteBattle || target.bossHandled) return; target.bossHandled = true;
+  battle.units.forEach(u => { if (!u.dead && u !== target && (u.bossLeaderUnit === target || (target.bossLeader && u.siteOrigin === target.leaderId))){ u.noCorpse = true; u.hp = 0; killUnit(u); } });
+  battle.bossFell = { side:target.side, home:!!target.bossLeader };
+}
+// 毎フレーム：ボスが倒れていたら、戦闘を決着させる
+function siteBossFellCheck(){
+  const f = battle.bossFell; if (!f || battle.ended) return;
+  const sb = battle.stage.siteBattle;
+  if (f.home){ battle.homeBossFell = true; endBattle(false, true, "bossFell"); return; }                    // 本拠地のボスが倒れた
+  if (f.side === "enemy"){ if (battle.castlePrev) battle.castlePrev.enemy = 0; battle.enemyCastleHp = 0; endBattle(true, false, "boss"); }     // 敵のボスが倒れた：占領
+  else { if (battle.castlePrev) battle.castlePrev.player = 0; battle.playerCastleHp = 0; endBattle(false, false, "boss"); }                 // 自軍の基地のボスが倒れた：奪われる
+}
+// 本拠地のボスが倒れた：本拠地は、滅びる
+function worldGameOver(msg){
+  if (world.over) return; world.over = true;
+  const d = document.createElement("div"); d.id = "game-over";
+  d.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(12,4,4,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;color:#f0d58a;font-family:var(--mincho);letter-spacing:.2em;text-align:center;padding:24px;";
+  d.innerHTML = '<div style="font-size:1.9rem;font-weight:900;">屍城、滅ぶ</div><div style="font-size:.85rem;color:#cfc29a;line-height:1.9;">' + msg + '</div><button id="game-over-btn" style="font-family:var(--mincho);font-weight:700;letter-spacing:.2em;padding:10px 28px;color:#f0cf6a;background:rgba(40,28,10,.95);border:1px solid #c9a24a;">最初から</button>';
+  document.body.appendChild(d); d.querySelector("#game-over-btn").addEventListener("click", () => { location.reload(); });
+}
+function homeBossInit(){
+  const node = siteNodeOf("castle", "west"), g = WG.west; if (!node || !g) return;
+  const i = siteStartCell("west", "castle"); if (i < 0) return;
+  const l = { id:"BOSS", letter:"主", boss:true, rank:"boss", site:"castle", homeMap:"west", name:node.name, mi:g.mi, x:i % g.gw, y:(i / g.gw) | 0, path:null, pi:0, pf:0, speed:LEADER_BASE_SPEED, team:Object.assign({}, HOME_BOSS_TEAM), kind:HOME_BOSS_KIND, formation:null };
+  world.leaders.push(l); l.speed = leaderSpeedOf(l);
+}
+function siteGarrison(node, mapKey){ return baseBossWaves(node); }              // 敵の基地の守り：ボスと、基地の強さに合わせた3種の兵
 /* =========================================================
    敵のリーダー：ゴブリン族の拠点から、時おり兵を連れて出て、自軍の拠点へ向かう。
    着いた拠点が自軍のものなら、そこを襲う(守りの戦闘。守備兵がいなければ、置いてある補給兵だけで迎え撃つ)。
@@ -4760,6 +5003,11 @@ function enemyLeaderTryRaid(l){
   const route = wgRoute(enemyLeaderNode(l), goals);
   if (!route || route.length < 2){ l.idleT = enemyRaidDelay(); return; }
   l.path = route; l.pi = 0; l.pf = 0; l.state = "out";
+  if (ownKindCount("lookout")){                                                          // 物見基地：襲撃の予告
+    const end = route[route.length - 1], eg = WG[MAP_KEYS[(end / 65536) | 0]], nm = eg.idName[eg.layer[end % 65536]], tn = wmNodesOf(MAP_KEYS[(end / 65536) | 0]).find(n => n.id === nm);
+    const hrs = routeDist(route) / (l.speed * 1) / WORLD_DAY_SEC * 24;
+    showToast("物見：敵のリーダーが、" + (tn ? tn.name : "自軍の拠点") + "へ向かう。着くまで、約" + Math.max(1, Math.round(hrs)) + "時間");
+  }
 }
 function enemyLeaderArrive(l){
   leaderPlace(l, l.path[l.path.length - 1]); l.path = null; l.pi = 0; l.pf = 0;
@@ -5051,10 +5299,10 @@ function buildSiteDeployRow(){
   });
   lus.forEach(e => {                                                     // リーダー(まだ出していなければ)
     const def = CHAR_DEFS[e.kind], btn = document.createElement("button"), lead = world.leaders.find(l => l.id === e.lid);
-    btn.className = "site-unit-btn leader" + (battle.placeKind === "leader:" + e.lid ? " on" : ""); btn.dataset.kind = "leader:" + e.lid; btn.dataset.rname = "リーダー" + (lead ? lead.letter : "") + "(" + def.name + ")"; btn.dataset.reading = ""; btn.dataset.desc = LEADER_AURA[e.kind].text;
+    btn.className = "site-unit-btn leader" + (battle.placeKind === "leader:" + e.lid ? " on" : ""); btn.dataset.kind = "leader:" + e.lid; btn.dataset.rname = "リーダー" + (lead ? lead.letter : "") + "(" + def.name + ")"; btn.dataset.reading = ""; btn.dataset.desc = leaderAuraText(e.kind);
     btn.innerHTML = '<img src="' + def.icon + '" alt="' + def.name + '"><span class="su-n">将' + (lead ? lead.letter : "") + '</span>';
     attachImgFallback(btn.querySelector("img"), def.name);
-    btn.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); battle.placeKind = battle.placeKind === "leader:" + e.lid ? null : "leader:" + e.lid; battle.moveSel = null; siteClearSel(); buildSiteDeployRow(); if (battle.placeKind) showToast("リーダー：" + LEADER_AURA[e.kind].text); });
+    btn.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); battle.placeKind = battle.placeKind === "leader:" + e.lid ? null : "leader:" + e.lid; battle.moveSel = null; siteClearSel(); buildSiteDeployRow(); if (battle.placeKind) showToast("リーダー：" + leaderAuraText(e.kind)); });
     row.appendChild(btn);
   });
   kinds.forEach(kind => {
@@ -5252,7 +5500,20 @@ function siteBattleFieldTap(p){
   return true;
 }
 // 毎フレーム：敵の侵入・勝敗の判定
+// 砦基地：守りの戦闘の始めに、前の列(15列め)に、望楼台と壁が築かれている
+function siteBuildFortressWorks(){
+  const sb = battle.stage.siteBattle; if (sb.fortBuilt || sb.mode !== "defend" || SITE_KIND[sb.siteId] !== "fortress") return; sb.fortBuilt = true;
+  const col = 15;
+  battle.stage.lanes.forEach(lane => {
+    ["watchtowerPlatform", "watchtowerWall"].forEach(kind => {
+      if (!CHAR_DEFS[kind]) return;
+      const st = spawnUnit(kind, "player", 0, { lane }); st.x = columnCenterX(col) - (st.def.structureDisplayWidth || 0) / 2; st.structureCol = col; st.fortWork = true;
+      setMotion(st, "normal", { loop:true }); applyFrame(st);
+    });
+  });
+}
 function siteBattleCheck(){
+  siteBuildFortressWorks();
   siteRefreshRepairers();
   { const sig = (battle.cool || []).filter(c => c.readyAt > battle.time).map(c => c.kind + Math.ceil(c.readyAt - battle.time)).join(","); if (sig !== battle.coolSig){ battle.coolSig = sig; if (battle === shownBattle) buildSiteDeployRow(); } }     // クールタイムの秒数を、召喚欄に出す
   while (battle.formQueue && battle.formQueue.length && battle.formQueue[0].at <= battle.time){ siteFormationSpawn(battle.formQueue.shift()); }     // 陣形の兵を、順に出す
@@ -5267,11 +5528,12 @@ function siteBattleCheck(){
   const sb = battle.stage.siteBattle, enemies = battle.units.filter(u => u.side === "enemy" && !u.dead && !u.def.gateUnit && !u.def.structureUnit);
   if (!battle.siteEnemyEntered && enemies.length){
     battle.siteEnemyEntered = true;
-    if (sb.mode === "defend"){ queueBanner("敵、侵入。戦い、始まる", false, true); battle.hold.player = false;
+    if (sb.mode === "defend"){ queueBanner("敵、侵入。戦い、始まる", false, true); battle.hold.player = false; siteSpawnBaseBoss();            // 基地が攻められた：ボスと陣形が、自動で現れる
       battle.units.forEach(u => { if (u.standTemp && !u.dead){ u.standX = null; u.standDone = false; } });         // 配置しただけの兵は、戦闘が始まったら、歩き出す(陣形の守備は、持ち場のまま)
       battle.moveSel = null; siteClearSel(); buildSiteDeployRow(); }
   }
-  if (battle.ended) return;
+  siteBossFellCheck();
+  if (!battle || battle.ended) return;                                       // ボスが倒れて決着した(戦闘が片付いた)あとは、続けない
   const waves = battle.stage.enemyWaves || [], pendingWaves = battle.nextWave < waves.length;
   const mine = battle.units.filter(u => u.side === "player" && !u.dead && u.siteRoster).length, spare = sumCounts(battle.roster) + (battle.leaderUnits || []).filter(e => !e.placed).length;
   if (sb.mode === "defend"){
@@ -5315,6 +5577,7 @@ function siteBattleFinish(b, win, reason){
     }
   }
   if (sb.aiRaid) aiRaidFinish(b, win);                                                 // 敵の遠征隊による襲撃だった：勝敗を、そちらにも反映する
+  if (b.homeBossFell) worldGameOver("本拠地のボスが倒れ、引き連れた兵は、ことごとく果てた。\n屍城は、滅びた。");
   saveWorld();
 }
 
@@ -5334,14 +5597,64 @@ function leaderIsHomeDefense(lid){
   const l = world.leaders.find(x => x.id === lid); return !!l && l.site === sb.siteId;
 }
 function siteApplyHomeAuraIfNeeded(u){ if (battle && u.siteOrigin && battle.homeAuraLeaders && battle.homeAuraLeaders.has(u.siteOrigin)) unitApplyHomeAura(u); }   // siteOriginを決めたあと、必ず呼ぶ
+// 与えるダメージ(homeAtk)・受けるダメージ(homeCut)の倍率は、強化の元(本拠地の力・階級・ボス)ごとに持ち、ここで、ひとつにまとめる
+// 強化(能力強化基地)：最大HP・攻撃力。出てきた兵に付け、強化したときは、すでにいる兵にも、すぐ付ける
+function unitApplyUpgrade(u){
+  if (u.side !== "player" || !battle || !battle.stage || !battle.stage.siteBattle || u.dead) return;
+  if (u.bossLeader){                                                                  // 本拠地のボス専用
+    const bt = bossUpgTier(), bo = u.upgTier || 0; if (bt === bo) return;
+    unitAddHpMult(u, BOSS_UPG.stat[bt] / BOSS_UPG.stat[bo]); unitSetMod(u, "upg", BOSS_UPG.stat[bt], 1); u.upgTier = bt; return;
+  }
+  const kind = u.deployedKind || u.kind, t = upgradeTier(kind), old = u.upgTier || 0; if (t === old) return;
+  unitAddHpMult(u, UPG_STAT[t] / UPG_STAT[old]); unitSetMod(u, "upg", UPG_STAT[t], 1); u.upgTier = t;
+}
+function upgradeApplyAll(){ battles.forEach(b => { if (!b.ended) withBattle(b, () => { b.units.forEach(u => unitApplyUpgrade(u)); }); }); }
+function popText(u, text){ if (!u || !u.el) return; const d = document.createElement("div"); d.className = "pop-text"; d.textContent = text; u.el.appendChild(d); btimeout(() => d.remove(), 950); }
+let upgGuard = false;
+// 3段階めの能力：攻撃したとき・攻撃を受けたとき
+function upgradeHitMod(att, tgt, amount){
+  if (upgGuard || !battle || !battle.stage || !battle.stage.siteBattle) return amount;
+  if (att && att.bossLeader && bossUpgTier() >= 3 && att.hp < att.hpMax * .5){ if (!att.awakened){ att.awakened = true; popText(att, "覚醒"); } amount *= 1.5; }
+  if (att && att.side === "player" && att.kind){
+    const kind = att.deployedKind || att.kind;
+    if (upgradeTier(kind) >= 3 && !tgt.dead){
+      const r = Math.random();
+      if (kind === "spearman" && tgt.def.race === "beast" && r < .2){ popText(tgt, "会心！"); return amount * 2.5; }
+      if (kind === "soldier" && r < .15 && !att.def.createsSlashWave){ spawnSlashWave(att, 2); popText(att, "衝撃波"); }
+      if (kind === "langxian" && r < .15){ tgt.slowMs = 3000; popText(tgt, "絡め取り"); }
+      if (kind === "scout" && tgt.def.noCombat && r < .35){ popText(tgt, "暗殺"); return Math.max(amount, tgt.hp + 1); }
+      if (kind === "arquebusier" && r < .2){
+        const dir = att.facing === 1 ? 1 : -1; let best = null, bd = 1e9;
+        battle.units.forEach(u => { if (u.dead || u === tgt || u.side === att.side || u.mounted || u.perch || u.def.structureUnit) return; if (!lanesOverlap(u.laneLo, u.laneHi, tgt.laneLo, tgt.laneHi)) return; const d = (u.x - tgt.x) * dir; if (d > 0 && d < 300 && d < bd){ bd = d; best = u; } });
+        if (best){ upgGuard = true; try { applyDamageToUnit(best, amount * .5, att); } finally { upgGuard = false; } popText(att, "貫通"); }
+      }
+    }
+  }
+  if (att && att.def && !att.def.ranged && tgt.side === "player" && !tgt.dead && !att.dead){                 // 楯衛・甲冑兵などの、受けたときの能力
+    const kind = tgt.deployedKind || tgt.kind;
+    if (kind === "armored" && upgradeTier(kind) >= 3 && Math.random() < .2 && att.side === "enemy" && att.kind){ upgGuard = true; try { applyDamageToUnit(att, amount * .3, null); } finally { upgGuard = false; } popText(tgt, "反撃"); }
+  }
+  return amount;
+}
+function unitRecalcMods(u){
+  const m = u.mods || {}; let a = 1, c = 1;
+  for (const k in m){ a *= m[k].atk || 1; c *= m[k].cut || 1; }
+  u.homeAtk = a === 1 ? undefined : a; u.homeCut = c === 1 ? undefined : c;
+}
+function unitSetMod(u, key, atk, cut){ (u.mods || (u.mods = {}))[key] = { atk, cut }; unitRecalcMods(u); }
+function unitApplyRank(u, rk){                                                    // リーダーの階級のバフ(最大HP・攻撃・防御)。本拠地のボスは、大きくもなる
+  if (u.rankApplied) return; u.rankApplied = true; u.rankName = rk.name;
+  unitAddHpMult(u, rk.hp); unitSetMod(u, "rank", rk.atk, rk.cut);
+  if (rk.size){ u.scaleMult = rk.size; }
+}
 function unitApplyHomeAura(u){
   if (u.homeAura) return; u.homeAura = true; u.el.classList.add("home-aura");
   const t = u.isLeader ? HOME_LEADER : HOME_SQUAD;
   if (u.isLeader) u.el.classList.add("home-aura-leader");
   unitAddHpMult(u, t.hp);
-  u.homeAtk = t.atk;      // 与えるダメージ全て(applyDamageToUnit・毒・出血・炎上)に掛かる
-  u.homeCut = t.cut;      // 受けるダメージ全て(getDamageCutMultiplier・出血)に掛かる
+  unitSetMod(u, "home", t.atk, t.cut);      // 与えるダメージ全て(applyDamageToUnit・毒・出血・炎上)・受けるダメージ全て(getDamageCutMultiplier・出血)に掛かる
 }
+function leaderAuraText(kind){ const a = LEADER_AURA[kind] || LEADER_AURA[(CHAR_DEFS[kind] || {}).mutantOf]; return a ? a.text : ""; }       // 変異した厄災などは、リーダー効果がない
 const LEADER_AURA = {
   soldier:{ text:"効果なし" },
   spearman:{ text:"味方の、魔獣への攻撃力が上がる(×1.25)" },
@@ -5450,6 +5763,7 @@ function siteDeployLeader(lid, lane, lx, opts){
   applyFrame(u); if (def.hornAbility) startCommanderHorn(u);
   if (def.canPickRiders) siteBoardCrew(u, opts.crew.slice(0, 4), lid);                     // リーダーの戦車にも、乗員を乗せる
   e.placed = true; e.unit = u;
+  { const lead = world.leaders.find(x => x.id === lid); if (lead){ unitApplyRank(u, leaderRankOf(lead)); if (lead.boss){ u.isBoss = true; u.bossLeader = true; unitApplyUpgrade(u); } } }     // 階級のバフ(本拠地のボスは、専用の強化も)
   battleAddAura(e.kind, "player");
   if (leaderIsHomeDefense(lid)){                                        // 本拠地を守るリーダー：自分の隊に、赤いオーラ(強化・死の連鎖)
     (battle.homeAuraLeaders = battle.homeAuraLeaders || new Set()).add(lid);
@@ -5458,7 +5772,7 @@ function siteDeployLeader(lid, lane, lx, opts){
     showToast("本拠地の力：" + def.name + "の隊が、赤いオーラに包まれた");
   }
   battle.placeKind = null; playSfx(REPO_BASE + "audio/tap_command.opus"); buildSiteDeployRow();
-  showToast("リーダー(" + def.name + ")が、出た。" + LEADER_AURA[e.kind].text);
+  showToast("リーダー(" + def.name + ")が、出た。" + ((LEADER_AURA[e.kind] || {}).text || ""));
   return true;
 }
 
@@ -5823,30 +6137,32 @@ function wmTransportSig(m){ const sp = siteSupply(m.dataset.site); return JSON.s
 /* ---------- リーダー教訓基地：兵を使って、リーダーの兵を作り、好きなリーダーに着かせる ---------- */
 function leaderInBattle(l){ return battles.some(b => !b.ended && b.stage && b.stage.siteBattle && siteBattleLeaderIds(b).has(l.id)); }
 // リーダーは、兵をリーダーにして、はじめて作れる。リーダー教訓基地の補給兵を使い、好きな拠点のリーダーとして着かせる
-function siteFreeForLeader(){ return world.leaders.length >= ownSiteIds().length ? [] : ownSiteIds().filter(id => !siteLeaderOf(id)); }
-function academyCreate(siteId, homeId, kind){
-  const mk = siteMapKeyOf(siteId), sn = mk && siteNodeOf(siteId, mk);
-  if (SITE_KIND[siteId] !== "academy" || !isOwnSite(sn) || !CHAR_DEFS[kind]) return null;
+function siteFreeForLeader(){ return world.leaders.filter(x => !x.boss).length >= ownSiteIds().length ? [] : ownSiteIds().filter(id => !siteLeaderOf(id)); }
+function academyCreate(siteId, homeId, kind, rank){
+  const mk = siteMapKeyOf(siteId), sn = mk && siteNodeOf(siteId, mk), rk = LEADER_RANKS[rank || "platoon"];
+  if (SITE_KIND[siteId] !== "academy" || !isOwnSite(sn) || !CHAR_DEFS[kind] || !rk || LEADER_RANK_ORDER.indexOf(rank || "platoon") < 0) return null;
   if (siteBattleAt(siteId)){ showToast("この基地は、戦闘中"); return null; }
   if (siteFreeForLeader().indexOf(homeId) < 0){ showToast("その拠点には、リーダーを置けない"); return null; }
   const sp = siteSupply(siteId);
-  if ((sp[kind] || 0) < LEADER_TRAIN_COST){ showToast("この基地の補給兵が、足りない(" + LEADER_TRAIN_COST + "人)"); return null; }
+  if ((sp[kind] || 0) < rk.cost){ showToast("この基地の補給兵が、足りない(" + rk.name + "：" + rk.cost + "人)"); return null; }
   const hk = siteMapKeyOf(homeId), l = siteMakeLeader(hk, siteNodeOf(homeId, hk)); if (!l) return null;
-  sp[kind] -= LEADER_TRAIN_COST; if (sp[kind] <= 0) delete sp[kind];
-  l.kind = kind; l.speed = leaderSpeedOf(l); return l;
+  sp[kind] -= rk.cost; if (sp[kind] <= 0) delete sp[kind];
+  l.kind = kind; l.rank = rank || "platoon"; l.speed = leaderSpeedOf(l); return l;
 }
-function academyTrain(siteId, lid, kind){
+function academyTrain(siteId, lid, kind, rank){
   const mk = siteMapKeyOf(siteId), sn = mk && siteNodeOf(siteId, mk);
   if (SITE_KIND[siteId] !== "academy" || !isOwnSite(sn)) return false;
-  const l = world.leaders.find(x => x.id === lid); if (!l) return false;
+  const l = world.leaders.find(x => x.id === lid); if (!l || l.boss) return false;
   if (leaderInBattle(l)){ showToast("戦闘に出ているリーダーは、変えられない"); return false; }
   if (siteBattleAt(siteId)){ showToast("この基地は、戦闘中"); return false; }
   if (!kind) return false;                                                       // リーダーは、兵をリーダーにしていなければ、成り立たない(外すことはできない。別の兵に替える)
+  rank = rank || l.rank || "platoon"; const rk = LEADER_RANKS[rank]; if (!rk || LEADER_RANK_ORDER.indexOf(rank) < 0) return false;
+  if (teamCount(l) > rk.cap){ showToast("連れている兵が多すぎる(" + rk.name + "は" + rk.cap + "人まで)"); return false; }
   const sp = siteSupply(siteId);
-  if ((sp[kind] || 0) < LEADER_TRAIN_COST){ showToast("この基地の補給兵が、足りない(" + LEADER_TRAIN_COST + "人)"); return false; }
-  sp[kind] -= LEADER_TRAIN_COST; if (sp[kind] <= 0) delete sp[kind];
+  if ((sp[kind] || 0) < rk.cost){ showToast("この基地の補給兵が、足りない(" + rk.name + "：" + rk.cost + "人)"); return false; }
+  sp[kind] -= rk.cost; if (sp[kind] <= 0) delete sp[kind];
   if (l.kind) sp[l.kind] = (sp[l.kind] || 0) + 1;                              // 前のリーダーの兵は、この基地の補給兵へ戻る
-  l.kind = kind; l.speed = leaderSpeedOf(l); return true;
+  l.kind = kind; l.rank = rank; l.speed = leaderSpeedOf(l); return true;
 }
 function wmRenderAcademy(m){
   const siteId = m.dataset.site, mapKey = m.dataset.map, node = siteNodeOf(siteId, mapKey), sp = siteSupply(siteId);
@@ -5858,10 +6174,13 @@ function wmRenderAcademy(m){
   m.dataset.leader = lid;
   if (lid === "new"){ if (free.indexOf(m.dataset.home) < 0) m.dataset.home = free[0] || ""; }
   const l = lid && lid !== "new" ? world.leaders.find(x => x.id === lid) : null;
+  const rankId = LEADER_RANKS[m.dataset.rank] && LEADER_RANK_ORDER.indexOf(m.dataset.rank) >= 0 ? m.dataset.rank : ((l && !l.boss && l.rank) || "platoon"); m.dataset.rank = rankId;
+  const RK = LEADER_RANKS[rankId];
   let html = '<div class="md-head"><div class="md-title">リーダーの兵<span>' + node.name + '</span></div><div class="md-wallet">補給 ' + sumCounts(sp) + '</div><button class="md-close">閉じる</button></div>';
-  html += '<div class="md-note">この基地の補給兵を' + LEADER_TRAIN_COST + '人使って、リーダーの兵を作る。兵をリーダーにして、はじめて、リーダーが立つ。新しいリーダーは、好きな拠点に着任させ、いるリーダーには、兵を替えられる(前の兵は、この基地の補給兵へ戻る)。リーダーの兵は、戦場に出ると、選んだ兵ごとの効果を、同じ戦線の味方全員に与える。</div>';
+  html += '<div class="md-row"><span class="md-lab">階級</span>' + LEADER_RANK_ORDER.map(id => { const r = LEADER_RANKS[id]; return '<button class="md-tgt' + (id === rankId ? ' on' : '') + '" data-r="' + id + '">' + r.name + '<em>' + r.cost + '人・隊員' + r.cap + '・' + r.note + '</em></button>'; }).join("") + '</div>';
+  html += '<div class="md-note">この基地の補給兵を使って、リーダーの兵を作る(階級で、使う数が変わる)。兵をリーダーにして、はじめて、リーダーが立つ。新しいリーダーは、好きな拠点に着任させ、いるリーダーには、兵を替えられる(前の兵は、この基地の補給兵へ戻る)。リーダーの兵は、戦場に出ると、選んだ兵ごとの効果を、同じ戦線の味方全員に与える。</div>';
   html += '<div class="md-row"><span class="md-lab">リーダー</span>';
-  world.leaders.forEach(x => { html += '<button class="md-tgt' + (x.id === lid ? ' on' : '') + '" data-l="' + x.id + '">' + x.letter + '<em>' + (x.kind ? CHAR_DEFS[x.kind].name : '空位') + '</em></button>'; });
+  world.leaders.filter(x => !x.boss).forEach(x => { html += '<button class="md-tgt' + (x.id === lid ? ' on' : '') + '" data-l="' + x.id + '">' + x.letter + '<em>' + (x.kind ? leaderRankOf(x).name + '・' + CHAR_DEFS[x.kind].name : '空位') + '</em></button>'; });
   if (free.length) html += '<button class="md-tgt' + (lid === "new" ? ' on' : '') + '" data-l="new">＋新しいリーダー</button>';
   if (!world.leaders.length && !free.length) html += '<span class="md-empty">リーダーを置ける拠点が、ない</span>';
   html += '</div>';
@@ -5869,19 +6188,20 @@ function wmRenderAcademy(m){
     html += '<div class="md-row"><span class="md-lab">着任する拠点</span>';
     free.forEach(id => { const dn = siteNodeOf(id, siteMapKeyOf(id)), ki = siteKindInfo(id); html += '<button class="md-tgt' + (m.dataset.home === id ? ' on' : '') + '" data-h="' + id + '">' + (ki ? '[' + ki.mark + ']' : '') + dn.name + '</button>'; });
     html += '</div>';
-  } else if (l && l.kind){ const d = CHAR_DEFS[l.kind]; html += '<div class="md-row"><span class="md-lab">いまの兵</span><span class="lp-now"><img src="' + d.icon + '" alt="">' + d.name + '　' + LEADER_AURA[l.kind].text + '</span></div>'; }
+  } else if (l && l.kind){ const d = CHAR_DEFS[l.kind]; html += '<div class="md-row"><span class="md-lab">いまの兵</span><span class="lp-now"><img src="' + d.icon + '" alt="">' + d.name + '　' + leaderAuraText(l.kind) + '</span></div>'; }
   html += '<div class="dp-list">';
   const kinds = HIRE_KINDS.filter(k => (sp[k] || 0) > 0);
   if (!kinds.length) html += '<div class="md-empty">この基地に、補給兵がいない。ほかの拠点から、兵を輸送で送る。</div>';
-  kinds.forEach(k => { const d = CHAR_DEFS[k], ok = (sp[k] || 0) >= LEADER_TRAIN_COST && !!lid; html += '<div class="dp-row lp-row' + (l && l.kind === k ? ' cur' : '') + '" data-k="' + k + '"><img src="' + d.icon + '" alt=""><div class="dp-main"><div class="dp-name">' + d.name + '<em>×' + sp[k] + '</em></div><div class="dp-sub">' + LEADER_AURA[k].text + '</div></div><div class="dp-act"><button class="dp-btn"' + (ok ? '' : ' disabled') + '>' + (lid === "new" ? '立てる' : '着かせる') + '　' + LEADER_TRAIN_COST + '人</button></div></div>'; });
+  kinds.forEach(k => { const d = CHAR_DEFS[k], ok = (sp[k] || 0) >= RK.cost && !!lid; html += '<div class="dp-row lp-row' + (l && l.kind === k ? ' cur' : '') + '" data-k="' + k + '"><img src="' + d.icon + '" alt=""><div class="dp-main"><div class="dp-name">' + d.name + '<em>×' + sp[k] + '</em></div><div class="dp-sub">' + leaderAuraText(k) + '</div></div><div class="dp-act"><button class="dp-btn"' + (ok ? '' : ' disabled') + '>' + (lid === "new" ? '立てる' : '着かせる') + '　' + RK.cost + '人</button></div></div>'; });
   m.innerHTML = html + '</div>'; m.dataset.sig = wmTransportSig(m);
   m.querySelector(".md-close").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmModalClose(); });
-  m.querySelectorAll(".md-tgt[data-l]").forEach(b => b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); m.dataset.leader = b.dataset.l; wmRenderAcademy(m); }));
+  m.querySelectorAll(".md-tgt[data-l]").forEach(b => b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); m.dataset.leader = b.dataset.l; delete m.dataset.rank; wmRenderAcademy(m); }));
+  m.querySelectorAll(".md-tgt[data-r]").forEach(b => b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); m.dataset.rank = b.dataset.r; wmRenderAcademy(m); }));
   m.querySelectorAll(".md-tgt[data-h]").forEach(b => b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); m.dataset.home = b.dataset.h; wmRenderAcademy(m); }));
   m.querySelectorAll(".lp-row .dp-btn").forEach(b => b.addEventListener("click", () => {
     const k = b.closest(".lp-row").dataset.k;
-    if (lid === "new"){ const nl = academyCreate(siteId, m.dataset.home, k); if (nl){ playSfx(REPO_BASE + "audio/tap_command.opus"); m.dataset.leader = nl.id; showToast("リーダー" + nl.letter + "が、" + nl.name + "に着任した"); wmBuildChips(); wmRenderAcademy(m); wmUpdateUi(); } return; }
-    if (academyTrain(siteId, lid, k)){ playSfx(REPO_BASE + "audio/tap_command.opus"); wmBuildChips(); wmRenderAcademy(m); wmUpdateUi(); }
+    if (lid === "new"){ const nl = academyCreate(siteId, m.dataset.home, k, rankId); if (nl){ playSfx(REPO_BASE + "audio/tap_command.opus"); m.dataset.leader = nl.id; showToast(leaderRankOf(nl).name + nl.letter + "が、" + nl.name + "に着任した"); wmBuildChips(); wmRenderAcademy(m); wmUpdateUi(); } return; }
+    if (academyTrain(siteId, lid, k, rankId)){ playSfx(REPO_BASE + "audio/tap_command.opus"); wmBuildChips(); wmRenderAcademy(m); wmUpdateUi(); }
   }));
 }
 // 表示中の輸送・教訓の画面を、中身が変わったときだけ、描き直す(押している最中のボタンを壊さない)
@@ -5925,9 +6245,16 @@ function wmRefreshNode(n){
   root.querySelectorAll('.wm-node[data-id="' + n.id + '"]').forEach(old => { const nu = wmMakeNode(n); if (old.classList.contains("sel")) nu.classList.add("sel"); old.replaceWith(nu); });
 }
 // 毎朝、屍をもらう(敵も同じ)
+// 療養基地：討たれた兵の2割が、毎朝、補給兵として戻る(療養基地ごとに。最大3つぶん)
+function recoveryTick(){
+  const bases = ownSiteIds().filter(id => SITE_KIND[id] === "recovery").slice(0, 3); if (!bases.length || !world.fallen) return 0; let back = 0;
+  bases.forEach(id => { const sp = siteSupply(id); Object.keys(world.fallen).forEach(k => { const n = world.fallen[k] || 0; if (n <= 0) return; const r = Math.min(n, Math.max(1, Math.round(n * .2))); world.fallen[k] -= r; if (world.fallen[k] <= 0) delete world.fallen[k]; sp[k] = (sp[k] || 0) + r; back += r; }); });
+  return back;
+}
+function fallenText(){ const k = Object.keys(world.fallen || {}).filter(x => CHAR_DEFS[x] && world.fallen[x] > 0); return k.length ? k.map(x => CHAR_DEFS[x].name + "×" + world.fallen[x]).join("・") : "いない"; }
 function worldDayTick(){
   const d = envWxDayOf(envHours()); if (world.dayIdx == null) world.dayIdx = d;
-  while (world.dayIdx < d){ world.dayIdx++; world.corpse += DAILY_CORPSE.player; world.enemyCorpse = (world.enemyCorpse || 0) + DAILY_CORPSE.enemy; showToast("朝になった：屍 +" + DAILY_CORPSE.player); }
+  while (world.dayIdx < d){ world.dayIdx++; world.corpse += DAILY_CORPSE.player; world.enemyCorpse = (world.enemyCorpse || 0) + DAILY_CORPSE.enemy; const n = dailySupplyTick(true), rb = recoveryTick(); showToast("朝になった：屍 +" + DAILY_CORPSE.player + (n ? "、補給兵 +" + n + "体" : "") + (rb ? "、療養で、兵 +" + rb + "体" : "")); }
 }
 function wmRenderBuild(m){
   const siteId = m.dataset.site, mapKey = m.dataset.map, node = siteNodeOf(siteId, mapKey);
@@ -5954,7 +6281,7 @@ function wmModalOpen(kind, siteId, mapKey, extra){
   delete m.dataset.target; delete m.dataset.leader; m._tp = null;         // 開くたびに、その拠点に立っているリーダー(選んでいれば、そのリーダー)から始める
   if (kind === "leader") kind = m.dataset.kind = "academy";               // リーダーの兵は、リーダー教訓基地で作る
   if (extra) m.dataset.leader = extra;
-  if (kind === "depot") wmRenderDepot(m); else if (kind === "academy") wmRenderAcademy(m); else if (kind === "transport") wmRenderTransport(m); else if (kind === "build") wmRenderBuild(m); else wmRenderSupply(m);
+  if (kind === "depot") wmRenderDepot(m); else if (kind === "academy") wmRenderAcademy(m); else if (kind === "transport") wmRenderTransport(m); else if (kind === "build") wmRenderBuild(m); else if (kind === "upgrade") wmRenderUpgrade(m); else if (kind === "mutate") wmRenderMutate(m); else wmRenderSupply(m);
 }
 function wmModalRefresh(){
   const m = wmModalEl(); if (!m || !m.classList.contains("on")) return;
@@ -5968,48 +6295,79 @@ function siteNodeOf(siteId, mapKey){ return wmNodesOf(mapKey).find(n => n.id ===
 function wmRenderDepot(m){
   const siteId = m.dataset.site, mapKey = m.dataset.map, node = siteNodeOf(siteId, mapKey);
   let html = '<div class="md-head"><div class="md-title">補給所<span>' + node.name + '</span></div><div class="md-wallet" id="dp-wallet">屍 ' + Math.floor(world.corpse) + '</div><button class="md-close">閉じる</button></div>';
-  html += '<div class="md-note">兵は、時間がたつと、補給基地(と、本拠地の基本の兵科)に溜まる。解放しない兵は、溜まらない。溜まった兵は、輸送で、ほかの拠点へ送る。解放と速度アップは、すべての拠点で共通。</div><div class="dp-list">';
+  html += '<div class="md-note">兵は、毎朝(5時)、補給基地(と、本拠地の基本の兵科)に、1日ぶんが補給される。1日の最中は、補給されない。解放しない兵は、補給されない。溜まった兵は、輸送で、ほかの拠点へ送る。解放は、すべての拠点で共通。兵の強化は、能力強化基地で行う。</div><div class="dp-list">';
   HIRE_KINDS.forEach(k => {
-    const def = CHAR_DEFS[k]; if (!def) return; const un = !!world.depot.unlocked[k];
-    html += '<div class="dp-row' + (un ? '' : ' lock') + '" data-k="' + k + '"><img src="' + def.icon + '" alt=""><div class="dp-main"><div class="dp-name">' + def.name + '<em>' + supplyCost(k) + '屍</em></div><div class="dp-sub"></div><div class="dp-bar"><i></i></div></div><div class="dp-act"></div></div>';
+    const def = CHAR_DEFS[k]; if (!def) return;
+    html += '<div class="dp-row" data-k="' + k + '"><img src="' + def.icon + '" alt=""><div class="dp-main"><div class="dp-name">' + def.name + '<em>' + supplyCost(k) + '屍</em></div><div class="dp-sub"></div></div><div class="dp-act"></div></div>';
   });
   m.innerHTML = html + '</div>';
   m.querySelector(".md-close").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmModalClose(); });
   m.querySelectorAll(".dp-row").forEach(row => wmDepotFillRow(row, siteId));
 }
-// 1行ぶんの表示と、ボタン(解放・速度アップ)
 function wmDepotFillRow(row, siteId){
-  const k = row.dataset.k, un = !!world.depot.unlocked[k], sp = siteSupply(siteId), pg = world.supplyProg[siteId] || {};
+  const k = row.dataset.k, un = !!world.depot.unlocked[k], sp = siteSupply(siteId);
   row.classList.toggle("lock", !un);
-  const sub = row.querySelector(".dp-sub"), bar = row.querySelector(".dp-bar i"), act = row.querySelector(".dp-act");
+  const sub = row.querySelector(".dp-sub"), act = row.querySelector(".dp-act");
+  const homeOnly = !siteProduces(siteId, k);
   if (!un){
-    sub.textContent = "未解放　溜まらない"; bar.style.width = "0%";
+    sub.innerHTML = "未解放　補給されない　(解放すると、1日 <b>" + dailySupplyOf(k) + "体</b>)";
     const c = supplyUnlockCost(k);
     if (act.dataset.mode !== "unlock"){ act.dataset.mode = "unlock"; act.innerHTML = '<button class="dp-btn"></button>'; act.firstChild.addEventListener("click", () => wmDepotBuy(k, "unlock", siteId)); }
     act.firstChild.textContent = "解放　" + c; act.firstChild.disabled = world.corpse < c; return;
   }
-  const cap = supplyCap(k), have = sp[k] || 0, full = have >= cap;
-  sub.textContent = "在庫 " + have + "/" + cap + "　間隔 " + Math.round(supplyInterval(k)) + "秒　速度 Lv" + supplyLevel(k) + "/" + SUPPLY_MAX_LEVEL + (full ? "　満杯" : "");
-  bar.style.width = (full ? 100 : Math.min(100, (pg[k] || 0) * 100)) + "%";
-  const up = supplyUpgradeCost(k);
-  if (act.dataset.mode !== "up"){ act.dataset.mode = "up"; act.innerHTML = '<button class="dp-btn"></button>'; act.firstChild.addEventListener("click", () => wmDepotBuy(k, "up", siteId)); }
-  if (up == null){ act.firstChild.textContent = "速度 最大"; act.firstChild.disabled = true; }
-  else { act.firstChild.textContent = "速度UP　" + up; act.firstChild.disabled = world.corpse < up; }
+  sub.innerHTML = "在庫 " + (sp[k] || 0) + "　1日 <b>" + dailySupplyOf(k) + "体</b>" + (UPGRADABLE.indexOf(k) >= 0 ? "　強化 Lv" + upgradeTier(k) + "/3" : "　強化できない") + (homeOnly ? (HEAVY_KINDS.indexOf(k) !== -1 ? "　(重装備：工廠基地でだけ、補給される)" : "　(この拠点では、補給されない)") : "");
+  if (act.dataset.mode !== "done"){ act.dataset.mode = "done"; act.innerHTML = '<button class="dp-btn" disabled>解放済み</button>'; }
 }
 function wmDepotBuy(k, what, siteId){
-  const c = what === "unlock" ? supplyUnlockCost(k) : supplyUpgradeCost(k);
-  if (c == null) return;
+  const c = supplyUnlockCost(k);
   if (world.corpse < c){ showToast("屍が、足りない"); return; }
   world.corpse -= c; playSfx(REPO_BASE + "audio/tap_command.opus");
-  if (what === "unlock") world.depot.unlocked[k] = true; else world.depot.level[k] = supplyLevel(k) + 1;
+  world.depot.unlocked[k] = true;
   wmDepotLive(); wmUpdateUi();
 }
-// 表示中の補給所を、押しているボタンを壊さないよう、文字と棒だけ更新する
+// 表示中の補給所を、押しているボタンを壊さないよう、文字だけ更新する
 function wmDepotLive(){
   const m = wmModalEl(); if (!m || !m.classList.contains("on") || m.dataset.kind !== "depot") return;
   const w = m.querySelector("#dp-wallet"); if (w) w.textContent = "屍 " + Math.floor(world.corpse);
   m.querySelectorAll(".dp-row").forEach(row => wmDepotFillRow(row, m.dataset.site));
 }
+// 能力強化基地：兵ごとに、3段階の強化(全拠点に効く。すでにいる兵も、すぐ強くなる)
+function wmRenderUpgrade(m){
+  const siteId = m.dataset.site, node = siteNodeOf(siteId, m.dataset.map);
+  if (!node || SITE_KIND[siteId] !== "upgrade" || !isOwnSite(node)){ wmModalClose(); return; }
+  let html = '<div class="md-head"><div class="md-title">能力強化<span>' + node.name + '</span></div><div class="md-wallet" id="up-wallet">屍 ' + Math.floor(world.corpse) + '</div><button class="md-close">閉じる</button></div>';
+  html += '<div class="md-note">兵ごとに、3段階まで強化できる。強化すると、最大HP・攻撃力が上がり、1日の補給数が+1体ずつ増える。3段階めは、その兵だけの特別な能力が付く。全拠点のその兵(いま戦場にいる兵も)に、すぐ効く。強化できない兵もいる。</div><div class="dp-list">';
+  { const bt = bossUpgTier(), bc = bossUpgCost(), bi = (world.leaders.find(l => l.boss) || {}).kind || HOME_BOSS_KIND, def = CHAR_DEFS[bi] || CHAR_DEFS[HOME_BOSS_KIND];
+    const sub = bt >= 3 ? "最大HP・攻撃力 ×" + BOSS_UPG.stat[3] + "　<b>" + BOSS_UPG.t3.name + "</b>：" + BOSS_UPG.t3.text : "いま ×" + BOSS_UPG.stat[bt] + "　→　<b>×" + BOSS_UPG.stat[bt + 1] + "</b>" + (bt === 2 ? "　<b>＋" + BOSS_UPG.t3.name + "</b>：" + BOSS_UPG.t3.text : "");
+    html += '<div class="dp-row boss" data-boss="1"><img src="' + def.icon + '" alt=""><div class="dp-main"><div class="dp-name">本拠地のボス<span class="dp-stars">' + "★".repeat(bt) + "☆".repeat(3 - bt) + '</span></div><div class="dp-sub">' + sub + '</div></div><div class="dp-act"><button class="dp-btn"' + (bt >= 3 || world.corpse < bc ? ' disabled' : '') + '>' + (bt >= 3 ? '最大' : '強化　' + bc) + '</button></div></div>'; }
+  UPGRADABLE.filter(k => CHAR_DEFS[k]).concat(HIRE_KINDS.filter(k => CHAR_DEFS[k] && UPGRADABLE.indexOf(k) < 0)).forEach(k => {
+    const def = CHAR_DEFS[k], up = UPGRADABLE.indexOf(k) >= 0, t = upgradeTier(k), cost = upgradeCost(k), un = !!world.depot.unlocked[k];
+    let sub;
+    if (!up) sub = "強化できない";
+    else if (t >= 3) sub = upgradeStatText(3) + "　1日 <b>" + dailySupplyOf(k) + "体</b>　<b>" + UPG_T3[k].name + "</b>：" + UPG_T3[k].text;
+    else sub = "いま " + upgradeStatText(t) + "　→　<b>" + upgradeStatText(t + 1) + "</b>　1日 " + dailySupplyOf(k) + "→<b>" + (dailySupplyOf(k) + 1) + "体</b>" + (t === 2 ? "　<b>＋" + UPG_T3[k].name + "</b>：" + UPG_T3[k].text : "");
+    html += '<div class="dp-row' + (up ? '' : ' noup') + '" data-k="' + k + '"><img src="' + def.icon + '" alt=""><div class="dp-main"><div class="dp-name">' + def.name + (up ? '<span class="dp-stars">' + "★".repeat(t) + "☆".repeat(3 - t) + '</span>' : '') + (un ? '' : '<em>未解放</em>') + '</div><div class="dp-sub">' + sub + '</div></div><div class="dp-act">' + (up ? '<button class="dp-btn"' + (t >= 3 || world.corpse < cost ? ' disabled' : '') + '>' + (t >= 3 ? '最大' : '強化　' + cost) + '</button>' : '') + '</div></div>';
+  });
+  m.innerHTML = html + '</div>';
+  m.querySelector(".md-close").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmModalClose(); });
+  m.querySelectorAll(".dp-row .dp-btn").forEach(b => b.addEventListener("click", () => { const row = b.closest(".dp-row"); if (row.dataset.boss ? bossUpgradeBuy() : upgradeBuy(row.dataset.k)) wmRenderUpgrade(m); }));
+}
+function upgradeBuy(kind){
+  const cost = upgradeCost(kind); if (cost == null) return false;
+  if (!ownUpgradeBase()){ showToast("能力強化基地が、ない"); return false; }
+  if (world.corpse < cost){ showToast("屍が、足りない"); return false; }
+  world.corpse -= cost; world.depot.level[kind] = upgradeTier(kind) + 1; playSfx(REPO_BASE + "audio/tap_command.opus");
+  upgradeApplyAll(); showToast(CHAR_DEFS[kind].name + "を強化した：Lv" + upgradeTier(kind) + (upgradeTier(kind) === 3 ? "　" + UPG_T3[kind].name : ""));
+  wmUpdateUi(); return true;
+}
+function bossUpgradeBuy(){
+  const cost = bossUpgCost(); if (cost == null) return false;
+  if (!ownUpgradeBase()){ showToast("能力強化基地が、ない"); return false; }
+  if (world.corpse < cost){ showToast("屍が、足りない"); return false; }
+  world.corpse -= cost; world.depot.bossLevel = bossUpgTier() + 1; playSfx(REPO_BASE + "audio/tap_command.opus");
+  upgradeApplyAll(); showToast("本拠地のボスを強化した：Lv" + bossUpgTier() + (bossUpgTier() === 3 ? "　" + BOSS_UPG.t3.name : "")); wmUpdateUi(); return true;
+}
+function ownUpgradeBase(){ return ownSiteIds().some(id => SITE_KIND[id] === "upgrade"); }
 function wmRenderSupply(m){
   const siteId = m.dataset.site, mapKey = m.dataset.map, node = siteNodeOf(siteId, mapKey), present = leadersAtSite(siteId), sp = siteSupply(siteId);
   let lid = m.dataset.leader; if (!present.some(l => l.id === lid)) lid = present.length ? (present.find(l => l.id === world.sel) || present[0]).id : null; m.dataset.leader = lid || "";
@@ -6018,14 +6376,14 @@ function wmRenderSupply(m){
   if (!l){ html += '<div class="md-note">この拠点に、リーダーがいない。リーダーが着くと、補給兵をチームに入れられる。</div>'; }
   else {
     html += '<div class="md-row"><span class="md-lab">チーム</span>';
-    present.forEach(x => { html += '<button class="md-tgt' + (x.id === lid ? ' on' : '') + '" data-l="' + x.id + '">リーダー' + x.letter + '<em>' + teamCount(x) + '/' + TEAM_CAP + '</em></button>'; });
+    present.forEach(x => { html += '<button class="md-tgt' + (x.id === lid ? ' on' : '') + '" data-l="' + x.id + '">リーダー' + x.letter + '<em>' + teamCount(x) + '/' + leaderCap(x) + '</em></button>'; });
     html += '</div>';
   }
   html += '<div class="md-cols"><div class="md-col"><div class="md-colhead">補給兵(' + node.name + ')　' + sumCounts(sp) + '人</div>';
   const sk = Object.keys(sp).filter(k => sp[k] > 0);
   if (!sk.length) html += '<div class="md-empty">いない</div>';
   sk.forEach(k => { html += '<div class="md-line">' + unitBadge(k, sp[k]) + (l ? '<button class="mv" data-to="team" data-k="' + k + '" data-n="1">＋1</button><button class="mv" data-to="team" data-k="' + k + '" data-n="all">全部</button>' : '') + '</div>'; });
-  html += '</div><div class="md-col"><div class="md-colhead">' + (l ? 'リーダー' + l.letter + 'のチーム　' + teamCount(l) + '/' + TEAM_CAP + '人' : 'チーム') + '</div>';
+  html += '</div><div class="md-col"><div class="md-colhead">' + (l ? 'リーダー' + l.letter + 'のチーム　' + teamCount(l) + '/' + leaderCap(l) + '人' : 'チーム') + '</div>';
   if (l){
     const tk = Object.keys(l.team).filter(k => l.team[k] > 0);
     if (!tk.length) html += '<div class="md-empty">いない</div>';
@@ -6043,7 +6401,7 @@ function wmRenderSupply(m){
 function wmMoveUnit(siteId, l, kind, to, n, m){
   if (!l) return; const sp = siteSupply(siteId);
   if (to === "team"){
-    const room = TEAM_CAP - teamCount(l); if (room <= 0){ showToast("チームは、" + TEAM_CAP + "人まで"); return; }
+    const cap = leaderCap(l), room = cap - teamCount(l); if (room <= 0){ showToast(leaderRankOf(l).name + "は、隊員" + cap + "人まで"); return; }
     const cnt = Math.min(n === "all" ? sp[kind] : +n, sp[kind] || 0, room); if (cnt <= 0) return;
     sp[kind] -= cnt; if (sp[kind] <= 0) delete sp[kind]; l.team[kind] = (l.team[kind] || 0) + cnt;
   } else {
@@ -6081,14 +6439,14 @@ function wmSiteMenuHtml(n, mapKey){
   const here = leadersAtSite(n.id), sl = siteLeaderOf(n.id);
   let h = '<div class="wi-stat">この拠点のリーダー：' + (sl ? sl.letter + (sl.kind ? '(' + CHAR_DEFS[sl.kind].name + ')' : '(空位：兵を、リーダーにする)') : 'まだ、いない(リーダーは、リーダー教訓基地で、兵を選んで作る)') + '</div>';
   h += '<div class="wi-stat">補給兵 ' + sumCounts(siteSupply(n.id)) + '人　' + (here.length ? 'リーダー：' + here.map(l => l.letter).join("・") + (here.length > 1 ? '(配置に出る：' + battleLeadersAt(n.id).map(l => l.letter).join("・") + ')' : '') : 'リーダーは、いない') + '</div>';
-  h += '<div class="wi-menu">' + (siteHasDepot(n.id) ? '<button class="wi-m" data-m="depot">補給所</button>' : '') + '<button class="wi-m" data-m="place">配置</button><button class="wi-m" data-m="transport">輸送</button>' + (SITE_KIND[n.id] === "academy" ? '<button class="wi-m" data-m="academy">リーダーの兵</button>' : '') + (SITE_KIND[n.id] !== "home" ? '<button class="wi-m" data-m="rebuild">改築</button>' : '');
+  h += '<div class="wi-menu">' + (siteHasDepot(n.id) ? '<button class="wi-m" data-m="depot">補給所</button>' : '') + '<button class="wi-m" data-m="place">配置</button><button class="wi-m" data-m="transport">輸送</button>' + (SITE_KIND[n.id] === "academy" ? '<button class="wi-m" data-m="academy">リーダーの兵</button>' : '') + (SITE_KIND[n.id] === "upgrade" ? '<button class="wi-m" data-m="upgrade">強化</button>' : '') + (SITE_KIND[n.id] === "beast" ? '<button class="wi-m" data-m="mutate">変異</button>' : '') + (SITE_KIND[n.id] !== "home" ? '<button class="wi-m" data-m="rebuild">改築</button>' : '');
   if (here.length) h += '<button class="wi-m" data-m="supply">補給兵</button>';
   return h + '</div>';
 }
 function wmBindSiteMenu(info, n, mapKey){
   info.querySelectorAll(".wi-m").forEach(b => b.addEventListener("click", ev => {
     ev.stopPropagation(); playSfx(REPO_BASE + "audio/tap_common.opus"); const k = b.dataset.m;
-    if (k === "depot" || k === "supply" || k === "transport" || k === "academy"){ wmHideInfo(); wmModalOpen(k, n.id, mapKey); }
+    if (k === "depot" || k === "supply" || k === "transport" || k === "academy" || k === "upgrade" || k === "mutate"){ wmHideInfo(); wmModalOpen(k, n.id, mapKey); }
     else if (k === "build" || k === "rebuild"){ wmHideInfo(); wmModalOpen("build", n.id, mapKey); }
     else if (k === "tobattle"){ wmHideInfo(); battleFromMap(siteBattleAt(n.id)); }
     else if (k === "join"){ wmHideInfo(); const bb2 = siteBattleAt(n.id); if (!bb2) return; const cand = siteJoinCandidates(n.id, bb2), sel = cand.filter(l => wmIsSel(l.id)); siteBattleJoin(sel.length ? sel : cand, bb2); }
@@ -6117,7 +6475,7 @@ function wmBuildChips(){
   const box = wmState.root && wmState.root.querySelector(".wm-leaders"); if (!box) return;
   box.innerHTML = "";
   world.leaders.forEach(l => {
-    const b = document.createElement("button"); b.className = "wm-chip"; b.dataset.lid = l.id; wmLeaderFace(b, l); b.title = l.name;
+    const b = document.createElement("button"); b.className = "wm-chip"; b.dataset.lid = l.id; wmLeaderFace(b, l); b.title = leaderRankOf(l).name + "　" + l.name;
     b.addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); wmSelectLeader(l.id, "chip"); });
     box.appendChild(b);
   });
@@ -7079,7 +7437,7 @@ function spawnUnit(kind, side, xOffset, opts){
   const fieldWidth = field.clientWidth;
 
   const el = document.createElement("div");
-  el.className = "unit-sprite";
+  el.className = "unit-sprite" + (def.mutantOf ? " mutant" : "");
   const img = document.createElement("img");
   img.addEventListener("load", () => {
     const curDef = (img._ownerUnit && img._ownerUnit.def) || def; // 形態変化(女王)で定義が入れ替わることがあるので、現在の定義を見る
@@ -7238,6 +7596,7 @@ function spawnUnit(kind, side, xOffset, opts){
   if (def.blendScreen) img.style.mixBlendMode = "screen";
   if (def.invulnerable) uhp.style.display = "none";
   battle.units.push(unit);
+  unitApplyUpgrade(unit);                                                 // 強化(能力強化基地)：最大HP・攻撃力
   setUnitLane(unit, (opts && opts.lane != null) ? opts.lane : defaultLane());
   unit.homeLane = unit.lane;
   setMotion(unit, "idle");
@@ -7319,10 +7678,10 @@ function getEffectiveAtk(unit){
   return atk;
 }
 function getEffectiveSpeed(unit, baseSpeed){
-  return baseSpeed * getBuffFactor(unit, "buffSpeedMult") * (unit.aura ? unit.aura.speed : 1) * envMult(battle && battle.env, unit, "speed");     // 夜・雨
+  return baseSpeed * (unit.slowMs > 0 ? .5 : 1) * getBuffFactor(unit, "buffSpeedMult") * (unit.aura ? unit.aura.speed : 1) * envMult(battle && battle.env, unit, "speed");     // 夜・雨
 }
 function getDamageCutMultiplier(unit){
-  let f = getBuffFactor(unit, "buffDamageCutMult") * (unit.aura ? unit.aura.cut : 1) * (unit.homeCut || 1);   // 本拠地の力：物理・属性・毒/炎上・特殊攻撃、どれも同じだけ軽くなる
+  let f = (unit.bossLeader && bossUpgTier() >= 3 && unit.hp < unit.hpMax * .5 ? .8 : 1) * getBuffFactor(unit, "buffDamageCutMult") * (unit.aura ? unit.aura.cut : 1) * (unit.homeCut || 1);   // 本拠地の力：物理・属性・毒/炎上・特殊攻撃、どれも同じだけ軽くなる
   if (unit.hornBuffUntil && battle && battle.time < unit.hornBuffUntil) f *= (unit.hornDamageCutMult != null ? unit.hornDamageCutMult : 0.5); // 指揮官の号令：被ダメージ大幅軽減
   return f;
 }
@@ -9885,14 +10244,14 @@ function playIncendiaryBurst(unit){
 
 /* ---------- 指揮官：斬道の衝撃波(貫通)と、角笛(全軍バフ) ---------- */
 // 斬撃の瞬間、前方へ走り抜ける斬道の衝撃波を1本発生させる。途中の敵を貫通して、それぞれに1回だけ当たる
-function spawnSlashWave(unit){
+function spawnSlashWave(unit, mult){
   if (!battle) return;
   const def = unit.def;
   const dir = unit.facing === 1 ? 1 : -1;
   battle.slashWaves = battle.slashWaves || [];
   battle.slashWaves.push({
     x: unit.x + (unit._displayWidth || 0) / 2, lane: unit.lane, dir, side: unit.side,
-    speed: def.slashWaveSpeed || 900, damage: def.slashWaveDamage || def.atk || 0,
+    speed: def.slashWaveSpeed || 900, damage: (def.slashWaveDamage || def.atk || 0) * (mult || 1),
     maxDist: def.slashWaveRange || 400, traveled: 0, hitSet: new Set(),
     visFrame: 0, visTimer: 0, el: null
   });
@@ -10928,6 +11287,10 @@ function afterReaction(unit){
 }
 
 function killUnit(target){
+  if (target.side === "player" && target.siteRoster && !target.isLeader && !target.noCorpse && battle && battle.stage && battle.stage.siteBattle && !target.fallenCounted){            // 療養基地：討たれた兵を数える
+    target.fallenCounted = true; const fk = target.deployedKind || target.kind; if (world.fallen) world.fallen[fk] = (world.fallen[fk] || 0) + 1;
+  }
+  if (target.isBoss && !target.bossHandled) onBossKilled(target);        // 基地のボス・本拠地のボスが倒れた：引き連れた兵は全滅
   if (target.isLeader && !target.homeAuraCascading && battle && battle.homeAuraLeaders && battle.homeAuraLeaders.has(target.leaderId)){
     target.homeAuraCascading = true;                                    // 本拠地のリーダーが死んだ：隊員は、全員、即死する(二重に連鎖しないよう、印を付けておく)
     const mates = battle.units.filter(u => !u.dead && u !== target && u.siteOrigin === target.leaderId);
@@ -10950,7 +11313,7 @@ function killUnit(target){
   if (target.perch) dropDeadFromTower(target); // 台の上・壁の上で倒れた：地面へ落ちる
   if (target.def.structureUnit){ collapseStructure(target); return; } // 望楼台・壁は、専用の崩れ方をする
   // 屍：敵味方を問わず、倒れたユニットの値段に応じてたまる(ゲートなど値段のないものは、たまらない)
-  if (battle && target.def.cost > 0){
+  if (battle && target.def.cost > 0 && !target.noCorpse){
     const rate = battle.stage.corpseGainRate != null ? battle.stage.corpseGainRate : CORPSE_GAIN_RATE;
     if (battle.stage.siteBattle){                                      // 拠点の戦闘：倒された側ではなく、倒した側の屍になる(リーダーを倒すと、上乗せ)
       const amt = target.def.cost * rate + ((target.isLeader || target.isEnemyLeader) ? LEADER_KILL_CORPSE : 0);
@@ -11135,6 +11498,7 @@ function updateRevive(dtMs){
 
 function applyDamageToUnit(target, amount, attacker){
   if (target.dead) return;
+  if (attacker) amount = upgradeHitMod(attacker, target, amount);       // 強化の、3段階めの能力
   // 火炎属性の攻撃(通常攻撃・地面に広がる炎など)がガス缶に触れると、体力に関係なく即座に爆発する
   if (target.def.ignitesInstantly && !target.exploding && attacker && attacker.def && attacker.def.attackFlags && attacker.def.attackFlags.fire){
     explodeGasCan(target, attacker);
@@ -11573,6 +11937,8 @@ function battleStep(dt){
     const w = waves[battle.nextWave++];
     if (w.msg) queueBanner(w.msg, false, true); // 敵の出現の告知(赤い文字)
     const wu = spawnUnit(w.kind, "enemy", w.xOffset || 0, { lane: w.lane });
+    if (w.boss && w.bossInfo){ unitApplyBoss(wu, w.bossInfo); (battle.bossUnits = battle.bossUnits || {}).enemy = wu; (battle.bossInfo = battle.bossInfo || {}).enemy = w.bossInfo; }     // 基地のボス：大きく、HPが高い
+    if (w.bossKid && battle.bossUnits && battle.bossUnits.enemy) wu.bossLeaderUnit = battle.bossUnits.enemy;                                                                            // 引き連れた兵
     if (w.leader){                                                       // 敵のリーダー：常に強化されている(最大HP+25%・攻撃力+10%)
       wu.isEnemyLeader = true;
       const st = document.createElement("div"); st.className = "leader-star"; st.textContent = "★"; wu.el.appendChild(st); wu.el.classList.add("is-leader");
@@ -11606,7 +11972,8 @@ function battleStep(dt){
   updateSlashWaves(dt); // 指揮官：斬道の衝撃波の移動・貫通ダメージ
 
   battle.units.forEach(unit => {
-    if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt);
+    if (unit.guardCooldown > 0) unit.guardCooldown = Math.max(0, unit.guardCooldown - dt * ((unit.side === "player" && unit.kind === "shieldman" && upgradeTier("shieldman") >= 3) ? 2 : 1));     // 強化3段階めの楯衛：ガードの待ち時間が半分
+    if (unit.slowMs > 0) unit.slowMs = Math.max(0, unit.slowMs - dt);
     if (unit.midCooldown > 0) unit.midCooldown = Math.max(0, unit.midCooldown - dt);
     if (unit.attackArmorMs > 0) unit.attackArmorMs = Math.max(0, unit.attackArmorMs - dt);
     if (unit.shieldCooldown > 0) unit.shieldCooldown = Math.max(0, unit.shieldCooldown - dt);
@@ -12326,7 +12693,13 @@ function renderUnitInfo(){
   box.appendChild(title);
   const line = t => { const d = document.createElement("div"); d.textContent = t; box.appendChild(d); };
   line("HP " + Math.ceil(u.hp) + " / " + u.hpMax + "　攻 " + Math.round(getEffectiveAtk(u) * (u.homeAtk || 1) * 10) / 10);
-  if (u.homeAura) line((u.isLeader ? "本拠地の力(リーダー)" : "本拠地の力(隊員)") + "　攻撃×" + u.homeAtk + "・被ダメージ×" + u.homeCut);
+  if (u.upgTier){ const k = u.deployedKind || u.kind; line("強化 Lv" + u.upgTier + "/3　" + upgradeStatText(u.upgTier) + (u.upgTier >= 3 && UPG_T3[k] ? "　" + UPG_T3[k].name : "")); }
+  if (u.rankName){ const r = u.mods && u.mods.rank; line("階級 " + u.rankName + (r ? "　攻撃×" + r.atk + "・被ダメージ×" + r.cut : "")); }
+  if (u.homeAura){ const h = u.mods && u.mods.home; line((u.isLeader ? "本拠地の力(リーダー)" : "本拠地の力(隊員)") + (h ? "　攻撃×" + h.atk + "・被ダメージ×" + h.cut : "")); }
+  if (u.isBoss){
+    if (u.bossLeader) line("本拠地のボス：倒れると、隊員は全滅し、屍城は滅びる");
+    else { const bi = battle.bossInfo && battle.bossInfo[u.side]; if (bi){ line("基地のボス　強さ " + bi.T.stars + "　大きさ×" + BOSS_SIZE + "・HP×" + bi.T.hp); line("引き連れた兵：" + bossLineupText(bi)); line("倒れると、兵は全滅し、基地は" + (u.side === "player" ? "奪われる" : "占領される")); } }
+  }
   line(LANE_LABELS[u.lane] + (u.laneHi > u.laneLo ? "ほか" : "") + "　" + (u.side === "player" ? "味方" : "敵"));
   if (u.perch && u.perch.phase === "deck") line((findStructureAt(u.perch.col, u.perch.lane) || {}).def?.structureKind === "wall" ? "壁の上　射程1.2倍・全戦列" : "望楼台の上　射程1.2倍・全戦列");
   const row = document.createElement("div"); row.className = "ui-row";
