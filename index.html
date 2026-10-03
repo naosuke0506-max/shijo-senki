@@ -1095,6 +1095,16 @@
   .md-row .mu-src.on{ border-color:#d58cff; }
   .dp-row.mut .dp-name{ color:#e2b8ff; }
   .tp-going.mu b{ color:#d9a8ff; }
+
+  /* ===== 参戦・無視 ===== */
+  #join-prompt{ position:fixed; left:50%; bottom:96px; transform:translateX(-50%); z-index:60; display:none; max-width:min(92vw,520px); padding:10px 14px; box-sizing:border-box;
+    background:rgba(16,11,6,.96); border:1.5px solid #c9a24a; box-shadow:0 0 0 2px #000, 0 6px 22px rgba(0,0,0,.7); font-family:var(--mincho); color:#f0e2b8; text-align:center; }
+  #join-prompt.on{ display:block; }
+  #join-prompt .jp-t{ font-size:.82rem; letter-spacing:.06em; line-height:1.7; margin-bottom:8px; }
+  #join-prompt .jp-t b{ color:#ffe27a; letter-spacing:.12em; }
+  #join-prompt .jp-b{ display:flex; gap:12px; justify-content:center; }
+  #join-prompt button{ font-family:var(--mincho); font-weight:900; letter-spacing:.25em; padding:8px 26px; color:#f0cf6a; background:rgba(40,28,10,.95); border:1px solid #c9a24a; }
+  #join-prompt button.ig{ color:#b9ad8a; border-color:#6a5c3a; }
 </style>
 </head>
 <body>
@@ -3940,7 +3950,7 @@ function upgradeStatText(t){ return "最大HP・攻撃力 ×" + UPG_STAT[t]; }
    ・変異中のボスは、動けず、戦えない(終われば、厄災の姿で戻る) 数値は仮
    ========================================================= */
 const MUT_SEC = 2 * WORLD_DAY_SEC, MUT_RATIO = 1.5, MUT_HP = 1.6, MUT_ATK = 1.4, MUT_BOSS_STRENGTH_MULT = 4;
-function mutCalamities(){ return Object.keys(CHAR_DEFS).filter(k => { const d = CHAR_DEFS[k]; return (d.race === "goblin" || d.race === "beast") && !d.structureUnit && !d.gateUnit && !d.mutantOf && k !== "queenBeast" && d.cost > 0; }).sort((a, b) => CHAR_DEFS[a].cost - CHAR_DEFS[b].cost); }
+function mutCalamities(){ return Object.keys(CHAR_DEFS).filter(k => { const d = CHAR_DEFS[k]; return (d.race === "goblin" || d.race === "beast") && !d.structureUnit && !d.gateUnit && !d.mutantOf && k !== "queenBeast" && k !== "hound" && d.cost > 0; }).sort((a, b) => CHAR_DEFS[a].cost - CHAR_DEFS[b].cost); }
 function mutKind(k){                                                                        // 変異した厄災の定義(通常より強い)を、必要なときに作る
   const id = "mut_" + k; if (CHAR_DEFS[id]) return id;
   const b = CHAR_DEFS[k]; CHAR_DEFS[id] = Object.assign({}, b, { name:"変異・" + b.name, hp:Math.round(b.hp * MUT_HP), atk:Math.round(b.atk * MUT_ATK), cost:Math.round(b.cost * 1.5), mutantOf:k });
@@ -4009,6 +4019,12 @@ function dailySupplyTick(quiet){
   Object.keys(D.unlocked).forEach(k => {
     if (!D.unlocked[k] || !CHAR_DEFS[k]) return;
     ids.forEach(id => { if (!siteProduces(id, k)) return; const sp = siteSupply(id), n = dailySupplyOf(k); sp[k] = (sp[k] || 0) + n; total += n; });
+  });
+  // 占領したゴブリン族だけの基地：持ち主に、毎朝、補給される(巣窟：餓鬼、獣舎：鬼犀・3日に1体の鬼象砦)
+  ids.forEach(id => {
+    const k = SITE_KIND[id]; if (k !== "nest" && k !== "beastpen") return; const sp = siteSupply(id);
+    if (k === "nest"){ sp.goblin = (sp.goblin || 0) + 8; total += 8; }
+    if (k === "beastpen"){ sp.rusher = (sp.rusher || 0) + 1; total += 1; if (((world.dayIdx || 0) % 3) === 0){ sp.fortress = (sp.fortress || 0) + 1; total += 1; } }
   });
   if (!quiet && total) showToast("朝になった：補給兵 +" + total + "体");
   return total;
@@ -4360,13 +4376,41 @@ function worldStep(dt){
   world.lastSave += dt; if (world.lastSave > 4){ world.lastSave = 0; saveWorld(); }
 }
 let worldLastTs = 0;
+/* ---------- 参戦・無視：戦場のある拠点にリーダー(本拠地のボスも)が着くと、出る。参戦を押すと、召喚欄に加わる。無視を押すと、消える ---------- */
+function joinCandidates(){
+  const out = [];
+  world.leaders.forEach(l => {
+    if (l.path || l.mutating) return;
+    const s = leaderSiteInfo(l); if (!s) return;
+    const bb = siteBattleAt(s.node.id); if (!bb || bb.ended || l._ignoreBattle === bb) return;
+    const cur = siteBattleLeaderIds(bb); if (cur.has(l.id) || cur.size >= MAX_LEADERS_PER_SIDE) return;
+    if (!(l.kind || teamCount(l) > 0)) return;
+    out.push({ l, bb, node:s.node });
+  });
+  return out;
+}
+let joinPromptKey = "";
+function joinPromptRefresh(){
+  let el = document.getElementById("join-prompt");
+  if (!el){ el = document.createElement("div"); el.id = "join-prompt"; document.body.appendChild(el); }
+  const c = joinCandidates()[0], onStage = ["screen-stage", "screen-battle"].some(id => { const e = document.getElementById(id); return e && e.classList.contains("active"); });
+  if (!c || !onStage || world.over){ if (el.classList.contains("on")){ el.classList.remove("on"); joinPromptKey = ""; } return; }
+  const key = c.l.id + "@" + c.node.id + ":" + (c.bb.stage.siteBattle.mode);
+  if (key === joinPromptKey && el.classList.contains("on")) return;
+  joinPromptKey = key;
+  const name = c.l.boss ? "本拠地のボス" : leaderRankOf(c.l).name + c.l.letter, mode = c.bb.stage.siteBattle.mode === "attack" ? "攻め" : "守り";
+  el.innerHTML = '<div class="jp-t"><b>' + name + '</b>が、<b>' + c.node.name + '</b>に着いた。<br>ここに、戦場がある(' + mode + ')。参戦しますか?</div><div class="jp-b"><button class="jn">参戦</button><button class="ig">無視</button></div>';
+  el.classList.add("on");
+  el.querySelector(".jn").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_command.opus"); siteBattleJoin([c.l], c.bb); joinPromptKey = ""; el.classList.remove("on"); if (wmState.root) wmUpdateUi(); });
+  el.querySelector(".ig").addEventListener("click", () => { playSfx(REPO_BASE + "audio/tap_common.opus"); c.l._ignoreBattle = c.bb; joinPromptKey = ""; el.classList.remove("on"); });
+}
 function worldFrame(ts){
   requestAnimationFrame(worldFrame);
   if (!worldLastTs){ worldLastTs = ts; return; }
   let dt = (ts - worldLastTs) / 1000; worldLastTs = ts;
   if (document.hidden || dt <= 0) return;
   if (dt > .25) dt = .25;                     // 画面が止まっていた間の時間は、進めない
-  worldStep(dt); wmSyncView(dt); envApplyVisuals();
+  worldStep(dt); wmSyncView(dt); envApplyVisuals(); joinPromptRefresh();
 }
 function worldStart(){
   wgInit(); loadWorld(); envTick();
@@ -4669,10 +4713,10 @@ const SITE_KINDS = {
   academy: { name:"リーダー教訓基地", read:"りーだーきょうくんきち", mark:"教", hp:2500, lanes:ALL_LANES, desc:"兵を送って、リーダーの兵を作る。リーダーの連れた兵を、補給兵へ戻せるのは、ここだけ。" },
   upgrade: { name:"能力強化基地", read:"のうりょくきょうかきち", mark:"強", hp:2500, lanes:ALL_LANES, desc:"兵ごとの能力を強める。全拠点に効き、兵を送る必要はない。(強化は、これから)" },
   // ゴブリン族だけの基地(働きは、これから)
-  nest:    { name:"巣窟基地", read:"そうくつきち", mark:"巣", hp:2500, lanes:ALL_LANES, only:"goblin", desc:"毎朝、餓鬼を大量に産む拠点。(働きは、これから)" },
-  beastpen:{ name:"獣舎基地", read:"じゅうしゃきち", mark:"舎", hp:3000, lanes:ALL_LANES, only:"goblin", desc:"鬼犀・鬼象砦などの、大型の鬼獣を補給する拠点。(働きは、これから)" },
-  plunder: { name:"略奪基地", read:"りゃくだつきち", mark:"奪", hp:2500, lanes:ALL_LANES, only:"goblin", desc:"襲撃に勝つと、奪った屍が増える拠点。(働きは、これから)" },
-  trapyard:{ name:"罠場基地", read:"わなばきち", mark:"罠", hp:3000, lanes:ALL_LANES, only:"goblin", desc:"戦闘の開始時から、戦場に罠が仕掛けてある拠点。(働きは、これから)" },
+  nest:    { name:"巣窟基地", read:"そうくつきち", mark:"巣", hp:2500, lanes:ALL_LANES, only:"goblin", desc:"毎朝、餓鬼を大量に産む。持っている側の補給兵になる(自軍が占領すれば、毎朝8体)。敵が持てば、守りの餓鬼が増える。" },
+  beastpen:{ name:"獣舎基地", read:"じゅうしゃきち", mark:"舎", hp:3000, lanes:ALL_LANES, only:"goblin", desc:"大型の鬼獣を補給する。自軍が占領すれば、毎朝、鬼犀1体(3日に1体、鬼象砦)。敵が持てば、守りに鬼犀が加わる。" },
+  plunder: { name:"略奪基地", read:"りゃくだつきち", mark:"奪", hp:2500, lanes:ALL_LANES, only:"goblin", desc:"戦闘に勝って得る屍が、1つにつき+25%(最大3つぶん)。敵が持てば、敵の襲撃が成功したときの屍が増える。" },
+  trapyard:{ name:"罠場基地", read:"わなばきち", mark:"罠", hp:3000, lanes:ALL_LANES, only:"goblin", desc:"戦闘の始めから、持ち主の前に、罠が仕掛けてある(踏んだ相手は、拘束される)。" },
   // 灰燼教団だけの基地(働きは、これから)
   prayer:  { name:"祈祷基地", read:"きとうきち", mark:"祈", hp:3000, lanes:ALL_LANES, only:"cult", desc:"下位・中位・上位の呪術師を補給する拠点。階位が上がるほど、強い呪いを使う。(働きは、これから)" },
   defile:  { name:"穢祭基地", read:"えさいきち", mark:"穢", hp:3000, lanes:ALL_LANES, only:"cult", desc:"機械系クリーチャーに穢れを付与し、凶暴化させる拠点。(働きは、これから)" },
@@ -4756,6 +4800,8 @@ function siteProduces(id, kind){
   return k === "supply" || (k === "home" && HOME_SUPPLY_KINDS.indexOf(kind) !== -1);
 }
 // 基地の働き：数えるもの
+function enemyKindCount(kind){ let n = 0; MAP_KEYS.forEach(k => wmNodesOf(k).forEach(x => { if (x.owner === "goblin" && !x.build && SITE_KIND[x.id] === kind) n++; })); return n; }
+function plunderMult(side){ return 1 + .25 * Math.min(3, side === "enemy" ? enemyKindCount("plunder") : ownKindCount("plunder")); }
 function ownKindCount(kind){ return ownSiteIds().filter(id => SITE_KIND[id] === kind).length; }
 function roadBonus(){ return 1 + .15 * Math.min(3, ownKindCount("road")); }
 function siteBattleParams(id){ const k = siteKindInfo(id) || SITE_KIND_DEFAULT; return { hp:k.hp, lanes:k.lanes.slice(), march:k.march || 0, formSpeed:k.formSpeed || .28 }; }
@@ -4862,7 +4908,7 @@ const BOSS_LINEUP = {
   goblin:{
     front:["goblin", "archer", "bruteGoblin"], fortress:["bruteGoblin", "archer", "goblin"], supply:["goblin", "archer", "healer"], academy:["goblin", "bruteGoblin", "drummerGoblin"],
     upgrade:["goblin", "bruteGoblin", "archer"], beast:["goblin", "hound", "bruteGoblin"], recovery:["goblin", "healer", "archer"], lookout:["archer", "goblin", "drummerGoblin"],
-    road:["goblin", "hound", "archer"], workshop:["goblin", "catapult", "bruteGoblin"], nest:["goblin", "archer", "drummerGoblin"], beastpen:["bruteGoblin", "hound", "goblin"],
+    road:["goblin", "hound", "archer"], workshop:["goblin", "catapult", "bruteGoblin"], nest:["goblin", "archer", "drummerGoblin"], beastpen:["goblin", "bruteGoblin", "rusher"],
     plunder:["goblin", "archer", "bruteGoblin"], trapyard:["goblin", "trapper", "archer"], _:["goblin", "archer", "bruteGoblin"]
   }
 };
@@ -4873,8 +4919,11 @@ function bossFactionOf(owner){ return owner === "player" ? "human" : "goblin"; }
 function baseBossInfo(siteId, faction){
   const kind = SITE_KIND[siteId] || "front", tier = BASE_TIER[kind] || 2, T = BOSS_TIERS[tier];
   const set = (BOSS_LINEUP[faction] && (BOSS_LINEUP[faction][kind] || BOSS_LINEUP[faction]._)) || BOSS_LINEUP.human._;
-  let total = T.troops; const lineup = []; let left = total;
-  set.forEach((k, i) => { const n = i === set.length - 1 ? left : Math.round(total * BOSS_SPLIT[i]); lineup.push({ kind:k, count:n }); left -= n; });
+  let total = T.troops; const lineup = []; let left;
+  const split = (faction === "goblin" && kind === "beastpen") ? [.6, .3, .1] : (faction === "goblin" && kind === "nest") ? [.7, .2, .1] : BOSS_SPLIT;        // 獣舎：鬼犀が加わる／巣窟：餓鬼が多い
+  if (faction === "goblin" && kind === "nest") total = Math.round(total * 1.5);
+  left = total;
+  set.forEach((k, i) => { const n = i === set.length - 1 ? left : Math.round(total * split[i]); lineup.push({ kind:k, count:n }); left -= n; });
   return { siteId, faction, kindId:kind, tier, T, bossKind:(BOSS_KIND[faction] && BOSS_KIND[faction][kind]) || BOSS_KIND_DEFAULT[faction], lineup, total };
 }
 function bossLineupText(info){ return info.lineup.map(e => CHAR_DEFS[e.kind].name + "×" + e.count).join("・"); }
@@ -4914,7 +4963,7 @@ function siteSpawnBaseBoss(){
   kinds.forEach((k, i) => { const c = cells[kinds.length - 1 - i];
     const off = fort ? 50 + (dMax - c.dc) / Math.max(1, dMax - dMin) * 340 : Math.max(40, D0 + c.dc * 100);                // 砦基地：全員が、壁(15列め)より、うしろに並ぶ
     const u = spawnUnit(k, "player", -off, { lane:lane(c.dr) }); u.bossLeaderUnit = boss; if (LEADER_AURA[k] && false) battleAddAura(k, "player"); });
-  queueBanner("基地のボス、現る：" + CHAR_DEFS[info.bossKind].name, false, false);
+  queueBanner("基地のボス：" + CHAR_DEFS[info.bossKind].name + "が、構えている", false, false);
 }
 // ボスが倒れた：引き連れた兵は、その瞬間に、全滅する。基地は、占領される(自軍のボスなら、奪われる)
 function onBossKilled(target){
@@ -5061,7 +5110,7 @@ function aiRaidStart(l, mapKey, node){
     id:"raid:" + node.id + ":" + Math.floor(world.sec * 1000), name:node.name + "　迎撃", art:siteArt(terrain), bgm:"stage_high", lanes:kp.lanes,
     enemyCastleHp:1e9, playerCastleHp:kp.hp, startCorpse:0, corpseGainRate:SITE_CORPSE_RATE,
     enemyWaves:siteClampWaves(enemyRaidWaves(l.site), kp.lanes, kp.march),
-    siteBattle:{ mode:"defend", siteId:node.id, mapKey, leaderIds:[], roster:Object.assign({}, supply), origin:{ supply:Object.assign({}, supply) }, terrain, aiRaid:l.id, aiRaids:[l.id] }
+    siteBattle:{ mode:"defend", siteId:node.id, mapKey, leaderIds:[], leaderUnits:[], formLeaders:[], roster:Object.assign({}, supply), origin:{ supply:Object.assign({}, supply) }, terrain, aiRaid:l.id, aiRaids:[l.id] }
   };
   const b = startBattle(stage, true);
   if (!b){ l.state = "waiting"; l.idleT = 20; return; }
@@ -5195,6 +5244,7 @@ function siteBattleJoin(leaders, x){
   const cur = siteBattleLeaderIds(x), room = MAX_LEADERS_PER_SIDE - cur.size;
   if (room <= 0){ showToast("リーダーは、一つの戦線に" + MAX_LEADERS_PER_SIDE + "人まで"); return; }
   if (!sb.leaderIds) sb.leaderIds = [];
+  if (!sb.leaderUnits) sb.leaderUnits = []; if (!x.leaderUnits) x.leaderUnits = sb.leaderUnits;                // 敵の襲撃で始まった戦闘には、リーダーの欄が、まだない
   leaders = leaders.filter(l => !cur.has(l.id));
   const over = leaders.length > room; leaders = leaders.slice(0, room);
   leaders.forEach(l => {
@@ -5500,6 +5550,16 @@ function siteBattleFieldTap(p){
   return true;
 }
 // 毎フレーム：敵の侵入・勝敗の判定
+// 罠場基地：戦闘の始めに、持ち主の前に、罠が仕掛けてある。(敵の罠場を攻めれば、敵の罠。自軍の罠場の守りなら、自軍の罠)
+function siteLayTraps(){
+  const sb = battle.stage.siteBattle; if (sb.trapsLaid || !CHAR_DEFS.trapper) return;
+  const node = siteNodeOf(sb.siteId, sb.mapKey); if (!node || SITE_KIND[sb.siteId] !== "trapyard") return;
+  let side = null; if (sb.mode === "attack" && node.owner === "goblin") side = "enemy"; else if (sb.mode === "defend" && node.owner === "player") side = "player"; if (!side) return;
+  sb.trapsLaid = true; battle.traps = battle.traps || [];
+  const xs = side === "enemy" ? [560, 760, 960] : [1240, 1440, 1640];
+  battle.stage.lanes.forEach((lane, li) => xs.forEach((x, i) => spawnTrap({ def:CHAR_DEFS.trapper, side, lane, baseB:laneFloor(lane), aura:null }, x + ((li + i) % 2) * 40)));
+  queueBanner("罠場：罠が、仕掛けてある", false, side === "enemy");
+}
 // 砦基地：守りの戦闘の始めに、前の列(15列め)に、望楼台と壁が築かれている
 function siteBuildFortressWorks(){
   const sb = battle.stage.siteBattle; if (sb.fortBuilt || sb.mode !== "defend" || SITE_KIND[sb.siteId] !== "fortress") return; sb.fortBuilt = true;
@@ -5513,6 +5573,8 @@ function siteBuildFortressWorks(){
   });
 }
 function siteBattleCheck(){
+  siteLayTraps();
+  if (battle.stage.siteBattle.mode === "defend") siteSpawnBaseBoss();          // 基地のボスと陣形は、始めから、持ち場に構えている(敵が入ったら、動き出す)
   siteBuildFortressWorks();
   siteRefreshRepairers();
   { const sig = (battle.cool || []).filter(c => c.readyAt > battle.time).map(c => c.kind + Math.ceil(c.readyAt - battle.time)).join(","); if (sig !== battle.coolSig){ battle.coolSig = sig; if (battle === shownBattle) buildSiteDeployRow(); } }     // クールタイムの秒数を、召喚欄に出す
@@ -5528,7 +5590,7 @@ function siteBattleCheck(){
   const sb = battle.stage.siteBattle, enemies = battle.units.filter(u => u.side === "enemy" && !u.dead && !u.def.gateUnit && !u.def.structureUnit);
   if (!battle.siteEnemyEntered && enemies.length){
     battle.siteEnemyEntered = true;
-    if (sb.mode === "defend"){ queueBanner("敵、侵入。戦い、始まる", false, true); battle.hold.player = false; siteSpawnBaseBoss();            // 基地が攻められた：ボスと陣形が、自動で現れる
+    if (sb.mode === "defend"){ queueBanner("敵、侵入。戦い、始まる", false, true); battle.hold.player = false;
       battle.units.forEach(u => { if (u.standTemp && !u.dead){ u.standX = null; u.standDone = false; } });         // 配置しただけの兵は、戦闘が始まったら、歩き出す(陣形の守備は、持ち場のまま)
       battle.moveSel = null; siteClearSel(); buildSiteDeployRow(); }
   }
@@ -5555,7 +5617,8 @@ function siteBattleFinish(b, win, reason){
   });
   Object.keys(b.exited || {}).forEach(o => { const ob = back[o] || back.supply || (back.supply = {}); for (const k in b.exited[o]) ob[k] = (ob[k] || 0) + b.exited[o][k]; });   // 画面の外へ出ていった兵も、戻る
   Object.keys(back).forEach(o => { for (const k in back[o]) if (back[o][k] <= 0) delete back[o][k]; });
-  const gained = Math.floor(b.corpse || 0); world.corpse += gained; world.enemyCorpse = (world.enemyCorpse || 0) + Math.floor(b.enemyCorpse || 0);
+  const pm = win ? plunderMult("player") : 1, em = (!win && reason !== "retreat") ? plunderMult("enemy") : 1;          // 略奪基地：勝った側の屍が増える
+  const gained = Math.floor((b.corpse || 0) * pm); world.corpse += gained; world.enemyCorpse = (world.enemyCorpse || 0) + Math.floor((b.enemyCorpse || 0) * em);
   if (sb.mode === "defend"){ world.supply[sb.siteId] = back.supply || {}; Object.keys(back).forEach(o => { if (o !== "supply"){ const l = world.leaders.find(x => x.id === o); if (l){ l.team = back[o]; l.speed = leaderSpeedOf(l); } } }); }
   else sb.leaderIds.forEach(id => { const l = world.leaders.find(x => x.id === id); if (l){ l.team = back[id] || {}; l.speed = leaderSpeedOf(l); } });
   b.leadersLost = 0;
